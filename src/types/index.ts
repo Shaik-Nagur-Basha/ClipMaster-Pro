@@ -105,6 +105,7 @@ export interface ClipStore {
   copyToClipboard: (text: string) => Promise<void>
   saveTags: (tags: Tag[]) => Promise<void>
   saveSettings: (s: Partial<AppSettings>) => Promise<void>
+  toggleTagOnClip: (clipId: string, tagId: string) => Promise<void>
 
   // Actions - UI
   setViewMode: (mode: ViewMode) => void

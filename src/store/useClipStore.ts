@@ -178,16 +178,30 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setMongoConnected: (v: boolean)           => set({ mongoConnected: v }),
   setAtlasConnected: (v: boolean)           => set({ atlasConnected: v }),
   setSyncState:     (patch: Partial<SyncState>) =>
-    set((state) => ({ syncState: { ...state.syncState, ...patch } }))
+    set((state) => ({ syncState: { ...state.syncState, ...patch } })),
+
+  toggleTagOnClip: async (clipId: string, tagId: string) => {
+    const clip = get().clips.find((c) => c.id === clipId)
+    if (!clip) return
+    const newTags = clip.tags.includes(tagId)
+      ? clip.tags.filter((t) => t !== tagId)
+      : [...clip.tags, tagId]
+    
+    const updated = { ...clip, tags: newTags }
+    await window.clipAPI.updateClip(updated)
+    set((state) => ({
+      clips: state.clips.map((c) => (c.id === clipId ? updated : c))
+    }))
+  }
 }))
 
 // ─── Derived Selectors ────────────────────────────────────────────────────
 
-export function selectFilteredClips(state: ClipStore): ClipboardItem[] {
+export function selectFilteredClips(state: ClipStore, showDeleted = false): ClipboardItem[] {
   const { clips, filters, sortMode } = state
   const { search, tags, isFavorite, lengthFilter, dateFrom, dateTo } = filters
 
-  let result = clips.filter((c) => !c.isDeleted)
+  let result = clips.filter((c) => !!c.isDeleted === showDeleted)
 
   if (search.trim()) {
     const q = search.toLowerCase()

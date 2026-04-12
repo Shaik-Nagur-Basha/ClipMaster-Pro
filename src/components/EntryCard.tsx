@@ -11,9 +11,21 @@ interface Props {
 }
 
 const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
-  const { tags, updateClip, deleteClip, toggleFavorite, copyToClipboard, editingClipId, setEditingClip } = useClipStore()
+  const { 
+    tags, 
+    updateClip, 
+    deleteClip, 
+    toggleFavorite, 
+    copyToClipboard, 
+    editingClipId, 
+    setEditingClip,
+    toggleTagOnClip,
+    restoreClip,
+    permanentDelete
+  } = useClipStore()
   const [editText, setEditText] = useState(item.text)
   const [copied, setCopied] = useState(false)
+  const [showTagPicker, setShowTagPicker] = useState(false)
 
   const isEditing = editingClipId === item.id
   const tagObjects = tags.filter((t) => item.tags.includes(t.id))
@@ -66,8 +78,17 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
         <span className="text-xs text-white/30 shrink-0">{timeAgo()}</span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <ActionBtn icon={copied ? '✓' : '⎘'} label="Copy" onClick={handleCopy} active={copied} />
-          <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} />
-          <ActionBtn icon="✕" label="Delete" onClick={() => deleteClip(item.id)} danger />
+          {item.isDeleted ? (
+            <>
+              <ActionBtn icon="↩" label="Restore" onClick={() => restoreClip(item.id)} />
+              <ActionBtn icon="✕" label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
+            </>
+          ) : (
+            <>
+              <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} />
+              <ActionBtn icon="✕" label="Delete" onClick={() => deleteClip(item.id)} danger />
+            </>
+          )}
         </div>
       </motion.div>
     )
@@ -144,12 +165,69 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
             <AnimatePresence>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                 <ActionBtn icon={copied ? '✓' : '⎘'} label={copied ? 'Copied!' : 'Copy'} onClick={handleCopy} active={copied} />
-                <ActionBtn icon="✏" label="Edit" onClick={() => { setEditText(item.text); setEditingClip(item.id) }} />
-                <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} variant="heart" />
-                <ActionBtn icon="🗑" label="Delete" onClick={() => deleteClip(item.id)} danger />
+                {item.isDeleted ? (
+                  <>
+                    <ActionBtn icon="↩" label="Restore" onClick={() => restoreClip(item.id)} />
+                    <ActionBtn icon="✕" label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
+                  </>
+                ) : (
+                  <>
+                    <ActionBtn 
+                      icon="🏷" 
+                      label="Tags" 
+                      onClick={() => setShowTagPicker(!showTagPicker)} 
+                      active={showTagPicker} 
+                    />
+                    <ActionBtn icon="✏" label="Edit" onClick={() => { setEditText(item.text); setEditingClip(item.id) }} />
+                    <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} variant="heart" />
+                    <ActionBtn icon="🗑" label="Delete" onClick={() => deleteClip(item.id)} danger />
+                  </>
+                )}
               </div>
             </AnimatePresence>
           )}
+
+          {/* Tag Picker Popover */}
+          <AnimatePresence>
+            {showTagPicker && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="absolute right-4 bottom-14 z-50 w-48 bg-surface-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Select Tags</span>
+                  <button onClick={() => setShowTagPicker(false)} className="text-white/20 hover:text-white/60">✕</button>
+                </div>
+                <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+                  {tags.length === 0 ? (
+                    <p className="text-[10px] text-white/20 text-center py-4">No tags created yet</p>
+                  ) : (
+                    tags.map((tag) => {
+                      const isSelected = item.tags.includes(tag.id)
+                      return (
+                        <button
+                          key={tag.id}
+                          onClick={() => toggleTagOnClip(item.id, tag.id)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${
+                            isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/50'
+                          }`}
+                        >
+                          <div 
+                            className="w-2.5 h-2.5 rounded-full" 
+                            style={{ backgroundColor: tag.color }} 
+                          />
+                          <span className="text-xs flex-1 text-left truncate">{tag.name}</span>
+                          {isSelected && <span className="text-[10px] text-brand-400">✓</span>}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>
