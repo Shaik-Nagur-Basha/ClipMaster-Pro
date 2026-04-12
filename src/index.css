@@ -1,0 +1,299 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base resets ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0a0a0f;
+  color: #f1f5f9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Title bar drag region ────────────────────────────────────────────── */
+/* Native Win32 overlay controls sit on top-right — this makes rest draggable */
+.titlebar-drag-zone {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+/* Any interactive child must opt out of drag */
+.titlebar-drag-zone button,
+.titlebar-drag-zone input,
+.titlebar-drag-zone a {
+  -webkit-app-region: no-drag;
+}
+
+/* ─── Electron drag regions (REQUIRED for frameless window) ────────────── */
+.titlebar {
+  background: rgba(10, 10, 20, 0.95);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* All interactive elements inside title bar must be no-drag */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-nodrag,
+.titlebar button,
+.titlebar input,
+.titlebar a {
+  -webkit-app-region: no-drag;
+}
+
+/* ─── Custom scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255 255 255 / 0.1);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255 255 255 / 0.2);
+}
+
+/* ─── Glassmorphism card ──────────────────────────────────────────────── */
+.glass {
+  background: rgba(255 255 255 / 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255 255 255 / 0.1);
+}
+
+/* ─── Enhanced clip card borders ──────────────────────────────────────── */
+.clip-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.clip-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.05);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.clip-card.is-favorite {
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.1);
+}
+
+.clip-card.is-favorite:hover {
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* ─── Input & select borders ──────────────────────────────────────────── */
+input, select, textarea {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* ─── Button borders & glow ───────────────────────────────────────────── */
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: white;
+  border-radius: 10px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  border-color: rgba(129, 140, 248, 0.7);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+.btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+/* ─── Sidebar nav item borders ────────────────────────────────────────── */
+.nav-item {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: all 150ms ease;
+}
+.nav-item:hover {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+}
+.nav-item.active {
+  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.12);
+  box-shadow: inset 2px 0 0 #6366f1;
+}
+
+/* ─── Tag badge borders ───────────────────────────────────────────────── */
+.tag-badge {
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  font-size: 11px;
+  padding: 1px 8px;
+  opacity: 0.85;
+  transition: opacity 150ms;
+}
+.tag-badge:hover { opacity: 1; }
+
+/* ─── Settings card borders ───────────────────────────────────────────── */
+.settings-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 150ms ease;
+}
+.settings-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ─── Section dividers ────────────────────────────────────────────────── */
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 8px;
+}
+
+/* ─── Gradient text ───────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1, #22c55e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Focus ring ──────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(99 102 241 / 0.6);
+  outline-offset: 2px;
+}
+
+/* ─── react-window override: remove horizontal scroll ─────────────────── */
+.ReactVirtualized__List {
+  overflow-x: hidden !important;
+}
+
+/* ─── Transition defaults ─────────────────────────────────────────────── */
+button, a {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+/* ─── Line clamp utilities ────────────────────────────────────────────── */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-5 {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Scrollbar thin ──────────────────────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255 255 255 / 0.08) transparent;
+}
+
+/* ─── Search bar ──────────────────────────────────────────────────────── */
+.search-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: white;
+  width: 100%;
+  padding: 8px 14px 8px 36px;
+  font-size: 13px;
+  transition: all 150ms ease;
+}
+.search-input:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ─── Glow animation for connected status ─────────────────────────────── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(34, 197, 94, 0.3); }
+  50%       { box-shadow: 0 0 8px 3px rgba(34, 197, 94, 0.5); }
+}
+.status-connected {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ─── Toolbar filter buttons ──────────────────────────────────────────── */
+.filter-btn {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.filter-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+.filter-btn.active {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}

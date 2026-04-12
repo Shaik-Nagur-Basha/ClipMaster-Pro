@@ -1,0 +1,240 @@
+import { create } from 'zustand'
+import type {
+  ClipStore,
+  ClipboardItem,
+  FilterState,
+  ViewMode,
+  DisplayMode,
+  SortMode,
+  ActivePage,
+  SyncState,
+  Tag,
+  AppSettings
+} from '../types'
+
+const DEFAULT_FILTERS: FilterState = {
+  search: '',
+  tags: [],
+  isFavorite: null,
+  lengthFilter: 'all',
+  dateFrom: null,
+  dateTo: null,
+  minWordCount: null,
+  maxWordCount: null
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  autoLaunch:      false,
+  mongoEnabled:    false,
+  mongoUri:        'mongodb://127.0.0.1:27017/clipmaster',
+  atlasEnabled:    false,
+  atlasUri:        '',
+  maxEntries:      5000,
+  pollingInterval: 600,
+  syncInterval:    30,
+  viewMode:        'list',
+  displayMode:     'preview'
+}
+
+const DEFAULT_SYNC_STATE: SyncState = {
+  localMongo:   'idle',
+  atlas:        'idle',
+  lastSyncedAt: null,
+  pendingCount: 0
+}
+
+export const useClipStore = create<ClipStore>((set, get) => ({
+  // ── Initial State ──────────────────────────────────────────────────────
+  clips:          [],
+  tags:           [],
+  settings:       { ...DEFAULT_SETTINGS },
+  viewMode:       'list',
+  displayMode:    'preview',
+  sortMode:       'newest',
+  filters:        { ...DEFAULT_FILTERS },
+  activePage:     'dashboard',
+  selectedClipId: null,
+  editingClipId:  null,
+  mongoConnected: false,
+  atlasConnected: false,
+  syncState:      { ...DEFAULT_SYNC_STATE },
+  isLoading:      false,
+
+  // ── Data Actions ───────────────────────────────────────────────────────
+  loadClips: async () => {
+    set({ isLoading: true })
+    try {
+      const clips = await window.clipAPI.getClips()
+      console.log(`[Store] loadClips → ${clips.length} clips (${clips.filter(c => c.isFavorite).length} fav, ${clips.filter(c => c.isDeleted).length} deleted)`)
+      set({ clips, isLoading: false })
+    } catch (err) {
+      console.error('[Store] loadClips failed:', err)
+      set({ isLoading: false })
+    }
+  },
+
+  loadTags: async () => {
+    try {
+      const tags = await window.clipAPI.getTags()
+      set({ tags })
+    } catch (err) {
+      console.error('[Store] loadTags failed:', err)
+    }
+  },
+
+  loadSettings: async () => {
+    try {
+      const raw = await window.clipAPI.getSettings()
+      const settings: AppSettings = { ...DEFAULT_SETTINGS, ...raw }
+      console.log('[Store] loadSettings →', Object.keys(settings).join(', '))
+      set({
+        settings,
+        viewMode:    settings.viewMode    ?? 'list',
+        displayMode: settings.displayMode ?? 'preview'
+      })
+    } catch (err) {
+      console.error('[Store] loadSettings failed:', err)
+    }
+  },
+
+  addClipFromMain: (item: ClipboardItem) => {
+    set((state) => {
+      if (state.clips.some((c) => c.id === item.id)) return state
+      return { clips: [item, ...state.clips] }
+    })
+  },
+
+  updateClip: async (item: ClipboardItem) => {
+    await window.clipAPI.updateClip(item)
+    set((state) => ({
+      clips: state.clips.map((c) => (c.id === item.id ? item : c)),
+      editingClipId: null
+    }))
+  },
+
+  deleteClip: async (id: string) => {
+    await window.clipAPI.deleteClip(id)
+    set((state) => ({
+      clips: state.clips.map((c) =>
+        c.id === id
+          ? { ...c, isDeleted: true, deletedAt: new Date().toISOString() }
+          : c
+      )
+    }))
+  },
+
+  permanentDelete: async (id: string) => {
+    await window.clipAPI.permanentDelete(id)
+    set((state) => ({ clips: state.clips.filter((c) => c.id !== id) }))
+  },
+
+  restoreClip: async (id: string): Promise<boolean> => {
+    await window.clipAPI.restoreClip(id)
+    set((state) => ({
+      clips: state.clips.map((c) =>
+        c.id === id ? { ...c, isDeleted: false, deletedAt: undefined } : c
+      )
+    }))
+    return true
+  },
+
+  toggleFavorite: async (id: string) => {
+    const clip = get().clips.find((c) => c.id === id)
+    if (!clip) return
+    const updated: ClipboardItem = { ...clip, isFavorite: !clip.isFavorite }
+    await window.clipAPI.updateClip(updated)
+    set((state) => ({
+      clips: state.clips.map((c) => (c.id === id ? updated : c))
+    }))
+  },
+
+  copyToClipboard: async (text: string) => {
+    await window.clipAPI.copyToClipboard(text)
+  },
+
+  saveTags: async (tags: Tag[]) => {
+    await window.clipAPI.saveTags(tags)
+    set({ tags })
+  },
+
+  saveSettings: async (partial: Partial<AppSettings>) => {
+    const newSettings: AppSettings = { ...get().settings, ...partial }
+    await window.clipAPI.saveSettings(newSettings as unknown as Record<string, unknown>)
+    set({ settings: newSettings })
+    if (partial.viewMode)    set({ viewMode: partial.viewMode })
+    if (partial.displayMode) set({ displayMode: partial.displayMode })
+  },
+
+  // ── UI Actions ─────────────────────────────────────────────────────────
+  setViewMode:      (mode: ViewMode)    => set({ viewMode: mode }),
+  setDisplayMode:   (mode: DisplayMode) => set({ displayMode: mode }),
+  setSortMode:      (mode: SortMode)    => set({ sortMode: mode }),
+  setFilters:       (partial: Partial<FilterState>) =>
+    set((state) => ({ filters: { ...state.filters, ...partial } })),
+  resetFilters:     () => set({ filters: { ...DEFAULT_FILTERS } }),
+  setActivePage:    (page: ActivePage)       => set({ activePage: page }),
+  setSelectedClip:  (id: string | null)     => set({ selectedClipId: id }),
+  setEditingClip:   (id: string | null)     => set({ editingClipId: id }),
+  setMongoConnected: (v: boolean)           => set({ mongoConnected: v }),
+  setAtlasConnected: (v: boolean)           => set({ atlasConnected: v }),
+  setSyncState:     (patch: Partial<SyncState>) =>
+    set((state) => ({ syncState: { ...state.syncState, ...patch } }))
+}))
+
+// ─── Derived Selectors ────────────────────────────────────────────────────
+
+export function selectFilteredClips(state: ClipStore): ClipboardItem[] {
+  const { clips, filters, sortMode } = state
+  const { search, tags, isFavorite, lengthFilter, dateFrom, dateTo } = filters
+
+  let result = clips.filter((c) => !c.isDeleted)
+
+  if (search.trim()) {
+    const q = search.toLowerCase()
+    result = result.filter((c) => c.text.toLowerCase().includes(q))
+  }
+
+  if (tags.length > 0)
+    result = result.filter((c) => tags.every((t) => c.tags.includes(t)))
+
+  if (isFavorite === true)
+    result = result.filter((c) => c.isFavorite)
+
+  if (lengthFilter === 'short')
+    result = result.filter((c) => (c.charCount ?? c.text.length) <= 100)
+  else if (lengthFilter === 'medium')
+    result = result.filter((c) => { const l = c.charCount ?? c.text.length; return l > 100 && l <= 500 })
+  else if (lengthFilter === 'long')
+    result = result.filter((c) => (c.charCount ?? c.text.length) > 500)
+
+  if (dateFrom)
+    result = result.filter((c) => new Date(c.timestamp) >= new Date(dateFrom))
+  if (dateTo)
+    result = result.filter((c) => new Date(c.timestamp) <= new Date(dateTo + 'T23:59:59'))
+
+  if (sortMode === 'newest')
+    result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  else if (sortMode === 'oldest')
+    result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  else if (sortMode === 'longest')
+    result.sort((a, b) => (b.charCount ?? b.text.length) - (a.charCount ?? a.text.length))
+  else if (sortMode === 'shortest')
+    result.sort((a, b) => (a.charCount ?? a.text.length) - (b.charCount ?? b.text.length))
+
+  return result
+}
+
+export function selectDeletedClips(state: ClipStore): ClipboardItem[] {
+  return state.clips
+    .filter((c) => c.isDeleted)
+    .sort((a, b) =>
+      new Date(b.deletedAt ?? b.timestamp).getTime() -
+      new Date(a.deletedAt ?? a.timestamp).getTime()
+    )
+}
+
+export function selectFavoriteClips(state: ClipStore): ClipboardItem[] {
+  return state.clips
+    .filter((c) => !c.isDeleted && c.isFavorite)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+}
