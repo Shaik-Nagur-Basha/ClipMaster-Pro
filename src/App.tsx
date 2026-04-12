@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import FavoritesPage from './pages/FavoritesPage'
 import RecycleBinPage from './pages/RecycleBinPage'
 import Settings from './pages/Settings'
+import TagsPage from './pages/TagsPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -148,6 +149,9 @@ function PageView() {
           )}
           {activePage === 'settings' && (
             <ErrorBoundary name="Settings"><Settings /></ErrorBoundary>
+          )}
+          {activePage === 'tags' && (
+            <ErrorBoundary name="Tags"><TagsPage /></ErrorBoundary>
           )}
         </motion.div>
       </AnimatePresence>

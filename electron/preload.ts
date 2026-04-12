@@ -33,6 +33,7 @@ const clipAPI = {
 
   // ── External ──────────────────────────────────────────────────────────
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  getAppInfo:   () => ipcRenderer.invoke('get-app-info'),
 
   // ── Push events from main ──────────────────────────────────────────────
   onNewClip: (cb: (item: ClipboardItem) => void) => {

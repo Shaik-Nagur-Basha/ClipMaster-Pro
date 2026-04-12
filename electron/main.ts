@@ -221,6 +221,16 @@ function registerIPC(): void {
   })
 
   ipcMain.handle('open-external', (_e, url: string) => { shell.openExternal(url) })
+
+  ipcMain.handle('get-app-info', () => ({
+    name: 'ClipMaster Pro',
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    isPackaged: app.isPackaged
+  }))
 }
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────

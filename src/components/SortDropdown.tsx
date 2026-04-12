@@ -73,7 +73,7 @@ const SortDropdown: React.FC = () => {
                                     setSortMode(opt.value)
                                     setIsOpen(false)
                                 }}
-                                className={`w-full flex items-center justify-between my-2 px-3 py-2 rounded-lg text-[12px] transition-all duration-150 ${
+                                className={`w-full flex items-center justify-between my-1 px-3 py-2 rounded-lg text-[12px] transition-all duration-150 ${
                                     sortMode === opt.value
                                     ? 'bg-brand-500/10 text-brand-400'
                                     : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'

@@ -9,18 +9,26 @@ import {
   IconSettings, 
   IconClock,
   IconZap,
-  IconStar
+  IconStar,
+  IconTag
 } from './Icons'
 
-const NAV_ITEMS: { page: ActivePage; icon: React.FC<{ size?: number }>; label: string }[] = [
+const NAV_ITEMS: { page: ActivePage; icon: any; label: string }[] = [
   { page: 'dashboard', icon: IconGrid, label: 'All Clips' },
   { page: 'favorites', icon: IconStar, label: 'Favorites' },
+  { page: 'tags', icon: IconTag, label: 'Manage Tags' },
   { page: 'recycle', icon: IconTrash, label: 'Recycle Bin' },
   { page: 'settings', icon: IconSettings, label: 'Settings' }
 ]
 
 const Sidebar: React.FC = () => {
-  const { activePage, setActivePage, clips, mongoConnected, loadClips, loadSettings } = useClipStore()
+  const { 
+    activePage, setActivePage, clips, 
+    mongoConnected, atlasConnected, 
+    syncState, loadClips, loadSettings 
+  } = useClipStore()
+
+  const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'
 
   const activeCount = clips.filter((c) => !c.isDeleted).length
   const favoritesCount = clips.filter((c) => c.isFavorite && !c.isDeleted).length
@@ -83,10 +91,12 @@ const Sidebar: React.FC = () => {
               </div>
               {count !== null && count > 0 && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold transition-colors ${
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold tabular-nums transition-all duration-300 border backdrop-blur-md shadow-sm ${
                     isActive
-                      ? 'bg-brand-500/20 text-brand-300'
-                      : 'bg-gray-800 text-gray-500 group-hover:bg-gray-700'
+                      ? page === 'recycle'
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                        : 'bg-brand-500/20 text-brand-300 border-brand-500/30'
+                      : 'bg-white/5 text-gray-500 border-white/5 group-hover:border-white/10 group-hover:bg-white/10 group-hover:text-gray-300'
                   }`}
                 >
                   {count}
@@ -100,12 +110,9 @@ const Sidebar: React.FC = () => {
       {/* Divider */}
       <div className="mx-4 border-t border-gray-700/50 my-1" />
 
-      {/* Scrollable filter + tag area */}
+      {/* Scrollable filter area */}
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4 scrollbar-thin">
         <FilterPanel />
-        <div className="border-t border-gray-700/50 pt-3">
-          <TagManager />
-        </div>
       </div>
 
       {/* Bottom status */}
@@ -126,7 +133,12 @@ const Sidebar: React.FC = () => {
               {mongoConnected ? 'Synced' : 'Local'}
             </span>
           </div>
-          <IconClock size={12} className="text-gray-600" />
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <IconClock size={11} />
+            <span className="text-[10px] font-medium tracking-tight">
+              {atlasConnected ? fmtTime(syncState.lastSyncedAt) : '--:--'}
+            </span>
+          </div>
         </div>
       </div>
     </aside>

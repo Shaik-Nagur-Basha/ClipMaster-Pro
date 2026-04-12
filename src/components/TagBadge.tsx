@@ -14,7 +14,7 @@ const TagBadge: React.FC<Props> = ({ tag, size = 'md', onRemove, onClick, active
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md font-semibold tracking-tight transition-all duration-150 cursor-pointer select-none border border-transparent active:scale-95 ${
+      className={`inline-flex items-center gap-1.5 rounded-md font-semibold tracking-tight transition-all duration-150 cursor-pointer select-none border border-transparent active:scale-95 min-w-0 ${
         size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
       } ${
         active
@@ -31,7 +31,7 @@ const TagBadge: React.FC<Props> = ({ tag, size = 'md', onRemove, onClick, active
         className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
         style={{ backgroundColor: tag.color }}
       />
-      {tag.name}
+      <span className="truncate max-w-[100px]">{tag.name}</span>
       {onRemove && (
         <button
           onClick={(e) => {

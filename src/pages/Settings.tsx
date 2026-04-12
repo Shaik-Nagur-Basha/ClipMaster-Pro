@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useClipStore } from '../store/useClipStore'
 import { 
   IconSettings, 
@@ -12,8 +12,15 @@ import {
   IconShield,
   IconAlertCircle,
   IconCheck,
-  IconX
+  IconX,
+  IconGrid,
+  IconList,
+  IconCompact,
+  IconLayers,
+  IconMinimize
 } from '../components/Icons'
+import { motion, AnimatePresence } from 'framer-motion'
+
 
 const Settings: React.FC = () => {
   const {
@@ -34,6 +41,7 @@ const Settings: React.FC = () => {
   const [localError, setLocalError] = useState('')
   const [atlasStatus, setAtlasStatus] = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
   const [atlasError, setAtlasError] = useState('')
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
     setSettingsLoading(true)
@@ -54,6 +62,8 @@ const Settings: React.FC = () => {
     setSaving(true)
     await saveSettings({ mongoUri: localUri, atlasUri })
     setSaving(false)
+    setShowSuccess(true)
+    setTimeout(() => setShowSuccess(false), 2000)
   }
 
   const handleConnectLocal = async () => {
@@ -143,14 +153,14 @@ const Settings: React.FC = () => {
                 label="Max stored clips" 
                 desc="Oldest non-favorite clips are removed when limit is reached."
               >
-                <Select
+                <CustomSelect
                   value={settings.maxEntries}
                   onChange={(v) => saveSettings({ maxEntries: Number(v) })}
                   options={[
-                    { label: '500 clips', value: 500 },
-                    { label: '1,000 clips', value: 1000 },
-                    { label: '5,000 clips', value: 5000 },
-                    { label: '10,000 clips', value: 10000 },
+                    { label: '500 clips', value: 500, icon: <IconMinimize size={14} /> },
+                    { label: '1,000 clips', value: 1000, icon: <IconLayers size={14} /> },
+                    { label: '5,000 clips', value: 5000, icon: <IconLayers size={14} /> },
+                    { label: '10,000 clips', value: 10000, icon: <IconDatabase size={14} /> },
                   ]}
                 />
               </SettingRow>
@@ -159,13 +169,13 @@ const Settings: React.FC = () => {
                 label="Default View Mode" 
                 desc="Preferred layout for the dashboard."
               >
-                <Select
+                <CustomSelect
                   value={settings.viewMode}
                   onChange={(v) => saveSettings({ viewMode: v as any })}
                   options={[
-                    { label: 'List View', value: 'list' },
-                    { label: 'Grid View', value: 'grid' },
-                    { label: 'Compact View', value: 'compact' },
+                    { label: 'List View', value: 'list', icon: <IconList size={14} /> },
+                    { label: 'Grid View', value: 'grid', icon: <IconGrid size={14} /> },
+                    { label: 'Compact View', value: 'compact', icon: <IconCompact size={14} /> },
                   ]}
                 />
               </SettingRow>
@@ -339,8 +349,11 @@ const Settings: React.FC = () => {
           <Section title="Application Info" icon={<IconInfo size={14} className="text-gray-500" />}>
             <div className="p-4 rounded-xl bg-surface-800">
                 <div className="flex items-center gap-4">
-                    <img src="/icon.png" alt="ClipMaster Pro Logo" className="w-14 h-14 object-contain" />
-                 <div className="space-y-1">
+                    <div className="relative group">
+                     <div className="absolute inset-0 bg-brand-500/20 blur-xl rounded-full group-hover:bg-brand-500/30 transition-colors" />
+                     <img src="/icon.png" alt="Logo" className="relative w-16 h-16 object-contain drop-shadow-2xl" />
+                   </div>
+                   <div className="space-y-1">
                    <h3 className="text-[15px] font-bold text-white/90">ClipMaster Pro</h3>
                    <p className="text-xs text-gray-500 font-medium tracking-tight">Version 1.2.4 (Official Build)</p>
                    <div className="flex items-center gap-3 pt-2">
@@ -348,8 +361,8 @@ const Settings: React.FC = () => {
                      <div className="w-1 h-1 rounded-full bg-gray-700" />
                      <span className="text-[11px] text-gray-600">Storage: Local + MongoDB</span>
                    </div>
-                 </div>
-               </div>
+                </div>
+                </div>
             </div>
           </Section>
 
@@ -362,14 +375,80 @@ const Settings: React.FC = () => {
       <footer className="px-6 py-4 border-t border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <p className="text-[11px] text-gray-500 italic max-w-[200px]">Changes are applied instantly to local state but require a manual save for persistence in background services.</p>
-          <button 
+          <motion.button 
             onClick={handleSave}
             disabled={saving}
-            className="group flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-500 text-[13px] text-white font-semibold hover:bg-brand-400 active:scale-95 transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50"
+            layout
+            initial={false}
+            className={`
+              relative group flex items-center gap-2.5 px-7 py-2.5 rounded-xl
+              text-[12px] font-bold uppercase tracking-widest transition-all duration-500
+              overflow-hidden border border-white/5
+              ${showSuccess 
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]' 
+                : 'bg-surface-900/50 backdrop-blur-md text-white/90 hover:text-white shadow-lg border-white/10'}
+              disabled:opacity-50 disabled:cursor-not-allowed
+            `}
           >
-            {saving ? <IconRefresh size={16} className="animate-spin" /> : <IconSave size={16} className="group-hover:-translate-y-0.5 transition-transform" />}
-            Save All Changes
-          </button>
+            {/* Background Glow */}
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none
+              ${showSuccess 
+                ? 'bg-emerald-500/5' 
+                : 'bg-gradient-to-tr from-brand-500/10 via-brand-500/5 to-transparent'}`} 
+            />
+
+            {/* Shine sweep */}
+            {!saving && !showSuccess && (
+              <motion.div
+                initial={{ x: '-100%', opacity: 0 }}
+                animate={{ x: '100%', opacity: [0, 0.5, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 translate-y-[-50%] h-[200%]"
+              />
+            )}
+
+            <AnimatePresence mode="wait">
+              {saving ? (
+                <motion.div
+                  key="saving"
+                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
+                  className="flex items-center gap-2"
+                >
+                  <IconRefresh size={14} className="animate-spin text-brand-400" />
+                  <span className="text-gray-400">Saving...</span>
+                </motion.div>
+              ) : showSuccess ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
+                  className="flex items-center gap-2"
+                >
+                  <IconCheck size={14} className="text-emerald-400" />
+                  <span className="text-emerald-400 font-extrabold">Saved</span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="idle"
+                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
+                  className="flex items-center gap-2"
+                >
+                  <IconSave size={14} className="text-brand-400 group-hover:-translate-y-0.5 transition-transform" />
+                  <span>Save Changes</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Bottom Accent Line */}
+            <div className={`absolute bottom-0 left-0 right-0 h-[2px] transition-all duration-300
+              ${showSuccess ? 'bg-emerald-500' : 'bg-brand-500/40 group-hover:bg-brand-500 group-hover:shadow-[0_0_8px_rgba(99,102,241,0.5)]'}`} 
+            />
+          </motion.button>
         </div>
       </footer>
     </div>
@@ -436,20 +515,83 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void }> = (
   </button>
 )
 
-const Select: React.FC<{ value: any; onChange: (v: any) => void; options: { label: string; value: any }[] }> = ({ value, onChange, options }) => (
-  <div className="relative group">
-    <select 
-      value={value} 
-      onChange={(e) => onChange(e.target.value)}
-      className="appearance-none bg-surface-900 border border-gray-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-gray-300 font-medium hover:border-gray-500 focus:border-brand-500 outline-none cursor-pointer transition-all"
-    >
-      {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-    </select>
-    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 group-hover:text-gray-300 transition-colors">
-      <IconChevronDown size={14} />
+const CustomSelect: React.FC<{ value: any; onChange: (v: any) => void; options: { label: string; value: any; icon?: React.ReactNode }[] }> = ({ value, onChange, options }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const currentOption = options.find(opt => opt.value === value) || options[0]
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-3 h-9 px-4 rounded-xl border transition-all duration-200 ${
+          isOpen 
+          ? 'bg-surface-700 border-brand-500/30 text-brand-400 shadow-lg shadow-brand-500/5' 
+          : 'bg-surface-900 border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+        }`}
+      >
+        {currentOption.icon && <span className="opacity-70">{currentOption.icon}</span>}
+        <span className="text-[12px] font-medium whitespace-nowrap">{currentOption.label}</span>
+        <IconChevronDown size={14} className={`opacity-40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute top-full mt-1 right-0 w-48 z-[100] bg-surface-800 border border-white/10 rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden p-1.5"
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value)
+                  setIsOpen(false)
+                }}
+                className={`w-full flex items-center my-1 justify-between px-3 py-2 rounded-lg text-[12px] transition-all duration-150 ${
+                  value === opt.value
+                  ? 'bg-brand-500/10 text-brand-400'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                    {opt.icon && <span className={value === opt.value ? 'text-brand-400' : 'text-gray-500'}>{opt.icon}</span>}
+                    <span className="font-medium">{opt.label}</span>
+                </div>
+                {value === opt.value && <IconCheck size={14} className="text-brand-400" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  )
+}
+
+const InfoModule: React.FC<{ label: string; value: string; icon: React.ReactNode }> = ({ label, value, icon }) => (
+  <div className="p-3 rounded-xl bg-surface-900/50 border border-white/5 space-y-1">
+    <div className="flex items-center gap-2 opacity-40">
+      {icon}
+      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+    </div>
+    <p className="text-[12px] font-mono font-bold text-gray-300 px-0.5">{value}</p>
   </div>
 )
+
 
 const ConnectionStatus: React.FC<{ connected: boolean }> = ({ connected }) => (
   <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
