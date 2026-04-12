@@ -45,7 +45,7 @@ export type ViewMode = 'list' | 'grid' | 'compact'
 export type DisplayMode = 'preview' | 'full'
 export type SortMode = 'newest' | 'oldest' | 'longest' | 'shortest'
 export type LengthFilter = 'all' | 'short' | 'medium' | 'long'
-export type ActivePage = 'dashboard' | 'recycle' | 'settings'
+export type ActivePage = 'dashboard' | 'favorites' | 'recycle' | 'settings'
 
 export interface FilterState {
   search: string

@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Tag } from '../types'
+import { IconX } from './Icons'
 
 interface Props {
   tag: Tag
@@ -13,22 +14,21 @@ const TagBadge: React.FC<Props> = ({ tag, size = 'md', onRemove, onClick, active
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full font-medium transition-all duration-150 cursor-pointer select-none ${
-        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'
+      className={`inline-flex items-center gap-1.5 rounded-md font-semibold tracking-tight transition-all duration-150 cursor-pointer select-none border border-transparent active:scale-95 ${
+        size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
       } ${
         active
-          ? 'ring-2 ring-offset-1 ring-offset-surface-700 opacity-100'
-          : 'opacity-75 hover:opacity-100'
+          ? 'ring-2 ring-offset-2 ring-offset-surface-900 border-opacity-50 opacity-100'
+          : 'opacity-80 hover:opacity-100 bg-surface-800'
       }`}
       style={{
-        backgroundColor: tag.color + '22',
+        backgroundColor: tag.color + '15',
         color: tag.color,
-        borderColor: tag.color + '44',
-        border: '1px solid',
+        borderColor: tag.color + '30',
       }}
     >
-      <span
-        className="w-1.5 h-1.5 rounded-full shrink-0"
+      <div
+        className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
         style={{ backgroundColor: tag.color }}
       />
       {tag.name}
@@ -38,9 +38,10 @@ const TagBadge: React.FC<Props> = ({ tag, size = 'md', onRemove, onClick, active
             e.stopPropagation()
             onRemove()
           }}
-          className="ml-0.5 hover:opacity-60 transition-opacity"
+          className="ml-0.5 p-0.5 rounded-sm hover:bg-black/20 text-current transition-colors"
+          title="Remove tag"
         >
-          ×
+          <IconX size={size === 'sm' ? 10 : 12} />
         </button>
       )}
     </span>

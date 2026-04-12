@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useClipStore } from './store/useClipStore'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
-
+import FavoritesPage from './pages/FavoritesPage'
 import RecycleBinPage from './pages/RecycleBinPage'
 import Settings from './pages/Settings'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -84,6 +84,7 @@ const noop   = () => {}
 const noop_p = async () => false as any
 
 if (typeof window !== 'undefined' && !window.clipAPI) {
+  console.warn('[App] Electron bridge (window.clipAPI) not found. Initializing safe stub.');
   window.clipAPI = {
     // Window
     minimize: noop, maximize: noop, close: noop,
@@ -122,23 +123,34 @@ if (typeof window !== 'undefined' && !window.clipAPI) {
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Page Router — each page wrapped in its own ErrorBoundary
-/* ─────────────────────────────────────────────────────────────────────────────
-   Page Router — renders the active page inside a flex container that
-   guarantees full height via flex:1 from the parent <main> element.
 ───────────────────────────────────────────────────────────────────────────── */
 function PageView() {
   const { activePage } = useClipStore()
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-      {activePage === 'dashboard' && (
-        <ErrorBoundary name="Dashboard"><Dashboard /></ErrorBoundary>
-      )}
-      {activePage === 'recycle' && (
-        <ErrorBoundary name="Recycle Bin"><RecycleBinPage /></ErrorBoundary>
-      )}
-      {activePage === 'settings' && (
-        <ErrorBoundary name="Settings"><Settings /></ErrorBoundary>
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activePage}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}
+        >
+          {activePage === 'dashboard' && (
+            <ErrorBoundary name="Dashboard"><Dashboard /></ErrorBoundary>
+          )}
+          {activePage === 'favorites' && (
+            <ErrorBoundary name="Favorites"><FavoritesPage /></ErrorBoundary>
+          )}
+          {activePage === 'recycle' && (
+            <ErrorBoundary name="Recycle Bin"><RecycleBinPage /></ErrorBoundary>
+          )}
+          {activePage === 'settings' && (
+            <ErrorBoundary name="Settings"><Settings /></ErrorBoundary>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
@@ -165,7 +177,10 @@ export default function App() {
     checkMongo()
 
     // Secondary load after a short delay (in case main process is still booting)
-    const timer = setTimeout(() => loadClips(), 800)
+    const timer = setTimeout(() => {
+      console.log('[App] Performing secondary clip load...');
+      loadClips();
+    }, 800)
 
     // Subscribe to new clips pushed from the main process
     const unsub = (window.clipAPI.onNewClip ?? noop)((item: any) => addClipFromMain(item))

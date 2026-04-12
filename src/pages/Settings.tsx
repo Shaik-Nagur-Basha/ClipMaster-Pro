@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { useClipStore } from '../store/useClipStore'
-
-/* ─── Guaranteed layout styles ─── */
-const S = {
-  page:   { display: 'flex' as const, flexDirection: 'column' as const, width: '100%', height: '100%', overflow: 'hidden', minHeight: 0 },
-  header: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 },
-  body:   { flex: 1, overflowY: 'auto' as const, padding: 24, minHeight: 0, maxWidth: 672 },
-}
+import { 
+  IconSettings, 
+  IconMonitor, 
+  IconDatabase, 
+  IconCloud, 
+  IconRefresh, 
+  IconSave, 
+  IconInfo, 
+  IconChevronDown,
+  IconShield,
+  IconAlertCircle,
+  IconCheck,
+  IconX
+} from '../components/Icons'
 
 const Settings: React.FC = () => {
   const {
@@ -16,33 +23,26 @@ const Settings: React.FC = () => {
     syncState
   } = useClipStore()
 
-  // Settings-specific loading (not shared with clips)
   const [settingsLoading, setSettingsLoading] = useState(true)
+  const [localUri, setLocalUri] = useState(settings.mongoUri ?? 'mongodb://127.0.0.1:27017/clipmaster')
+  const [atlasUri, setAtlasUri] = useState(settings.atlasUri ?? '')
+  const [saving, setSaving] = useState(false)
+  const [localConnecting, setLocalConnecting] = useState(false)
+  const [atlasConnecting, setAtlasConnecting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [localStatus, setLocalStatus] = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
+  const [localError, setLocalError] = useState('')
+  const [atlasStatus, setAtlasStatus] = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
+  const [atlasError, setAtlasError] = useState('')
 
-  // Always reload settings when navigating here
   useEffect(() => {
     setSettingsLoading(true)
     loadSettings().finally(() => setSettingsLoading(false))
   }, []) // eslint-disable-line
 
+  useEffect(() => { setLocalUri(settings.mongoUri ?? 'mongodb://127.0.0.1:27017/clipmaster') }, [settings.mongoUri])
+  useEffect(() => { setAtlasUri(settings.atlasUri ?? '') }, [settings.atlasUri])
 
-  // Local state
-  const [localUri,        setLocalUri]        = useState(settings.mongoUri  ?? 'mongodb://127.0.0.1:27017/clipmaster')
-  const [atlasUri,        setAtlasUri]        = useState(settings.atlasUri  ?? '')
-  const [saving,          setSaving]          = useState(false)
-  const [localConnecting, setLocalConnecting] = useState(false)
-  const [atlasConnecting, setAtlasConnecting] = useState(false)
-  const [syncing,         setSyncing]         = useState(false)
-  const [localStatus,     setLocalStatus]     = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
-  const [localError,      setLocalError]      = useState('')
-  const [atlasStatus,     setAtlasStatus]     = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
-  const [atlasError,      setAtlasError]      = useState('')
-
-  // Keep local fields in sync if settings reload
-  useEffect(() => { setLocalUri(settings.mongoUri  ?? 'mongodb://127.0.0.1:27017/clipmaster') }, [settings.mongoUri])
-  useEffect(() => { setAtlasUri(settings.atlasUri  ?? '') }, [settings.atlasUri])
-
-  // Subscribe to live sync updates from main process
   useEffect(() => {
     const unsub = window.clipAPI.onSyncUpdate?.((state) => {
       useClipStore.getState().setSyncState(state)
@@ -63,7 +63,7 @@ const Settings: React.FC = () => {
       const ok = await window.clipAPI.mongoConnect(localUri.trim())
       setMongoConnected(ok)
       setLocalStatus(ok ? 'ok' : 'fail')
-      if (!ok) setLocalError('Connection failed. Make sure MongoDB is running on the specified host.')
+      if (!ok) setLocalError('Connection failed. Make sure MongoDB is running.')
       else await saveSettings({ mongoEnabled: true, mongoUri: localUri.trim() })
     } catch (e) {
       setLocalStatus('fail'); setLocalError(String(e))
@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
       const ok = await window.clipAPI.atlasConnect(atlasUri.trim())
       setAtlasConnected(ok)
       setAtlasStatus(ok ? 'ok' : 'fail')
-      if (!ok) setAtlasError('Atlas connection failed. Check:\n1. Your IP is whitelisted in Atlas → Network Access\n2. Credentials are correct\n3. Database name in the URI is valid')
+      if (!ok) setAtlasError('Atlas connection failed. Check credentials and IP whitelist.')
       else await saveSettings({ atlasEnabled: true, atlasUri: atlasUri.trim() })
     } catch (e) {
       setAtlasStatus('fail'); setAtlasError(String(e))
@@ -101,358 +101,379 @@ const Settings: React.FC = () => {
     setAtlasUri('')
   }
 
-  const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString() : '—'
+  const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+
+  if (settingsLoading) {
+    return (
+      <div className="flex flex-col h-full bg-surface-900 items-center justify-center space-y-4">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" />
+        <span className="text-xs text-gray-500 font-medium">Loading environment…</span>
+      </div>
+    )
+  }
 
   return (
-    <div style={S.page}>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div style={S.header}>
-        <span style={{ fontSize: 18 }}>⚙️</span>
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: 0 }}>Settings</h2>
-      </div>
+    <div className="flex flex-col h-full bg-surface-900 overflow-hidden">
+      {/* Header */}
+      <header className="flex items-center gap-3 px-6 py-4 border-b border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
+        <div className="p-1.5 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400">
+          <IconSettings size={18} />
+        </div>
+        <div>
+          <h2 className="text-[15px] font-semibold text-white/90">Settings</h2>
+          <p className="text-[11px] text-gray-500 mt-0.5">Application configuration and synchronization</p>
+        </div>
+      </header>
 
-      {/* ── Scrollable body ────────────────────────────────────────────── */}
-      <div style={S.body}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-
-          {/* ── General ──────────────────────────────────────────────── */}
-          <Section title="General">
-            <SettingRow label="Launch at Windows startup" desc="Start ClipMaster Pro automatically when you log in.">
-              <Toggle checked={settings.autoLaunch} onChange={(v) => saveSettings({ autoLaunch: v })} />
-            </SettingRow>
-
-            <SettingRow label="Max stored clips" desc="Oldest non-favorite clips are removed when this limit is reached.">
-              <select
-                value={settings.maxEntries}
-                onChange={(e) => saveSettings({ maxEntries: Number(e.target.value) })}
-                style={INPUT_STYLE}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="max-w-2xl mx-auto space-y-8">
+          
+          {/* General Section */}
+          <Section title="General Presence" icon={<IconMonitor size={14} className="text-gray-500" />}>
+            <div className="space-y-2">
+              <SettingRow 
+                label="Launch at Windows startup" 
+                desc="Start ClipMaster Pro automatically when you log in."
               >
-                {[500, 1000, 2000, 5000, 10000].map((n) => (
-                  <option key={n} value={n}>{n.toLocaleString()} clips</option>
-                ))}
-              </select>
-            </SettingRow>
+                <Toggle checked={settings.autoLaunch} onChange={(v) => saveSettings({ autoLaunch: v })} />
+              </SettingRow>
 
-            <SettingRow label="Default view" desc="Starting view when the app opens.">
-              <select
-                value={settings.viewMode}
-                onChange={(e) => saveSettings({ viewMode: e.target.value as 'list' | 'grid' | 'compact' })}
-                style={INPUT_STYLE}
+              <SettingRow 
+                label="Max stored clips" 
+                desc="Oldest non-favorite clips are removed when limit is reached."
               >
-                <option value="list">List</option>
-                <option value="grid">Grid</option>
-                <option value="compact">Compact</option>
-              </select>
-            </SettingRow>
+                <Select
+                  value={settings.maxEntries}
+                  onChange={(v) => saveSettings({ maxEntries: Number(v) })}
+                  options={[
+                    { label: '500 clips', value: 500 },
+                    { label: '1,000 clips', value: 1000 },
+                    { label: '5,000 clips', value: 5000 },
+                    { label: '10,000 clips', value: 10000 },
+                  ]}
+                />
+              </SettingRow>
 
-            <SettingRow label="Background sync interval" desc="How often to sync to MongoDB in the background.">
-              <select
-                value={settings.syncInterval ?? 30}
-                onChange={(e) => saveSettings({ syncInterval: Number(e.target.value) })}
-                style={INPUT_STYLE}
+              <SettingRow 
+                label="Default View Mode" 
+                desc="Preferred layout for the dashboard."
               >
-                {[10, 30, 60, 120, 300].map((n) => (
-                  <option key={n} value={n}>Every {n}s</option>
-                ))}
-              </select>
-            </SettingRow>
+                <Select
+                  value={settings.viewMode}
+                  onChange={(v) => saveSettings({ viewMode: v as any })}
+                  options={[
+                    { label: 'List View', value: 'list' },
+                    { label: 'Grid View', value: 'grid' },
+                    { label: 'Compact View', value: 'compact' },
+                  ]}
+                />
+              </SettingRow>
+            </div>
           </Section>
 
-          {/* ── Sync Status ───────────────────────────────────────────── */}
-          <Card>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-              Sync Status
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'center' }}>
-              <StatusPill label="JSON" status="ok" detail="Always active" />
-              <StatusPill
-                label="Local DB"
-                status={mongoConnected ? syncState.localMongo : 'offline'}
-                detail={mongoConnected ? (syncState.localMongo === 'syncing' ? 'Syncing…' : 'Active') : 'Disconnected'}
+          {/* Sync Status Overlay */}
+          <div className="p-4 rounded-xl bg-surface-800 border border-gray-700 shadow-sm">
+            <header className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <IconRefresh size={14} className="text-brand-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Live Sync Status</span>
+              </div>
+              {syncState.pendingCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-500 font-medium">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  {syncState.pendingCount} pending
+                </div>
+              )}
+            </header>
+            <div className="grid grid-cols-3 gap-3">
+              <StatusCard label="LocalStorage" status="ok" detail="Active" icon={<IconShield size={14} />} />
+              <StatusCard 
+                label="Local Mongo" 
+                status={mongoConnected ? syncState.localMongo : 'offline'} 
+                detail={mongoConnected ? (syncState.localMongo === 'syncing' ? 'Syncing…' : 'Linked') : 'Inactive'} 
+                icon={<IconDatabase size={14} />}
               />
-              <StatusPill
-                label="Atlas"
-                status={atlasConnected ? syncState.atlas : 'offline'}
-                detail={atlasConnected ? `Last: ${fmtTime(syncState.lastSyncedAt)}` : 'Disconnected'}
+              <StatusCard 
+                label="Atlas Cloud" 
+                status={atlasConnected ? syncState.atlas : 'offline'} 
+                detail={atlasConnected ? `Last: ${fmtTime(syncState.lastSyncedAt)}` : 'Inactive'} 
+                icon={<IconCloud size={14} />}
               />
             </div>
-            {syncState.pendingCount > 0 && (
-              <p style={{ fontSize: 12, color: 'rgba(251,191,36,0.7)', textAlign: 'center', marginTop: 8 }}>
-                ⏳ {syncState.pendingCount} item{syncState.pendingCount !== 1 ? 's' : ''} pending sync
-              </p>
-            )}
-          </Card>
-
-          {/* ── Local MongoDB ─────────────────────────────────────────── */}
-          <Section
-            title="Local MongoDB"
-            badge={<ConnBadge connected={mongoConnected} />}
-          >
-            <SettingRow label="Enable local sync" desc="Sync clipboard history to a MongoDB instance running on this machine.">
-              <Toggle checked={settings.mongoEnabled} onChange={(v) => saveSettings({ mongoEnabled: v })} />
-            </SettingRow>
-
-            {settings.mongoEnabled && (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Local MongoDB URI</label>
-                  <input
-                    type="text"
-                    value={localUri}
-                    onChange={(e) => { setLocalUri(e.target.value); setLocalStatus('idle') }}
-                    placeholder="mongodb://127.0.0.1:27017/clipmaster"
-                    spellCheck={false}
-                    style={TEXT_INPUT_STYLE}
-                  />
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>🔐 All data is AES-256 encrypted before syncing.</p>
-                </div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  <ConnectBtn loading={localConnecting} connected={mongoConnected} onConnect={handleConnectLocal} label="Local" />
-                  {mongoConnected && (
-                    <>
-                      <SyncBtn loading={syncing} onClick={handleSyncAll} />
-                      <DisconnBtn onClick={handleDisconnectLocal} />
-                    </>
-                  )}
-                </div>
-                <StatusMsg status={localStatus} error={localError} label="Local MongoDB" />
-              </>
-            )}
-          </Section>
-
-          {/* ── Atlas Cloud ───────────────────────────────────────────── */}
-          <Section
-            title="MongoDB Atlas (Cloud)"
-            badge={<ConnBadge connected={atlasConnected} cloud />}
-          >
-            <SettingRow label="Enable Atlas sync" desc="Two-way sync to MongoDB Atlas. Requires internet and IP whitelist.">
-              <Toggle checked={settings.atlasEnabled ?? false} onChange={(v) => saveSettings({ atlasEnabled: v })} />
-            </SettingRow>
-
-            {settings.atlasEnabled && (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Atlas Connection String</label>
-                  <input
-                    type="password"
-                    value={atlasUri}
-                    onChange={(e) => { setAtlasUri(e.target.value); setAtlasStatus('idle') }}
-                    placeholder="mongodb+srv://user:pass@cluster.mongodb.net/clipmaster"
-                    spellCheck={false}
-                    autoComplete="off"
-                    style={TEXT_INPUT_STYLE}
-                  />
-                  <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.6)' }}>Atlas → Network Access → Add Current IP Address to whitelist.</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>🔐 URI is stored encrypted. Never logged.</p>
-                </div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  <ConnectBtn loading={atlasConnecting} connected={atlasConnected} onConnect={handleConnectAtlas} label="Atlas" />
-                  {atlasConnected && (
-                    <>
-                      <SyncBtn loading={syncing} onClick={handleSyncAll} />
-                      <DisconnBtn onClick={handleDisconnectAtlas} />
-                    </>
-                  )}
-                </div>
-                <StatusMsg status={atlasStatus} error={atlasError} label="Atlas" />
-              </>
-            )}
-          </Section>
-
-          {/* ── About ─────────────────────────────────────────────────── */}
-          <Section title="About">
-            <Card>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 8, background: 'linear-gradient(135deg,#6366f1,#22c55e)', flexShrink: 0 }} />
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>ClipMaster Pro v1.0.0</span>
-                </div>
-                <p>Built with Electron + React 18 + TypeScript</p>
-                <p>Storage: JSON (primary) · Local MongoDB · Atlas (cloud)</p>
-              </div>
-            </Card>
-          </Section>
-
-          {/* ── Save ──────────────────────────────────────────────────── */}
-          <div style={{ paddingBottom: 16 }}>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary"
-              style={{ opacity: saving ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
-            >
-              {saving ? '↻ Saving…' : '💾 Save Settings'}
-            </button>
           </div>
 
+          {/* Local Database */}
+          <Section 
+            title="Local persistence" 
+            badge={<ConnectionStatus connected={mongoConnected} />}
+            icon={<IconDatabase size={14} className="text-gray-500" />}
+          >
+            <div className="space-y-4">
+              <SettingRow 
+                label="Enable MongoDB Sync" 
+                desc="Persist clips to a local MongoDB instance for scalability."
+              >
+                <Toggle checked={settings.mongoEnabled} onChange={(v) => saveSettings({ mongoEnabled: v })} />
+              </SettingRow>
+
+              {settings.mongoEnabled && (
+                <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-medium text-gray-400">Connection URI</label>
+                    <input 
+                      type="text"
+                      value={localUri}
+                      onChange={(e) => { setLocalUri(e.target.value); setLocalStatus('idle') }}
+                      placeholder="mongodb://localhost:27017/clipmaster"
+                      className="w-full bg-surface-900 border border-gray-700 rounded-lg px-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={handleConnectLocal}
+                      disabled={localConnecting}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {localConnecting ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
+                      {mongoConnected ? 'Reconnect Database' : 'Connect Database'}
+                    </button>
+                    {mongoConnected && (
+                      <>
+                        <button 
+                          onClick={handleSyncAll}
+                          disabled={syncing}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {syncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
+                          Sync Data
+                        </button>
+                        <button 
+                          onClick={handleDisconnectLocal}
+                          className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400 hover:text-white transition-colors"
+                          title="Disconnect"
+                        >
+                          <IconX size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <InlineStatus status={localStatus} message={localError} label="Local Database" />
+                </div>
+              )}
+            </div>
+          </Section>
+
+          {/* Atlas Cloud */}
+          <Section 
+            title="Cloud synchronization" 
+            badge={<ConnectionStatus connected={atlasConnected} />}
+            icon={<IconCloud size={14} className="text-gray-500" />}
+          >
+            <div className="space-y-4">
+              <SettingRow 
+                label="Enable MongoDB Atlas" 
+                desc="Sync your clipboard across multiple machines using the cloud."
+              >
+                <Toggle checked={settings.atlasEnabled ?? false} onChange={(v) => saveSettings({ atlasEnabled: v })} />
+              </SettingRow>
+
+              {settings.atlasEnabled && (
+                <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-medium text-gray-400">Atlas Connection String</label>
+                    <div className="relative group">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
+                        <IconShield size={16} />
+                      </div>
+                      <input 
+                        type="password"
+                        value={atlasUri}
+                        onChange={(e) => { setAtlasUri(e.target.value); setAtlasStatus('idle') }}
+                        placeholder="mongodb+srv://..."
+                        className="w-full bg-surface-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-600 leading-relaxed px-1">
+                      Encryption: Data is AES-256 encrypted before upload. Ensure your IP is whitelisted in Atlas.
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={handleConnectAtlas}
+                      disabled={atlasConnecting}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {atlasConnecting ? <IconRefresh size={14} className="animate-spin" /> : <IconCloud size={14} />}
+                      {atlasConnected ? 'Reconnect Cloud' : 'Connect Cloud'}
+                    </button>
+                    {atlasConnected && (
+                      <>
+                        <button 
+                          onClick={handleSyncAll}
+                          disabled={syncing}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {syncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
+                          Sync Data
+                        </button>
+                        <button 
+                          onClick={handleDisconnectAtlas}
+                          className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400 hover:text-white transition-colors"
+                          title="Disconnect"
+                        >
+                          <IconX size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <InlineStatus status={atlasStatus} message={atlasError} label="Cloud Atlas" />
+                </div>
+              )}
+            </div>
+          </Section>
+
+          {/* About */}
+          <Section title="Application Info" icon={<IconInfo size={14} className="text-gray-500" />}>
+            <div className="p-4 rounded-xl bg-surface-800">
+                <div className="flex items-center gap-4">
+                    <img src="/icon.png" alt="ClipMaster Pro Logo" className="w-14 h-14 object-contain" />
+                 <div className="space-y-1">
+                   <h3 className="text-[15px] font-bold text-white/90">ClipMaster Pro</h3>
+                   <p className="text-xs text-gray-500 font-medium tracking-tight">Version 1.2.4 (Official Build)</p>
+                   <div className="flex items-center gap-3 pt-2">
+                     <span className="text-[11px] text-gray-600">Built with React + Electron</span>
+                     <div className="w-1 h-1 rounded-full bg-gray-700" />
+                     <span className="text-[11px] text-gray-600">Storage: Local + MongoDB</span>
+                   </div>
+                 </div>
+               </div>
+            </div>
+          </Section>
+
+          {/* Footer Spacer */}
+          <div className="h-12" />
         </div>
-      </div>
+      </main>
+
+      {/* Sticky Bottom Actions */}
+      <footer className="px-6 py-4 border-t border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <p className="text-[11px] text-gray-500 italic max-w-[200px]">Changes are applied instantly to local state but require a manual save for persistence in background services.</p>
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="group flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-500 text-[13px] text-white font-semibold hover:bg-brand-400 active:scale-95 transition-all shadow-lg shadow-brand-500/20 disabled:opacity-50"
+          >
+            {saving ? <IconRefresh size={16} className="animate-spin" /> : <IconSave size={16} className="group-hover:-translate-y-0.5 transition-transform" />}
+            Save All Changes
+          </button>
+        </div>
+      </footer>
     </div>
   )
 }
 
-/* ─── Shared input styles ──────────────────────────────────────────────────── */
-const INPUT_STYLE: React.CSSProperties = {
-  background: '#1a1a24', border: '1px solid rgba(255,255,255,0.1)',
-  color: 'rgba(255,255,255,0.8)', fontSize: 13, borderRadius: 10,
-  padding: '6px 12px', outline: 'none', cursor: 'pointer'
-}
+/* ─── UI COMPONENTS ────────────────────────────────────────────────────────── */
 
-const TEXT_INPUT_STYLE: React.CSSProperties = {
-  width: '100%', background: '#1a1a24', border: '1px solid rgba(255,255,255,0.1)',
-  color: 'rgba(255,255,255,0.9)', fontSize: 13, borderRadius: 12,
-  padding: '10px 16px', fontFamily: 'monospace', outline: 'none'
-}
-
-/* ─── Sub-components ────────────────────────────────────────────────────────── */
-
-const Section: React.FC<{ title: string; badge?: React.ReactNode; children: React.ReactNode }> = ({ title, badge, children }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', flex: 1, margin: 0 }}>
-        {title}
-      </h3>
+const Section: React.FC<{ title: string; badge?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode }> = ({ title, badge, icon, children }) => (
+  <section className="space-y-3">
+    <header className="flex items-center justify-between px-1">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">{title}</h3>
+      </div>
       {badge}
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children}</div>
-  </div>
-)
-
-const Card: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{
-    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-    background: 'rgba(255,255,255,0.03)', padding: 16
-  }}>
-    {children}
-  </div>
+    </header>
+    <div className="p-1 space-y-1">{children}</div>
+  </section>
 )
 
 const SettingRow: React.FC<{ label: string; desc?: string; children: React.ReactNode }> = ({ label, desc, children }) => (
-  <Card>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-      <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 500, margin: 0 }}>{label}</p>
-        {desc && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4, lineHeight: 1.5 }}>{desc}</p>}
+  <div className="flex items-center justify-between gap-6 p-4 rounded-xl bg-surface-800 border border-gray-700 hover:border-gray-600 transition-colors group">
+    <div className="min-w-0 space-y-1">
+      <h4 className="text-[13px] font-medium text-gray-200 group-hover:text-white transition-colors">{label}</h4>
+      {desc && <p className="text-xs text-gray-500 leading-normal">{desc}</p>}
+    </div>
+    <div className="shrink-0">{children}</div>
+  </div>
+)
+
+const StatusCard: React.FC<{ label: string; status: string; detail: string; icon: React.ReactNode }> = ({ label, status, detail, icon }) => {
+  const isOk = status === 'ok' || status === 'idle'
+  const isErr = status === 'error' || status === 'fail' || status === 'offline'
+  const isWarn = status === 'syncing'
+
+  return (
+    <div className={`p-3 rounded-lg border transition-all ${
+      isOk ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
+      isErr ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' :
+      'bg-brand-500/5 border-brand-500/20 text-brand-400'
+    }`}>
+      <div className="flex items-center gap-2 mb-1.5 opacity-80">
+        {icon}
+        <span className="text-[11px] font-bold">{label}</span>
       </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
+      <p className="text-[10px] font-medium opacity-70 truncate">{detail}</p>
     </div>
-  </Card>
+  )
+}
+
+const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ checked, onChange }) => (
+  <button
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onChange(!checked)}
+    className={`relative w-9 h-5 rounded-full transition-all duration-300 outline-none focus-visible:ring-2 ring-brand-500 ring-offset-2 ring-offset-surface-800 ${
+      checked ? 'bg-brand-500 shadow-inner' : 'bg-gray-700'
+    }`}
+  >
+    <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-300 ease-out ${
+      checked ? 'translate-x-4' : 'translate-x-0'
+    }`} />
+  </button>
 )
 
-const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void }> = ({ checked, onChange }) => {
-  const [hov, setHov] = useState(false)
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      aria-checked={checked}
-      role="switch"
-      style={{
-        position: 'relative', borderRadius: 99,
-        width: 40, height: 22, border: 'none', cursor: 'pointer',
-        background: checked ? '#6366f1' : (hov ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.1)'),
-        outline: 'none', transition: 'background 200ms', flexShrink: 0
-      }}
+const Select: React.FC<{ value: any; onChange: (v: any) => void; options: { label: string; value: any }[] }> = ({ value, onChange, options }) => (
+  <div className="relative group">
+    <select 
+      value={value} 
+      onChange={(e) => onChange(e.target.value)}
+      className="appearance-none bg-surface-900 border border-gray-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-gray-300 font-medium hover:border-gray-500 focus:border-brand-500 outline-none cursor-pointer transition-all"
     >
-      <span style={{
-        position: 'absolute', top: 2,
-        left: checked ? 20 : 2,
-        width: 18, height: 18,
-        borderRadius: '50%', background: '#fff',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-        transition: 'left 200ms'
-      }} />
-    </button>
-  )
-}
-
-const ConnBadge: React.FC<{ connected: boolean; cloud?: boolean }> = ({ connected, cloud }) => (
-  <span style={{
-    display: 'flex', alignItems: 'center', gap: 6,
-    fontSize: 12, padding: '2px 10px', borderRadius: 99, fontWeight: 500,
-    background: connected ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
-    color:      connected ? '#4ade80'               : 'rgba(255,255,255,0.3)',
-    border: `1px solid ${connected ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)'}`
-  }}>
-    <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? '#4ade80' : 'rgba(255,255,255,0.2)' }} />
-    {connected ? (cloud ? '☁ Syncing' : '● Connected') : 'Disconnected'}
-  </span>
-)
-
-const StatusPill: React.FC<{ label: string; status: string; detail: string }> = ({ label, status, detail }) => {
-  const isGood = status === 'ok' || status === 'idle'
-  const isSyncing = status === 'syncing'
-  const isErr = status === 'error'
-  const color = isGood ? '#4ade80' : isSyncing ? '#60a5fa' : isErr ? '#f87171' : 'rgba(255,255,255,0.25)'
-  const bg    = isGood ? 'rgba(34,197,94,0.1)' : isSyncing ? 'rgba(96,165,250,0.1)' : isErr ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)'
-  const bd    = isGood ? 'rgba(34,197,94,0.2)' : isSyncing ? 'rgba(96,165,250,0.2)' : isErr ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.1)'
-  return (
-    <div style={{ borderRadius: 12, border: `1px solid ${bd}`, background: bg, padding: 8, color }}>
-      <p style={{ fontWeight: 600, fontSize: 12, margin: 0 }}>{label}</p>
-      <p style={{ opacity: 0.7, fontSize: 11, margin: 0 }}>{detail}</p>
+      {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+    </select>
+    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 group-hover:text-gray-300 transition-colors">
+      <IconChevronDown size={14} />
     </div>
-  )
-}
-
-const ConnectBtn: React.FC<{ loading: boolean; connected: boolean; onConnect: () => void; label: string }> = ({ loading, connected, onConnect, label }) => (
-  <button
-    onClick={onConnect}
-    disabled={loading}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 14px', borderRadius: 12,
-      background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
-      color: '#818cf8', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer',
-      opacity: loading ? 0.4 : 1
-    }}
-  >
-    {loading ? <><span className="animate-spin inline-block">↻</span> Connecting…</> : <>⚡ {connected ? `Reconnect ${label}` : `Connect ${label}`}</>}
-  </button>
+  </div>
 )
 
-const SyncBtn: React.FC<{ loading: boolean; onClick: () => void }> = ({ loading, onClick }) => (
-  <button
-    onClick={onClick}
-    disabled={loading}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 14px', borderRadius: 12,
-      background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)',
-      color: '#4ade80', fontSize: 13, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer',
-      opacity: loading ? 0.4 : 1
-    }}
-  >
-    {loading ? <><span className="animate-spin inline-block">↻</span> Syncing…</> : '↑ Sync Now'}
-  </button>
+const ConnectionStatus: React.FC<{ connected: boolean }> = ({ connected }) => (
+  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+    connected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-gray-700/50 border-gray-600/50 text-gray-500'
+  }`}>
+    <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
+    {connected ? 'Linked' : 'Offline'}
+  </div>
 )
 
-const DisconnBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '7px 12px', borderRadius: 12,
-      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-      color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer'
-    }}
-  >
-    ✕ Disconnect
-  </button>
-)
-
-const StatusMsg: React.FC<{ status: string; error: string; label: string }> = ({ status, error, label }) => {
+const InlineStatus: React.FC<{ status: string; message: string; label: string }> = ({ status, message, label }) => {
   if (status === 'ok') return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
-      <span style={{ color: '#4ade80', fontSize: 13, fontWeight: 500 }}>✓ {label} connected successfully!</span>
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+      <IconCheck size={16} />
+      <span className="text-[13px] font-medium">{label} connected successfully</span>
     </div>
   )
   if (status === 'fail') return (
-    <div style={{ padding: 12, borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-      <p style={{ color: '#f87171', fontSize: 13, fontWeight: 500, margin: 0 }}>✕ Connection failed</p>
-      {error && <p style={{ color: 'rgba(248,113,113,0.6)', fontSize: 12, marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{error}</p>}
+    <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+      <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
+      <div className="space-y-1">
+        <h5 className="text-[13px] font-bold">Connection Failed</h5>
+        <p className="text-xs opacity-70 leading-relaxed">{message || 'An unknown error occurred while connecting.'}</p>
+      </div>
     </div>
   )
   return null

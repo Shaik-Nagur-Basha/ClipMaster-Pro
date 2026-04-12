@@ -64,12 +64,16 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   loadClips: async () => {
     set({ isLoading: true })
     try {
+      console.log('[Store] Fetching clips from window.clipAPI...');
       const clips = await window.clipAPI.getClips()
-      console.log(`[Store] loadClips → ${clips.length} clips (${clips.filter(c => c.isFavorite).length} fav, ${clips.filter(c => c.isDeleted).length} deleted)`)
-      set({ clips, isLoading: false })
+      console.log(`[Store] loadClips success: received ${clips?.length ?? 0} clips`);
+      if (clips && clips.length > 0) {
+        console.log('[Store] First clip sample:', clips[0].text.substring(0, 50));
+      }
+      set({ clips: clips || [], isLoading: false })
     } catch (err) {
       console.error('[Store] loadClips failed:', err)
-      set({ isLoading: false })
+      set({ clips: [], isLoading: false })
     }
   },
 

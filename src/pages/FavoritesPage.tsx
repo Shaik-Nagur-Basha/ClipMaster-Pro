@@ -1,22 +1,21 @@
-import React, { useLayoutEffect } from 'react'
+import React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useClipStore, selectFilteredClips } from '../store/useClipStore'
 import EntryCard from '../components/EntryCard'
 import SearchBar from '../components/SearchBar'
 import ViewToggle from '../components/ViewToggle'
-import { IconInbox } from '../components/Icons'
+import { IconStar } from '../components/Icons'
 import type { ClipboardItem } from '../types'
 
-const Dashboard: React.FC = () => {
+const FavoritesPage: React.FC = () => {
   const store = useClipStore()
   const { viewMode, displayMode, isLoading } = store
-  const filtered = selectFilteredClips(store)
+  
+  // Filter for favorite items that are not deleted
+  const allClips = selectFilteredClips(store)
+  const filtered = allClips.filter(c => c.isFavorite)
 
   const isEmpty = filtered.length === 0
-
-  useLayoutEffect(() => {
-    console.log(`[Dashboard] Rendered. Items: ${filtered.length}, View: ${viewMode}, Loading: ${isLoading}`);
-  }, [filtered.length, viewMode, isLoading]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
@@ -30,9 +29,12 @@ const Dashboard: React.FC = () => {
 
       {/* Stats Bar */}
       <div className="flex items-center justify-between px-6 py-2 shrink-0 bg-surface-800/20">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-          {filtered.length} {filtered.length === 1 ? 'Entry' : 'Entries'} Cached
-        </p>
+        <div className="flex items-center gap-2">
+          <IconStar size={14} className="text-accent-500" />
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            {filtered.length} Favorite {filtered.length === 1 ? 'Entry' : 'Entries'}
+          </p>
+        </div>
       </div>
 
       {/* Content Area */}
@@ -103,15 +105,15 @@ const CompactView: React.FC<{ clips: ClipboardItem[] }> = ({ clips }) => (
 const EmptyState: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 py-20 opacity-80">
     <div className="relative">
-      <div className="absolute inset-0 bg-brand-500/20 blur-3xl rounded-full" />
-      <div className="relative w-24 h-24 rounded-3xl bg-surface-800 border-2 border-gray-700 flex items-center justify-center text-gray-400">
-        <IconInbox size={48} strokeWidth={1.5} />
+      <div className="absolute inset-0 bg-accent-500/10 blur-3xl rounded-full" />
+      <div className="relative w-24 h-24 rounded-3xl bg-surface-800 border-2 border-gray-700 flex items-center justify-center text-accent-500/60 shadow-lg shadow-accent-500/10">
+        <IconStar size={48} strokeWidth={1.5} />
       </div>
     </div>
     <div className="text-center space-y-2">
-      <h3 className="text-lg font-bold text-white tracking-tight">No Clips Found</h3>
+      <h3 className="text-lg font-bold text-white tracking-tight">No Favorites Yet</h3>
       <p className="text-sm text-gray-500 max-w-[240px] leading-relaxed">
-        Your clipboard history is empty. Copy some text to see it appear here.
+        Star your important clips to keep them separate and easy to find.
       </p>
     </div>
   </div>
@@ -119,7 +121,7 @@ const EmptyState: React.FC = () => (
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────
 const LoadingSkeleton: React.FC = () => (
-  <div className="space-y-4">
+  <div className="px-6 py-6 space-y-4">
     {Array.from({ length: 5 }).map((_, i) => (
       <div
         key={i}
@@ -130,4 +132,4 @@ const LoadingSkeleton: React.FC = () => (
   </div>
 )
 
-export default Dashboard
+export default FavoritesPage

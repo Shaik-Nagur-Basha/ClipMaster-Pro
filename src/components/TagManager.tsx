@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useClipStore } from '../store/useClipStore'
+import { IconCheck, IconEdit, IconX, IconPlus, IconTag } from './Icons'
 import type { Tag } from '../types'
 
 const TAG_COLORS = [
@@ -40,21 +41,24 @@ const TagManager: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider">Tags</h3>
+      <div className="flex items-center gap-2 pb-2 border-b border-gray-700/50">
+        <IconTag size={12} className="text-gray-500" />
+        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tag Management</h3>
+      </div>
 
       {/* Tag list */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <AnimatePresence>
           {tags.map((tag) => (
             <motion.div
               key={tag.id}
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -4 }}
-              className="group flex items-center gap-2 p-2 rounded-lg hover:bg-surface-600/50 transition-colors"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="group flex items-center gap-2 p-1.5 rounded-lg border border-transparent hover:border-gray-700 hover:bg-surface-700/30 transition-all duration-150"
             >
               <span
-                className="w-3 h-3 rounded-full shrink-0"
+                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
                 style={{ backgroundColor: tag.color }}
               />
               {editId === tag.id ? (
@@ -66,32 +70,32 @@ const TagManager: React.FC = () => {
                     if (e.key === 'Enter') handleEditSave(tag.id)
                     if (e.key === 'Escape') setEditId(null)
                   }}
-                  className="flex-1 bg-surface-800 text-white/90 text-xs rounded px-2 py-1 outline-none border border-brand-500/50"
+                  className="flex-1 bg-surface-900 text-white text-[11px] rounded px-2 py-0.5 outline-none border border-brand-500/50"
                 />
               ) : (
-                <span className="flex-1 text-sm text-white/70">{tag.name}</span>
+                <span className="flex-1 text-xs text-gray-300 font-medium">{tag.name}</span>
               )}
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {editId === tag.id ? (
                   <button
                     onClick={() => handleEditSave(tag.id)}
-                    className="text-xs text-accent-500 hover:text-accent-400"
+                    className="p-1 text-accent-400 hover:bg-accent-500/10 rounded"
                   >
-                    ✓
+                    <IconCheck size={14} />
                   </button>
                 ) : (
                   <button
                     onClick={() => { setEditId(tag.id); setEditName(tag.name) }}
-                    className="text-xs text-white/30 hover:text-white/60"
+                    className="p-1 text-gray-500 hover:text-gray-300 hover:bg-surface-600/50 rounded"
                   >
-                    ✏
+                    <IconEdit size={14} />
                   </button>
                 )}
                 <button
                   onClick={() => handleDelete(tag.id)}
-                  className="text-xs text-white/30 hover:text-red-400 transition-colors"
+                  className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
                 >
-                  ✕
+                  <IconX size={14} />
                 </button>
               </div>
             </motion.div>
@@ -100,32 +104,39 @@ const TagManager: React.FC = () => {
       </div>
 
       {/* Add tag */}
-      <div className="space-y-2 pt-2 border-t border-white/5">
-        <input
-          type="text"
-          placeholder="New tag name…"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          className="w-full bg-surface-600 border border-white/8 text-white/80 text-xs rounded-lg px-3 py-2 outline-none focus:border-brand-500/50 transition-colors placeholder-white/25"
-        />
-        <div className="flex flex-wrap gap-1.5">
+      <div className="space-y-3 pt-3 border-t border-gray-700/50">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="New tag name…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            className="w-full bg-surface-800 border border-gray-700 text-white text-xs rounded-lg pl-3 pr-10 py-2 outline-none focus:border-brand-500/50 transition-colors placeholder-gray-600"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newName.trim()}
+            className="absolute right-1.5 top-1.5 p-1 rounded-md bg-brand-500/20 text-brand-400 hover:bg-brand-500/30 disabled:opacity-0 transition-all duration-200"
+          >
+            <IconPlus size={14} />
+          </button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 px-1">
           {TAG_COLORS.map((c) => (
             <button
               key={c}
               onClick={() => setNewColor(c)}
-              className={`w-5 h-5 rounded-full transition-transform ${newColor === c ? 'scale-125 ring-2 ring-white/40 ring-offset-1 ring-offset-surface-800' : 'hover:scale-110'}`}
+              className={`w-4 h-4 rounded-full transition-all duration-150 ${
+                newColor === c 
+                  ? 'scale-125 ring-2 ring-white/50 ring-offset-2 ring-offset-surface-800' 
+                  : 'hover:scale-110 opacity-60 hover:opacity-100'
+              }`}
               style={{ backgroundColor: c }}
             />
           ))}
         </div>
-        <button
-          onClick={handleAdd}
-          disabled={!newName.trim()}
-          className="w-full py-1.5 rounded-lg bg-brand-500/20 text-brand-400 text-xs font-medium hover:bg-brand-500/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          + Add Tag
-        </button>
       </div>
     </div>
   )

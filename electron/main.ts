@@ -26,7 +26,7 @@ function createWindow(): void {
     backgroundColor: '#0d0d1a',
     show: false,
     title: 'ClipMaster Pro',
-    icon: join(__dirname, '../../public/icon.png'),
+    icon: join(__dirname, app.isPackaged ? '../renderer/icon.png' : '../../public/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       sandbox: false,
@@ -49,7 +49,8 @@ function createWindow(): void {
 
 // ─── Tray ───────────────────────────────────────────────────────────────────
 function createTray(): void {
-  const icon = nativeImage.createFromPath(join(__dirname, '../../public/icon.png'))
+  const iconPath = join(__dirname, app.isPackaged ? '../renderer/icon.png' : '../../public/icon.png')
+  const icon = nativeImage.createFromPath(iconPath)
   tray = new Tray(icon.resize({ width: 16, height: 16 }))
   const menu = Menu.buildFromTemplate([
     { label: 'Open ClipMaster Pro', click: () => { mainWindow?.show(); mainWindow?.focus() } },

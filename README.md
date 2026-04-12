@@ -41,7 +41,7 @@ clipmaster-pro/
 ├── data/
 │   └── clipboard.json   # Local storage
 ├── public/
-│   └── icon.svg / icon.png
+│   └── icon.png
 ├── electron.vite.config.ts
 ├── tailwind.config.js
 └── package.json

@@ -3,6 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useClipStore } from '../store/useClipStore'
 import TagBadge from './TagBadge'
 import type { ClipboardItem } from '../types'
+import { 
+  IconCopy, 
+  IconStar, 
+  IconTag, 
+  IconEdit, 
+  IconTrash, 
+  IconRestore, 
+  IconX, 
+  IconCheck,
+  IconZap
+} from './Icons'
 
 interface Props {
   item: ClipboardItem
@@ -70,23 +81,23 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: -8 }}
-        className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-700 hover:bg-surface-600 border border-white/5 hover:border-white/10 transition-all duration-150"
+        className="group flex items-center gap-3 px-3 py-1.5 rounded-md bg-surface-800 hover:bg-surface-700 border border-gray-700/50 hover:border-gray-600 transition-all duration-150"
       >
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-white/80 truncate font-mono">{item.text.slice(0, 80)}</p>
+          <p className="text-[13px] text-gray-300 truncate font-mono">{item.text.slice(0, 80)}</p>
         </div>
-        <span className="text-xs text-white/30 shrink-0">{timeAgo()}</span>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ActionBtn icon={copied ? '✓' : '⎘'} label="Copy" onClick={handleCopy} active={copied} />
+        <span className="text-[11px] text-gray-500 shrink-0 tabular-nums">{timeAgo()}</span>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ActionBtn icon={copied ? IconCheck : IconCopy} label="Copy" onClick={handleCopy} active={copied} />
           {item.isDeleted ? (
             <>
-              <ActionBtn icon="↩" label="Restore" onClick={() => restoreClip(item.id)} />
-              <ActionBtn icon="✕" label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
+              <ActionBtn icon={IconRestore} label="Restore" onClick={() => restoreClip(item.id)} />
+              <ActionBtn icon={IconX} label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
             </>
           ) : (
             <>
-              <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} />
-              <ActionBtn icon="✕" label="Delete" onClick={() => deleteClip(item.id)} danger />
+              <ActionBtn icon={IconStar} label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} />
+              <ActionBtn icon={IconTrash} label="Delete" onClick={() => deleteClip(item.id)} danger />
             </>
           )}
         </div>
@@ -100,23 +111,25 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.18 }}
-      className={`group relative rounded-2xl border border-white/5 hover:border-brand-500/30 bg-surface-700 hover:bg-surface-600 transition-all duration-200 shadow-lg shadow-black/20 ${
-        viewMode === 'grid' ? 'flex flex-col h-48' : 'flex flex-col'
-      }`}
+      transition={{ duration: 0.15 }}
+      className={`group relative rounded-xl border ${
+        item.isFavorite ? 'border-accent-500/30' : 'border-gray-700'
+      } hover:border-brand-500/40 bg-surface-800 hover:bg-surface-700/80 transition-all duration-150 shadow-sm ${
+        viewMode === 'grid' ? 'flex flex-col h-44' : 'flex flex-col'
+      } ${showTagPicker ? 'z-30' : 'z-0'}`}
     >
-      {/* Favorite indicator */}
+      {/* Visual Indicator for favorites */}
       {item.isFavorite && (
-        <div className="absolute top-0 left-0 w-full h-0.5 rounded-t-2xl bg-gradient-to-r from-brand-500 to-accent-500" />
+        <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl bg-accent-500/50" />
       )}
 
-      <div className="p-4 flex-1 min-h-0 overflow-hidden">
+      <div className="p-3 flex-1 min-h-0 overflow-hidden">
         {isEditing ? (
           <textarea
             autoFocus
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
-            className="w-full h-24 bg-surface-900 text-white text-sm rounded-xl p-3 resize-none outline-none border border-brand-500/50 focus:border-brand-500 font-mono leading-relaxed"
+            className="w-full h-full min-h-[100px] bg-surface-900 text-gray-100 text-[13px] rounded-lg p-2.5 resize-none outline-none border border-brand-500/40 focus:border-brand-500 font-mono leading-relaxed"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSaveEdit()
               if (e.key === 'Escape') handleCancelEdit()
@@ -124,8 +137,8 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
           />
         ) : (
           <p
-            className={`text-white/85 leading-relaxed break-words font-mono ${
-              viewMode === 'grid' ? 'text-xs line-clamp-5' : 'text-sm'
+            className={`text-gray-200/90 leading-relaxed break-words font-mono ${
+              viewMode === 'grid' ? 'text-[11px] line-clamp-4' : 'text-[13px]'
             }`}
           >
             {displayText}
@@ -135,7 +148,7 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
 
       {/* Tags row */}
       {tagObjects.length > 0 && (
-        <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+        <div className="px-3 pb-1.5 flex flex-wrap gap-1">
           {tagObjects.map((t) => (
             <TagBadge key={t.id} tag={t} size="sm" />
           ))}
@@ -143,66 +156,69 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/5">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-white/30">{timeAgo()}</span>
-          <span className="text-xs text-white/20">
-            {item.charCount ?? item.text.length} chars
-          </span>
-          {item.wordCount && (
-            <span className="text-xs text-white/20">{item.wordCount} words</span>
-          )}
+      <div className="flex items-center justify-between px-3 py-2 border-t border-gray-700/50">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] text-gray-500 font-medium tabular-nums">{timeAgo()}</span>
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-600 font-bold uppercase tracking-wider">
+            <span>{item.charCount ?? item.text.length}C</span>
+            {item.wordCount && <span>• {item.wordCount}W</span>}
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1">
+        {/* Actions Context Container - relative for TagPicker */}
+        <div className="relative flex items-center gap-0.5">
           {isEditing ? (
             <>
-              <ActionBtn icon="✓" label="Save" onClick={handleSaveEdit} active />
-              <ActionBtn icon="✕" label="Cancel" onClick={handleCancelEdit} />
+              <ActionBtn icon={IconCheck} label="Save" onClick={handleSaveEdit} active />
+              <ActionBtn icon={IconX} label="Cancel" onClick={handleCancelEdit} />
             </>
           ) : (
             <AnimatePresence>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                <ActionBtn icon={copied ? '✓' : '⎘'} label={copied ? 'Copied!' : 'Copy'} onClick={handleCopy} active={copied} />
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                <ActionBtn icon={copied ? IconCheck : IconCopy} label={copied ? 'Copied!' : 'Copy'} onClick={handleCopy} active={copied} />
                 {item.isDeleted ? (
                   <>
-                    <ActionBtn icon="↩" label="Restore" onClick={() => restoreClip(item.id)} />
-                    <ActionBtn icon="✕" label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
+                    <ActionBtn icon={IconRestore} label="Restore" onClick={() => restoreClip(item.id)} />
+                    <ActionBtn icon={IconX} label="Delete Forever" onClick={() => permanentDelete(item.id)} danger />
                   </>
                 ) : (
                   <>
                     <ActionBtn 
-                      icon="🏷" 
+                      icon={IconTag} 
                       label="Tags" 
                       onClick={() => setShowTagPicker(!showTagPicker)} 
                       active={showTagPicker} 
                     />
-                    <ActionBtn icon="✏" label="Edit" onClick={() => { setEditText(item.text); setEditingClip(item.id) }} />
-                    <ActionBtn icon="♥" label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} variant="heart" />
-                    <ActionBtn icon="🗑" label="Delete" onClick={() => deleteClip(item.id)} danger />
+                    <ActionBtn icon={IconEdit} label="Edit" onClick={() => { setEditText(item.text); setEditingClip(item.id) }} />
+                    <ActionBtn icon={IconStar} label="Favorite" onClick={() => toggleFavorite(item.id)} active={item.isFavorite} />
+                    <ActionBtn icon={IconTrash} label="Delete" onClick={() => deleteClip(item.id)} danger />
                   </>
                 )}
               </div>
             </AnimatePresence>
           )}
 
-          {/* Tag Picker Popover */}
+          {/* Tag Picker Popover - Refactored for better positioning */}
           <AnimatePresence>
             {showTagPicker && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                initial={{ opacity: 0, scale: 0.95, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="absolute right-4 bottom-14 z-50 w-48 bg-surface-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 overflow-hidden"
+                exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                className="absolute right-0 bottom-full mb-2 z-[100] w-48 bg-surface-900 border border-gray-700 rounded-lg shadow-2xl p-2 overflow-hidden"
               >
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Select Tags</span>
-                  <button onClick={() => setShowTagPicker(false)} className="text-white/20 hover:text-white/60">✕</button>
+                <div className="flex items-center justify-between mb-1.5 px-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Select Tags</span>
+                  <button onClick={() => setShowTagPicker(false)} className="text-gray-600 hover:text-gray-400 p-0.5 rounded-md hover:bg-gray-800 transition-colors">
+                    <IconX size={12} />
+                  </button>
                 </div>
-                <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+                <div className="space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
                   {tags.length === 0 ? (
-                    <p className="text-[10px] text-white/20 text-center py-4">No tags created yet</p>
+                    <div className="flex flex-col items-center justify-center py-4 px-2 text-center opacity-40">
+                      <IconTag size={20} className="mb-1" />
+                      <p className="text-[10px]">No tags defined</p>
+                    </div>
                   ) : (
                     tags.map((tag) => {
                       const isSelected = item.tags.includes(tag.id)
@@ -210,16 +226,16 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
                         <button
                           key={tag.id}
                           onClick={() => toggleTagOnClip(item.id, tag.id)}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${
-                            isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/50'
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all active:scale-[0.98] ${
+                            isSelected ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/60 text-gray-500 hover:text-gray-300'
                           }`}
                         >
                           <div 
-                            className="w-2.5 h-2.5 rounded-full" 
+                            className="size-2 rounded-full ring-1 ring-white/10" 
                             style={{ backgroundColor: tag.color }} 
                           />
-                          <span className="text-xs flex-1 text-left truncate">{tag.name}</span>
-                          {isSelected && <span className="text-[10px] text-brand-400">✓</span>}
+                          <span className="text-[12px] flex-1 text-left truncate font-medium">{tag.name}</span>
+                          {isSelected && <IconCheck size={12} className="text-brand-400" />}
                         </button>
                       )
                     })
@@ -236,28 +252,31 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
 
 // ─── Action Button ────────────────────────────────────────────────────────
 interface ActionBtnProps {
-  icon: string
+  icon: React.FC<{ size?: number; className?: string }>
   label: string
   onClick: () => void
   active?: boolean
   danger?: boolean
-  variant?: 'heart' | 'default'
 }
 
-const ActionBtn: React.FC<ActionBtnProps> = ({ icon, label, onClick, active, danger }) => (
+const ActionBtn: React.FC<ActionBtnProps> = ({ icon: Icon, label, onClick, active, danger }) => (
   <button
     title={label}
-    onClick={onClick}
-    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all duration-150 ${
+    onClick={(e) => {
+      e.stopPropagation()
+      onClick()
+    }}
+    className={`size-7 rounded-md flex items-center justify-center transition-all duration-150 active:scale-75 ${
       danger
-        ? 'hover:bg-red-500/20 hover:text-red-400 text-white/40'
+        ? 'hover:bg-red-500/10 text-gray-500 hover:text-red-400'
         : active
-        ? 'bg-brand-500/20 text-brand-400'
-        : 'hover:bg-white/10 text-white/40 hover:text-white/80'
+        ? 'bg-brand-500/15 text-brand-400 border border-brand-500/20 shadow-sm'
+        : 'hover:bg-gray-800 text-gray-500 hover:text-gray-200'
     }`}
   >
-    {icon}
+    <Icon size={15} />
   </button>
 )
 
 export default EntryCard
+
