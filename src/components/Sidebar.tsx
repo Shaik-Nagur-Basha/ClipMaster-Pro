@@ -1,4 +1,5 @@
 import React from 'react'
+import logoIcon from '@/assets/icon.png'
 import { useClipStore } from '../store/useClipStore'
 import FilterPanel from './FilterPanel'
 import TagManager from './TagManager'
@@ -25,8 +26,35 @@ const Sidebar: React.FC = () => {
   const { 
     activePage, setActivePage, clips, 
     mongoConnected, atlasConnected, 
-    syncState, loadClips, loadSettings 
+    syncState, loadClips, loadSettings,
+    settings
   } = useClipStore()
+
+  const latestClipTimestamp = React.useMemo(() => {
+    if (clips.length === 0) return 0
+    // Include all non-deleted clips for sync reference
+    const validClips = clips.filter(c => !c.isDeleted)
+    if (validClips.length === 0) return 0
+    return Math.max(...validClips.map(c => new Date(c.updatedAt || c.timestamp).getTime()))
+  }, [clips])
+
+  const localHealth = React.useMemo(() => {
+    if (!settings.mongoEnabled || !mongoConnected) return 'error'
+    if (!syncState.lastLocalSyncedAt || !latestClipTimestamp) return 'ok'
+    return new Date(syncState.lastLocalSyncedAt).getTime() >= latestClipTimestamp ? 'ok' : 'stale'
+  }, [settings.mongoEnabled, mongoConnected, syncState.lastLocalSyncedAt, latestClipTimestamp])
+
+  const cloudHealth = React.useMemo(() => {
+    if (!settings.atlasEnabled || !atlasConnected) return 'error'
+    if (!syncState.lastCloudSyncedAt || !latestClipTimestamp) return 'ok'
+    return new Date(syncState.lastCloudSyncedAt).getTime() >= latestClipTimestamp ? 'ok' : 'stale'
+  }, [settings.atlasEnabled, atlasConnected, syncState.lastCloudSyncedAt, latestClipTimestamp])
+
+  const getStatusColor = (health: 'error' | 'stale' | 'ok') => {
+    if (health === 'error') return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+    if (health === 'stale') return 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+    return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+  }
 
   const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'
 
@@ -45,12 +73,13 @@ const Sidebar: React.FC = () => {
     <aside className="w-56 shrink-0 flex flex-col bg-surface-900 border-r border-gray-700 h-full overflow-hidden">
       {/* Logo */}
       <div className="px-4 py-4 border-b border-gray-700">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <img 
-            src="/icon.png" 
+            src={logoIcon} 
             alt="ClipMaster Logo" 
-            className="size-9 shrink-0 drop-shadow-lg" 
+            className="size-9 mb-1 shrink-0 drop-shadow-lg" 
           />
+
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-white tracking-tight leading-none">ClipMaster</h1>
             <p className="text-[10px] text-brand-400 font-bold uppercase tracking-wider mt-0.5">Pro Edition</p>
@@ -66,13 +95,8 @@ const Sidebar: React.FC = () => {
           return (
             <button
               key={page}
-              onClick={async () => {
+              onClick={() => {
                 setActivePage(page)
-                if (page === 'settings') {
-                  loadSettings()
-                } else {
-                  loadClips()
-                }
               }}
               className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 active:scale-95 group ${
                 isActive
@@ -91,7 +115,7 @@ const Sidebar: React.FC = () => {
               </div>
               {count !== null && count > 0 && (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold tabular-nums transition-all duration-300 border backdrop-blur-md shadow-sm ${
+                  className={`text-[10px] px-2 pt-0.5 rounded-full font-bold tabular-nums transition-all duration-300 border backdrop-blur-md shadow-sm ${
                     isActive
                       ? page === 'recycle'
                         ? 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -116,29 +140,42 @@ const Sidebar: React.FC = () => {
       </div>
 
       {/* Bottom status */}
-      <div className="px-4 py-2 border-t border-gray-700 bg-surface-800/50">
-        <div className="flex items-center justify-between">
+      <div className="px-4 py-3 border-t border-gray-700 bg-surface-800/50 space-y-2.5">
+        <div className="flex items-center gap-2 px-1 mb-1">
+          <IconZap size={10} className="text-brand-500" />
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em]">Sync Health</span>
+        </div>
+
+        {/* Local Status */}
+        <div className="flex items-center justify-between group/local cursor-default">
           <div className="flex items-center gap-2">
             <div className="relative">
-              <span
-                className={`block w-1.5 h-1.5 rounded-full ${
-                  mongoConnected ? 'bg-accent-500' : 'bg-gray-600'
-                }`}
-              />
-              {mongoConnected && (
-                <span className="absolute inset-0 rounded-full bg-accent-500 animate-ping opacity-40 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+              <span className={`block w-1.5 h-1.5 rounded-full transition-all duration-500 ${getStatusColor(localHealth)}`} />
+              {localHealth === 'ok' && (
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />
               )}
             </div>
-            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-tight">
-              {mongoConnected ? 'Synced' : 'Local'}
-            </span>
+            <span className="text-[10px] font-bold text-gray-400 group-hover/local:text-gray-300 transition-colors uppercase tracking-tight">Local</span>
           </div>
-          <div className="flex items-center gap-1.5 text-gray-500">
-            <IconClock size={11} />
-            <span className="text-[10px] font-medium tracking-tight">
-              {atlasConnected ? fmtTime(syncState.lastSyncedAt) : '--:--'}
-            </span>
+          <span className="text-[10px] font-semibold tabular-nums text-gray-500 group-hover/local:text-brand-400 transition-colors">
+            {syncState.lastLocalSyncedAt ? fmtTime(syncState.lastLocalSyncedAt) : 'OFF'}
+          </span>
+        </div>
+
+        {/* Cloud Status */}
+        <div className="flex items-center justify-between group/cloud cursor-default">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <span className={`block w-1.5 h-1.5 rounded-full transition-all duration-500 ${getStatusColor(cloudHealth)}`} />
+              {cloudHealth === 'ok' && (
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-gray-400 group-hover/cloud:text-gray-300 transition-colors uppercase tracking-tight">Cloud</span>
           </div>
+          <span className="text-[10px] font-semibold tabular-nums text-gray-500 group-hover/cloud:text-brand-400 transition-colors">
+            {syncState.lastCloudSyncedAt ? fmtTime(syncState.lastCloudSyncedAt) : 'OFF'}
+          </span>
         </div>
       </div>
     </aside>

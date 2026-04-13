@@ -24,12 +24,14 @@ const clipAPI = {
 
   // ── Sync ──────────────────────────────────────────────────────────────
   getSyncState:  (): Promise<SyncState>               => ipcRenderer.invoke('get-sync-state'),
-  triggerSync:   (): Promise<SyncState>               => ipcRenderer.invoke('trigger-sync'),
+  triggerSync:   (target?: 'local' | 'atlas' | 'all'): Promise<SyncState> => ipcRenderer.invoke('trigger-sync', target),
   mongoConnect:  (uri: string): Promise<boolean>      => ipcRenderer.invoke('mongo-connect', uri),
   atlasConnect:  (uri: string): Promise<boolean>      => ipcRenderer.invoke('atlas-connect', uri),
   mongoStatus:   (): Promise<boolean>                 => ipcRenderer.invoke('mongo-status'),
   atlasStatus:   (): Promise<boolean>                 => ipcRenderer.invoke('atlas-status'),
   mongoSyncAll:  (): Promise<boolean>                 => ipcRenderer.invoke('mongo-sync-all'),
+  mongoDisconnect: (): Promise<boolean>               => ipcRenderer.invoke('mongo-disconnect'),
+  atlasDisconnect: (): Promise<boolean>                => ipcRenderer.invoke('atlas-disconnect'),
 
   // ── External ──────────────────────────────────────────────────────────
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),

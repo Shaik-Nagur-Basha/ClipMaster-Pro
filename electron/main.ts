@@ -3,9 +3,13 @@ import {
   Menu, nativeImage, Tray, shell
 } from 'electron'
 import { join } from 'path'
-import { storageManager } from './storage'
+import { getDataDir, storageManager } from './storage'
 import { syncManager }    from './syncManager'
 import type { ClipboardItem, SyncState } from '../src/types'
+
+// ─── Environment Setup ─────────────────────────────────────────────────────
+// Ensure userData path matches our storage logic early in the lifecycle
+app.setPath('userData', getDataDir())
 
 // ─── Singleton guard ────────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock()
@@ -175,12 +179,13 @@ function registerIPC(): void {
   // ── Sync Control ─────────────────────────────────────────────────────────
   ipcMain.handle('get-sync-state', () => syncManager.getState())
 
-  ipcMain.handle('trigger-sync', async () => {
+  ipcMain.handle('trigger-sync', async (_e, target: 'local' | 'atlas' | 'all' = 'all') => {
     const state = await syncManager.runSync(
       () => storageManager.readAll(),
-      items => storageManager.mergeItems(items)
+      items => storageManager.mergeItems(items),
+      true, // force: true
+      target
     )
-    mainWindow?.webContents.send('sync-update', state)
     return state
   })
 
@@ -197,7 +202,7 @@ function registerIPC(): void {
     return ok
   })
 
-  ipcMain.handle('atlas-connect', async (_e, uri: string) => {
+  ipcMain.handle('atlas-connect', async (_, uri) => {
     const ok = await syncManager.connectAtlas(uri)
     if (ok) {
       await storageManager.saveSettings({ atlasEnabled: true, atlasUri: uri })
@@ -205,20 +210,24 @@ function registerIPC(): void {
       await syncManager.bootstrapSync(
         () => storageManager.readAll(),
         items => storageManager.mergeItems(items)
-      )
+      ).catch(() => {})
     }
     return ok
   })
 
-  ipcMain.handle('mongo-status',   () => syncManager.isLocalConnected())
-  ipcMain.handle('atlas-status',   () => syncManager.isAtlasConnected())
-  ipcMain.handle('mongo-sync-all', async () => {
-    await syncManager.runSync(
-      () => storageManager.readAll(),
-      items => storageManager.mergeItems(items)
-    )
+  ipcMain.handle('atlas-disconnect', async () => {
+    await syncManager.disconnectAtlas()
     return true
   })
+
+  ipcMain.handle('mongo-disconnect', async () => {
+    await syncManager.disconnectLocal()
+    return true
+  })
+
+  ipcMain.handle('mongo-status',   () => syncManager.isLocalConnected())
+  ipcMain.handle('atlas-status',   () => syncManager.isAtlasConnected())
+
 
   ipcMain.handle('open-external', (_e, url: string) => { shell.openExternal(url) })
 
@@ -245,10 +254,20 @@ app.whenReady().then(async () => {
   createWindow()
   createTray()
 
-  // ════ 4. Auto-connect MongoDB layers ════
+  // ════ 4. Auto-connect & Auto-detect MongoDB layers ════
   const settings = storageManager.getSettings()
+  
+  // Hydrate initial sync state from disk before connecting
+  syncManager.initSyncState({ 
+    lastLocalSyncedAt: settings.lastLocalSyncedAt || null,
+    lastCloudSyncedAt: settings.lastCloudSyncedAt || null
+  })
 
-  if (settings.mongoEnabled && settings.mongoUri) {
+  // 1. First Launch Auto-detection
+  await syncManager.autoDetectLocalMongo(() => storageManager.readAll())
+
+  // 2. Connect Local Mongo if enabled OR URI exists
+  if (settings.mongoEnabled || settings.mongoUri) {
     syncManager.connectLocal(settings.mongoUri).then(ok => {
       if (ok) {
         syncManager.bootstrapSync(
@@ -259,8 +278,9 @@ app.whenReady().then(async () => {
     }).catch(() => {})
   }
 
-  if (settings.atlasEnabled && settings.atlasUri) {
-    syncManager.connectAtlas(settings.atlasUri).then(ok => {
+  // 3. Connect Atlas Cloud if URI exists (Trigger full connect action)
+  if (settings.atlasUri) {
+    syncManager.connectAtlas(settings.atlasUri).then(async ok => {
       if (ok) {
         syncManager.bootstrapSync(
           () => storageManager.readAll(),
@@ -273,11 +293,17 @@ app.whenReady().then(async () => {
   // ════ 5. Subscribe sync state updates → renderer ════
   syncManager.onStateChange((state: SyncState) => {
     mainWindow?.webContents.send('sync-update', state)
+    
+    // Authoritative persistence of sync timestamps (including null)
+    storageManager.saveSettings({ 
+        lastLocalSyncedAt: state.lastLocalSyncedAt,
+        lastCloudSyncedAt: state.lastCloudSyncedAt,
+        latestSyncedAt: state.latestSyncedAt
+    }).catch(() => {})
   })
 
   // ════ 6. Start background sync + clipboard polling ════
   syncManager.startBackgroundSync(
-    settings.syncInterval ?? 30,
     () => storageManager.readAll(),
     items => storageManager.mergeItems(items)
   )

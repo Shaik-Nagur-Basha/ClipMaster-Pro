@@ -16,6 +16,7 @@
  */
 
 import { net } from 'electron'
+import { storageManager } from './storage'
 import mongoose, { Schema, model, Document, Model } from 'mongoose'
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto'
 import type { ClipboardItem, SyncState, SyncQueueEntry } from '../src/types'
@@ -82,11 +83,19 @@ const clipSchemaDefinition = {
   syncedAt:      { type: String, default: () => new Date().toISOString() }
 }
 
+const tagSchemaDefinition = {
+  tagId: { type: String, required: true, unique: true, index: true },
+  name:  { type: String, required: true },
+  color: { type: String, required: true },
+  syncedAt: { type: String, default: () => new Date().toISOString() }
+}
+
 // ─── Mongoose Connection Factory ───────────────────────────────────────────
 // We use SEPARATE Mongoose connections so local + Atlas can run simultaneously.
 class MongoConnection {
   private conn: mongoose.Connection | null = null
   private ClipModel: Model<ClipDoc> | null = null
+  private TagModel: Model<any> | null = null
   private _connected = false
   private _label: string
 
@@ -115,9 +124,12 @@ class MongoConnection {
         w: 'majority'
       }).asPromise()
 
-      // Create model on this specific connection
-      const schema = new Schema<ClipDoc>(clipSchemaDefinition, { collection: 'clips' })
-      this.ClipModel = this.conn.model<ClipDoc>('Clip', schema)
+      // Create models on this specific connection
+      const clipSchema = new Schema<ClipDoc>(clipSchemaDefinition, { collection: 'clips' })
+      this.ClipModel = this.conn.model<ClipDoc>('Clip', clipSchema)
+
+      const tagSchema = new Schema(tagSchemaDefinition, { collection: 'tags' })
+      this.TagModel = this.conn.model('Tag', tagSchema)
 
       this._connected = true
       console.log(`[Sync:${this._label}] Connected to ${maskUri(uri)}`)
@@ -135,6 +147,18 @@ class MongoConnection {
 
   get model(): Model<ClipDoc> | null {
     return this.ClipModel
+  }
+
+  async getServerTime(): Promise<string | null> {
+    if (!this.conn || !this.connected) return null
+    try {
+      if (!this.conn || !this.conn.db) return null
+      // retrieves server's current time using basic db command (permits non-admins)
+      const result = await (this.conn.db as any).command({ hello: 1 })
+      return result.localTime ? new Date(result.localTime).toISOString() : null
+    } catch {
+      return null
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -193,6 +217,35 @@ class MongoConnection {
     if (!this.connected || !this.ClipModel) return
     await this.ClipModel.deleteOne({ clipId: id })
   }
+
+  async syncTags(tags: any[]): Promise<void> {
+    if (!this.connected || !this.TagModel || tags.length === 0) return
+    const ops = tags.map(tag => ({
+      updateOne: {
+        filter: { tagId: tag.id },
+        update: {
+          $set: {
+            tagId: tag.id,
+            name: tag.name,
+            color: tag.color,
+            syncedAt: new Date().toISOString()
+          }
+        },
+        upsert: true
+      }
+    }))
+    await this.TagModel.bulkWrite(ops, { ordered: false })
+  }
+
+  async fetchTags(): Promise<any[]> {
+    if (!this.connected || !this.TagModel) return []
+    const docs = await this.TagModel.find({}).lean()
+    return docs.map((d: any) => ({
+      id: d.tagId,
+      name: d.name,
+      color: d.color
+    }))
+  }
 }
 
 // ─── Conflict Resolution ───────────────────────────────────────────────────
@@ -250,20 +303,26 @@ class SyncManager {
   private deleteQueue: Set<string> = new Set()                 // IDs for permanent delete
   private syncTimer: NodeJS.Timeout | null = null
   private retryTimer: NodeJS.Timeout | null = null
-  private isSyncing = false
+  private isLocalSyncing = false
+  private isAtlasSyncing = false
 
   private state: SyncState = {
     localMongo: 'idle',
     atlas: 'idle',
-    lastSyncedAt: null,
-    pendingCount: 0
+    lastLocalSyncedAt: null,
+    lastCloudSyncedAt: null,
+    latestSyncedAt: null,
   }
 
   private stateListeners: Array<(s: SyncState) => void> = []
 
   // ── State Broadcasting ──────────────────────────────────────────────────
+  initSyncState(state: Partial<SyncState>): void {
+    this.state = { ...this.state, ...state }
+  }
+
   private emitState(patch: Partial<SyncState>): void {
-    this.state = { ...this.state, ...patch, pendingCount: this.syncQueue.size + this.deleteQueue.size }
+    this.state = { ...this.state, ...patch }
     this.stateListeners.forEach(fn => fn({ ...this.state }))
   }
 
@@ -273,15 +332,55 @@ class SyncManager {
   }
 
   getState(): SyncState {
-    return { ...this.state, pendingCount: this.syncQueue.size + this.deleteQueue.size }
+    return { ...this.state }
   }
 
   // ── Connection Management ───────────────────────────────────────────────
-  async connectLocal(uri: string): Promise<boolean> {
+  async connectLocal(uri: string | null): Promise<boolean> {
+    const finalUri = uri || 'mongodb://127.0.0.1:27017/clipmaster'
     this.emitState({ localMongo: 'syncing' })
-    const ok = await this.localConn.connect(uri, false)
-    this.emitState({ localMongo: ok ? 'idle' : 'error' })
+    const ok = await this.localConn.connect(finalUri, false)
+    this.emitState({ 
+      localMongo: ok ? 'idle' : 'error'
+    })
     return ok
+  }
+
+  async disconnectLocal(): Promise<void> {
+    await this.localConn.disconnect()
+    this.emitState({ 
+      localMongo: 'idle', 
+      lastLocalSyncedAt: null,
+      latestSyncedAt: this.state.lastCloudSyncedAt // fallback to cloud sync if local wiped
+    })
+  }
+
+  async disconnectAtlas(): Promise<void> {
+    await this.atlasConn.disconnect()
+    this.emitState({ 
+      atlas: 'idle', 
+      lastCloudSyncedAt: null,
+      latestSyncedAt: this.state.lastLocalSyncedAt // fallback to local sync if cloud wiped
+    })
+  }
+
+  async autoDetectLocalMongo(getAllJSON: () => ClipboardItem[]): Promise<void> {
+    const settings = storageManager.getSettings()
+    // Requirement 3: Try connect to default mongo on first app launch
+    if (settings.lastLocalSyncedAt === null) {
+      console.log('[Sync] First launch detected, attempting local Mongo connection...')
+      const ok = await this.connectLocal(null)
+      if (ok) {
+        await storageManager.saveSettings({ 
+          mongoEnabled: true, 
+          mongoUri: 'mongodb://127.0.0.1:27017/clipmaster',
+          lastLocalSyncedAt: new Date().toISOString()
+        })
+        await this.runSync(getAllJSON, async (items) => {
+          await storageManager.mergeItems(items)
+        })
+      }
+    }
   }
 
   async connectAtlas(uri: string): Promise<boolean> {
@@ -319,108 +418,189 @@ class SyncManager {
   // ── Core Sync Flow ──────────────────────────────────────────────────────
   /**
    * Run one complete sync cycle:
-   *   1. Drain queue to Local MongoDB (if connected)
-   *   2. Drain queue to Atlas (if connected + internet)
-   *   3. Two-way merge from Atlas → JSON (conflict resolution)
+   *   1. Determine latest clip timestamp
+   *   2. Sync to Local MongoDB (if enabled + condition met)
+   *   3. Sync to Atlas (if enabled + condition met + internet)
    */
-  async runSync(getAllJSON: () => ClipboardItem[], mergeIntoJSON: (items: ClipboardItem[]) => Promise<void>): Promise<SyncState> {
-    if (this.isSyncing) return this.getState()
-    this.isSyncing = true
+  async runSync(
+    getAllJSON: () => ClipboardItem[], 
+    mergeIntoJSON: (items: ClipboardItem[]) => Promise<void>, 
+    force: boolean = false,
+    target: 'local' | 'atlas' | 'all' = 'all'
+  ): Promise<SyncState> {
+    const alreadyLocal = (target === 'all' || target === 'local') && this.isLocalSyncing
+    const alreadyAtlas = (target === 'all' || target === 'atlas') && this.isAtlasSyncing
+    
+    // If targeted layer is already busy, we return to avoid overlapping the SAME layer.
+    // However, if we only target local, and atlas is busy, it's OK to proceed with local!
+    if (target === 'local' && alreadyLocal) return this.getState()
+    if (target === 'atlas' && alreadyAtlas) return this.getState()
+    if (target === 'all' && (alreadyLocal || alreadyAtlas)) return this.getState()
 
-    const queueSnapshot = new Map(this.syncQueue)
-    const deleteSnapshot = new Set(this.deleteQueue)
-    const upsertItems = Array.from(queueSnapshot.values())
-      .filter(e => e.operation !== 'permanent-delete')
-      .map(e => e.item)
-    const deleteIds = Array.from(deleteSnapshot)
+    if (target === 'all' || target === 'local') this.isLocalSyncing = true
+    if (target === 'all' || target === 'atlas') this.isAtlasSyncing = true
 
-    // ── Layer 2: Local MongoDB ────────────────────────────────────────────
-    if (this.localConn.connected) {
-      this.emitState({ localMongo: 'syncing' })
-      try {
-        if (upsertItems.length > 0) {
-          await this.localConn.upsertBulk(upsertItems)
-        }
-        for (const id of deleteIds) {
-          await this.localConn.permanentDelete(id)
-        }
-        // Clear from queue on success
-        queueSnapshot.forEach((_, id) => this.syncQueue.delete(id))
-        deleteSnapshot.forEach(id => this.deleteQueue.delete(id))
-        this.emitState({ localMongo: 'idle' })
-      } catch (err) {
-        console.error('[Sync:local] Failed:', (err as Error).message)
-        this.emitState({ localMongo: 'error' })
-        // Increment retry counter — don't clear queue
-        upsertItems.forEach(item => {
-          const entry = this.syncQueue.get(item.id)
-          if (entry) entry.retries++
-        })
-      }
-    }
+    try {
+      const settings = storageManager.getSettings()
+      const localItems = getAllJSON()
+      const localTags = storageManager.getTags()
+      
+      const latestClipTimestamp = localItems.length > 0 
+        ? Math.max(...localItems.map(i => new Date(i.updatedAt || i.timestamp).getTime()))
+        : 0
 
-    // ── Layer 3: Atlas ────────────────────────────────────────────────────
-    if (this.atlasConn.connected) {
-      const online = await isInternetAvailable()
-      if (!online) {
-        this.emitState({ atlas: 'offline' })
-      } else {
-        this.emitState({ atlas: 'syncing' })
-        try {
-          // Step A: Push local changes to Atlas
-          const currentJSON = getAllJSON()
-          if (currentJSON.length > 0 || upsertItems.length > 0) {
-            const toPush = upsertItems.length > 0 ? upsertItems : currentJSON
-            await this.atlasConn.upsertBulk(toPush)
-          }
-          for (const id of deleteIds) {
-            await this.atlasConn.permanentDelete(id)
-          }
+      // ─── Layer 2: Local MongoDB ────────────────────────────────────────────
+      const shouldLocal = target === 'all' || target === 'local'
+      if (shouldLocal && this.localConn.connected && settings.mongoEnabled) {
+        const lastLocal = settings.lastLocalSyncedAt ? new Date(settings.lastLocalSyncedAt).getTime() : 0
+        const isOutdated = lastLocal < latestClipTimestamp
+        
+        if (isOutdated || force || this.syncQueue.size > 0 || this.deleteQueue.size > 0) {
+          this.emitState({ localMongo: 'syncing' })
+          try {
+            await this.localConn.upsertBulk(localItems)
+            await this.localConn.syncTags(localTags)
+            for (const id of Array.from(this.deleteQueue)) await this.localConn.permanentDelete(id)
+            
+            const now = new Date().toISOString()
+            
+            // Persist to JSON file
+            storageManager.saveSettings({ lastLocalSyncedAt: now })
 
-          // Step B: Pull from Atlas, merge into JSON (two-way sync)
-          const remoteItems = await this.atlasConn.fetchAll()
-          if (remoteItems.length > 0) {
-            const localItems = getAllJSON()
-            const merged = mergeItems(localItems, remoteItems)
-            // Only write back if there are actual differences
-            const localIds = new Set(localItems.map(i => i.id))
-            const hasNew = remoteItems.some(r => !localIds.has(r.id))
-            const hasNewer = remoteItems.some(r => {
-              const local = localItems.find(l => l.id === r.id)
-              if (!local) return false
-              return new Date(r.updatedAt ?? r.timestamp).getTime() >
-                     new Date(local.updatedAt ?? local.timestamp).getTime()
+            this.emitState({ 
+              localMongo: 'idle', 
+              lastLocalSyncedAt: now,
+              latestSyncedAt: now
             })
-            if (hasNew || hasNewer) {
-              await mergeIntoJSON(merged)
-              console.log(`[Sync:atlas] Merged ${merged.length} items (${remoteItems.length} remote)`)
-            }
+          } catch (err) {
+            console.error('[Sync:local] Failed:', (err as Error).message)
+            this.emitState({ localMongo: 'error' })
           }
-
-          this.emitState({ atlas: 'idle', lastSyncedAt: new Date().toISOString() })
-        } catch (err) {
-          console.error('[Sync:atlas] Failed:', (err as Error).message)
-          this.emitState({ atlas: 'error' })
+        } else {
+          this.emitState({ localMongo: 'idle' })
         }
+      } else if (!settings.mongoEnabled) {
+        this.emitState({ localMongo: 'idle' })
       }
+
+      // ─── Layer 3: Atlas Cloud ──────────────────────────────────────────────
+      const shouldAtlas = target === 'all' || target === 'atlas'
+      
+      if (shouldAtlas && this.atlasConn.connected && settings.atlasEnabled) {
+        const isOnline = await isInternetAvailable()
+        if (!isOnline) {
+          this.emitState({ atlas: 'offline' })
+        } else {
+          const lastCloud = settings.lastCloudSyncedAt ? new Date(settings.lastCloudSyncedAt).getTime() : 0
+          const isOutdated = lastCloud < latestClipTimestamp
+          
+          if (isOutdated || force || this.syncQueue.size > 0 || this.deleteQueue.size > 0) {
+            this.emitState({ atlas: 'syncing' })
+            try {
+              // 1. Push
+              await this.atlasConn.upsertBulk(localItems)
+              await this.atlasConn.syncTags(localTags)
+              
+              // Process deletions for Atlas
+              for (const id of Array.from(this.deleteQueue)) {
+                await this.atlasConn.permanentDelete(id)
+              }
+              
+              // 2. Pull & Merge
+              const remoteItems = await this.atlasConn.fetchAll()
+              const remoteTags = await this.atlasConn.fetchTags()
+
+              if (remoteItems.length > 0) {
+                const merged = mergeItems(localItems, remoteItems)
+                await mergeIntoJSON(merged)
+              }
+              if (remoteTags.length > 0) {
+                // Simplistic tag merge: Atlas wins for simplicity in this scope
+                await storageManager.saveTags(remoteTags)
+              }
+
+              const now = new Date().toISOString()
+              
+              // Persist to JSON file
+              storageManager.saveSettings({ lastCloudSyncedAt: now })
+
+              this.emitState({ 
+                atlas: 'idle', 
+                lastCloudSyncedAt: now,
+                latestSyncedAt: now
+              })
+            } catch (err) {
+              console.error('[Sync:atlas] Failed:', (err as Error).message)
+              this.emitState({ atlas: 'error' })
+            }
+          } else {
+            this.emitState({ atlas: 'idle' })
+          }
+        }
+      } else if (!settings.atlasEnabled) {
+        this.emitState({ atlas: 'idle' })
+      }
+
+      // ─── Finalize Queues ──────────────────────────────────────────────────
+      // Only clear the shared queues if ALL active layers succeeded.
+      // If we only targeted 'local', we cannot clear yet because 'atlas' might still need that data.
+      const atlasMet = !settings.atlasEnabled || (this.atlasConn.connected && this.state.atlas === 'idle')
+      const localMet = !settings.mongoEnabled || (this.localConn.connected && this.state.localMongo === 'idle')
+      
+      if (localMet && atlasMet) {
+        this.syncQueue.clear()
+        this.deleteQueue.clear()
+      }
+
+    } finally {
+      if (target === 'all' || target === 'local') this.isLocalSyncing = false
+      if (target === 'all' || target === 'atlas') this.isAtlasSyncing = false
+      this.emitState({})
     }
 
-    this.isSyncing = false
     return this.getState()
+  }
+
+  resetLocalSync(): void {
+    storageManager.saveSettings({ 
+      lastLocalSyncedAt: null,
+      mongoEnabled: false
+    })
+    this.emitState({ 
+      localMongo: 'idle',
+      lastLocalSyncedAt: null 
+    })
+    console.log('[Sync] Local MongoDB sync reset')
+  }
+
+  resetCloudSync(): void {
+    storageManager.saveSettings({ 
+      lastCloudSyncedAt: null,
+      atlasEnabled: false
+    })
+    this.emitState({ 
+      atlas: 'idle',
+      lastCloudSyncedAt: null 
+    })
+    console.log('[Sync] Atlas cloud sync reset')
   }
 
   // ── Background Sync ─────────────────────────────────────────────────────
   startBackgroundSync(
-    intervalSeconds: number,
     getAllJSON: () => ClipboardItem[],
     mergeIntoJSON: (items: ClipboardItem[]) => Promise<void>
   ): void {
     this.stopBackgroundSync()
-    const ms = Math.max(intervalSeconds, 10) * 1000  // minimum 10s
+    const ms = 30 * 1000 // Hardcoded 30s as per requirement
     this.syncTimer = setInterval(() => {
-      this.runSync(getAllJSON, mergeIntoJSON).catch(() => {})
+      this.runSync(getAllJSON, mergeIntoJSON).catch(err => {
+        console.error('[Sync:background] Pulse failed:', err.message)
+      })
     }, ms)
-    console.log(`[Sync] Background sync started every ${intervalSeconds}s`)
+    console.log(`[Sync] Background heartbeat started every 30s`)
+
+    // IMPORTANT: Run immediately on start (no 30s delay)
+    this.runSync(getAllJSON, mergeIntoJSON).catch(() => {})
 
     // Retry failed queue items every 60s
     this.retryTimer = setInterval(() => {
@@ -445,18 +625,26 @@ class SyncManager {
     mergeIntoJSON: (items: ClipboardItem[]) => Promise<void>
   ): Promise<void> {
     const localItems = getAllJSON()    
+    const localTags = storageManager.getTags()
 
     // Pull from Local MongoDB if available
     if (this.localConn.connected) {
       try {
         const mongoItems = await this.localConn.fetchAll()
+        const mongoTags = await this.localConn.fetchTags()
+
         if (mongoItems.length > 0) {
           const merged = mergeItems(localItems, mongoItems)
-          if (merged.length !== localItems.length) {
-            await mergeIntoJSON(merged)
-            console.log(`[Sync:bootstrap] Merged ${mongoItems.length} items from local Mongo`)
-          }
+          await mergeIntoJSON(merged)
         }
+        if (mongoTags.length > 0) {
+          await storageManager.saveTags(mongoTags)
+        }
+        
+        // Ensure Local is up to date too
+        await this.localConn.upsertBulk(getAllJSON())
+        await this.localConn.syncTags(storageManager.getTags())
+
       } catch (err) {
         console.warn('[Sync:bootstrap] Local Mongo pull failed:', (err as Error).message)
       }
@@ -464,18 +652,25 @@ class SyncManager {
 
     // Pull from Atlas if available + internet
     if (this.atlasConn.connected) {
-      const online = await isInternetAvailable()
-      if (online) {
+      const isOnline = await isInternetAvailable()
+      if (isOnline) {
         try {
           const atlasItems = await this.atlasConn.fetchAll()
+          const atlasTags = await this.atlasConn.fetchTags()
+
           if (atlasItems.length > 0) {
             const current = getAllJSON()
             const merged = mergeItems(current, atlasItems)
             await mergeIntoJSON(merged)
-            console.log(`[Sync:bootstrap] Merged ${atlasItems.length} items from Atlas`)
           }
-          // Push entire JSON to Atlas (ensures Atlas is up to date too)
+          if (atlasTags.length > 0) {
+            await storageManager.saveTags(atlasTags)
+          }
+
+          // Push entire updated state to Atlas
           await this.atlasConn.upsertBulk(getAllJSON())
+          await this.atlasConn.syncTags(storageManager.getTags())
+          
         } catch (err) {
           console.warn('[Sync:bootstrap] Atlas pull failed:', (err as Error).message)
         }
@@ -483,5 +678,6 @@ class SyncManager {
     }
   }
 }
+
 
 export const syncManager = new SyncManager()

@@ -26,21 +26,24 @@ const DEFAULT_FILTERS: FilterState = {
 const DEFAULT_SETTINGS: AppSettings = {
   autoLaunch:      false,
   mongoEnabled:    false,
-  mongoUri:        'mongodb://127.0.0.1:27017/clipmaster',
+  mongoUri:        null,
   atlasEnabled:    false,
-  atlasUri:        '',
+  atlasUri:        null,
   maxEntries:      5000,
   pollingInterval: 600,
-  syncInterval:    30,
   viewMode:        'list',
-  displayMode:     'preview'
+  displayMode:     'preview',
+  lastLocalSyncedAt: null,
+  lastCloudSyncedAt: null,
+  latestSyncedAt:    null
 }
 
 const DEFAULT_SYNC_STATE: SyncState = {
   localMongo:   'idle',
   atlas:        'idle',
-  lastSyncedAt: null,
-  pendingCount: 0
+  lastLocalSyncedAt: null,
+  lastCloudSyncedAt: null,
+  latestSyncedAt: null
 }
 
 export const useClipStore = create<ClipStore>((set, get) => ({
@@ -91,11 +94,19 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       const raw = await window.clipAPI.getSettings()
       const settings: AppSettings = { ...DEFAULT_SETTINGS, ...raw }
       console.log('[Store] loadSettings →', Object.keys(settings).join(', '))
-      set({
+      const ss = await window.clipAPI.getSyncState()
+      set((state) => ({
         settings,
         viewMode:    settings.viewMode    ?? 'list',
-        displayMode: settings.displayMode ?? 'preview'
-      })
+        displayMode: settings.displayMode ?? 'preview',
+        syncState: {
+          ...state.syncState,
+          ...ss,
+          lastLocalSyncedAt: settings.lastLocalSyncedAt || ss.lastLocalSyncedAt,
+          lastCloudSyncedAt: settings.lastCloudSyncedAt || ss.lastCloudSyncedAt,
+          latestSyncedAt:    settings.latestSyncedAt    || ss.latestSyncedAt
+        }
+      }))
     } catch (err) {
       console.error('[Store] loadSettings failed:', err)
     }
@@ -180,9 +191,32 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setSelectedClip:  (id: string | null)     => set({ selectedClipId: id }),
   setEditingClip:   (id: string | null)     => set({ editingClipId: id }),
   setMongoConnected: (v: boolean)           => set({ mongoConnected: v }),
-  setAtlasConnected: (v: boolean)           => set({ atlasConnected: v }),
-  setSyncState:     (patch: Partial<SyncState>) =>
-    set((state) => ({ syncState: { ...state.syncState, ...patch } })),
+  setAtlasConnected: (v: boolean) => {
+    if (!v) {
+      // Clear persistent sync time on disconnect
+      get().saveSettings({ lastCloudSyncedAt: null });
+      set((state) => ({ 
+        atlasConnected: false, 
+        syncState: { ...state.syncState, lastCloudSyncedAt: null } 
+      }));
+    } else {
+      set({ atlasConnected: true });
+    }
+  },
+  setSyncState: (patch: Partial<SyncState>) => {
+    const state = get()
+    const next = { ...state.syncState, ...patch }
+    const toPersist: Partial<AppSettings> = {}
+    
+    if (patch.lastLocalSyncedAt !== undefined) toPersist.lastLocalSyncedAt = patch.lastLocalSyncedAt
+    if (patch.lastCloudSyncedAt !== undefined) toPersist.lastCloudSyncedAt = patch.lastCloudSyncedAt
+    if (patch.latestSyncedAt !== undefined)    toPersist.latestSyncedAt    = patch.latestSyncedAt
+    
+    if (Object.keys(toPersist).length > 0) {
+      state.saveSettings(toPersist)
+    }
+    set({ syncState: next })
+  },
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId)

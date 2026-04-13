@@ -104,12 +104,18 @@ if (typeof window !== 'undefined' && !window.clipAPI) {
       autoLaunch: false, mongoEnabled: false,
       mongoUri: 'mongodb://127.0.0.1:27017/clipmaster',
       atlasEnabled: false, atlasUri: '',
-      maxEntries: 5000, pollingInterval: 600, syncInterval: 30,
+      maxEntries: 5000, pollingInterval: 600,
       viewMode: 'list' as const, displayMode: 'preview' as const
     }),
     saveSettings: noop_p,
     // Sync
-    getSyncState: async () => ({ localMongo: 'idle', atlas: 'idle', lastSyncedAt: null, pendingCount: 0 }),
+    getSyncState: async () => ({ 
+      localMongo: 'idle' as const, 
+      atlas: 'idle' as const, 
+      lastLocalSyncedAt: null,
+      lastCloudSyncedAt: null, 
+      latestSyncedAt: null 
+    }),
     triggerSync: noop_p,
     mongoConnect: noop_p,
     atlasConnect: noop_p,
@@ -163,7 +169,10 @@ function PageView() {
    Root App
 ───────────────────────────────────────────────────────────────────────────── */
 export default function App() {
-  const { loadClips, loadTags, loadSettings, addClipFromMain, setMongoConnected } = useClipStore()
+  const { 
+    loadClips, loadTags, loadSettings, 
+    addClipFromMain, setMongoConnected, setAtlasConnected, setSyncState 
+  } = useClipStore()
 
   useEffect(() => {
     // Load all data on mount
@@ -180,6 +189,17 @@ export default function App() {
     }
     checkMongo()
 
+    const checkAtlas = async () => {
+      try {
+        const s = await (window as any).clipAPI.getSettings()
+        if (s.atlasUri) {
+          const ok = await (window as any).clipAPI.atlasConnect(s.atlasUri)
+          setAtlasConnected(ok)
+        }
+      } catch { /* ignore */ }
+    }
+    checkAtlas()
+
     // Secondary load after a short delay (in case main process is still booting)
     const timer = setTimeout(() => {
       console.log('[App] Performing secondary clip load...');
@@ -187,11 +207,15 @@ export default function App() {
     }, 800)
 
     // Subscribe to new clips pushed from the main process
-    const unsub = (window.clipAPI.onNewClip ?? noop)((item: any) => addClipFromMain(item))
+    const unsubClips = (window.clipAPI.onNewClip ?? noop)((item: any) => addClipFromMain(item))
+
+    // Global sync update listener
+    const unsubSync = (window.clipAPI.onSyncUpdate ?? noop)((state: any) => setSyncState(state))
 
     return () => {
       clearTimeout(timer)
-      if (typeof unsub === 'function') unsub()
+      if (typeof unsubClips === 'function') unsubClips()
+      if (typeof unsubSync === 'function') unsubSync()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

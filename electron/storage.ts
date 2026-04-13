@@ -5,26 +5,42 @@ import { v4 as uuidv4 } from 'uuid'
 import type { ClipboardItem, Tag, AppSettings } from '../src/types'
 
 // ─── Path Resolution ───────────────────────────────────────────────────────
-function getDataDir(): string {
-  if (app.isPackaged) return join(app.getPath('userData'), 'data')
-  return join(process.cwd(), 'data')
+export function getDataDir(): string {
+  const isDev = !app.isPackaged
+  const isAllUsers = process.env.ALL_USERS === 'true'
+
+  if (isDev) {
+    return join(process.cwd(), 'data')
+  }
+
+  if (isAllUsers) {
+    // Use windows-standard shared data directory for All Users install
+    return join('C:\\ProgramData', app.getName(), 'data')
+  }
+
+  // Fallback to default Electron behavior (AppData/Roaming/{appName})
+  // We keep our files in a subfolder 'data' within userData for cleanliness
+  return join(app.getPath('userData'), 'data')
 }
+
 const getClipsPath    = () => join(getDataDir(), 'clipboard.json')
 const getTagsPath     = () => join(getDataDir(), 'tags.json')
 const getSettingsPath = () => join(getDataDir(), 'settings.json')
 
 // ─── Defaults ──────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS: AppSettings = {
-  autoLaunch:      false,
-  mongoEnabled:    false,
-  mongoUri:        'mongodb://127.0.0.1:27017/clipmaster',
-  atlasEnabled:    false,
-  atlasUri:        '',
-  maxEntries:      5000,
+  autoLaunch: false,
+  mongoEnabled: false,
+  mongoUri: null,
+  atlasEnabled: false,
+  atlasUri: null,
+  maxEntries: 5000,
   pollingInterval: 600,
-  syncInterval:    30,
-  viewMode:        'list',
-  displayMode:     'preview'
+  viewMode: "list",
+  displayMode: "preview",
+  lastLocalSyncedAt: null,
+  lastCloudSyncedAt: null,
+  latestSyncedAt: null
 }
 
 const DEFAULT_TAGS: Tag[] = [
@@ -58,7 +74,22 @@ class StorageManager {
 
     this.clipsCache    = this.readJSON<ClipboardItem[]>(getClipsPath(), [])
     this.tagsCache     = this.readJSON<Tag[]>(getTagsPath(), DEFAULT_TAGS)
-    this.settingsCache = { ...DEFAULT_SETTINGS, ...this.readJSON<Partial<AppSettings>>(getSettingsPath(), {}) }
+    
+    // Migration logic
+    const raw = this.readJSON<any>(getSettingsPath(), {})
+    const migratedSettings = { ...DEFAULT_SETTINGS, ...raw }
+    
+    // Migrate old field to both cloud tracking and latest pointer
+    if (raw.lastSyncedAt && !raw.lastCloudSyncedAt) {
+      migratedSettings.lastCloudSyncedAt = raw.lastSyncedAt
+      migratedSettings.latestSyncedAt    = raw.lastSyncedAt
+    }
+    
+    // Cleanup old internal flags if they exist
+    delete (migratedSettings as any).lastSyncedAt
+    delete (migratedSettings as any).firstLaunch
+
+    this.settingsCache = migratedSettings as AppSettings
   }
 
   // ── Internal helpers ────────────────────────────────────────────────────
@@ -128,7 +159,7 @@ class StorageManager {
     }
 
     this.clipsCache.unshift(item)
-    this.debouncedFlush()       // Layer 1 write (debounced for performance)
+    this.flush()                // Layer 1 write (immediate for new entries)
     return item
   }
 

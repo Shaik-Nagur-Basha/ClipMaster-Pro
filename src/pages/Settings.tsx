@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import logoIcon from '@/assets/icon.png'
 import { useClipStore } from '../store/useClipStore'
 import { 
   IconSettings, 
@@ -24,11 +25,30 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 const Settings: React.FC = () => {
   const {
-    settings, saveSettings, loadSettings,
+    settings, saveSettings, loadSettings, clips,
     mongoConnected, setMongoConnected,
     atlasConnected, setAtlasConnected,
-    syncState
+    syncState, setSyncState
   } = useClipStore()
+
+  const latestClipTimestamp = React.useMemo(() => {
+    if (clips.length === 0) return 0
+    const validClips = clips.filter(c => !c.isDeleted)
+    if (validClips.length === 0) return 0
+    return Math.max(...validClips.map(c => new Date(c.updatedAt || c.timestamp).getTime()))
+  }, [clips])
+
+  const localHealth = React.useMemo(() => {
+    if (!settings.mongoEnabled || !mongoConnected) return 'error'
+    if (!syncState.lastLocalSyncedAt || !latestClipTimestamp) return 'ok'
+    return new Date(syncState.lastLocalSyncedAt).getTime() >= latestClipTimestamp ? 'ok' : 'stale'
+  }, [settings.mongoEnabled, mongoConnected, syncState.lastLocalSyncedAt, latestClipTimestamp])
+
+  const cloudHealth = React.useMemo(() => {
+    if (!settings.atlasEnabled || !atlasConnected) return 'error'
+    if (!syncState.lastCloudSyncedAt || !latestClipTimestamp) return 'ok'
+    return new Date(syncState.lastCloudSyncedAt).getTime() >= latestClipTimestamp ? 'ok' : 'stale'
+  }, [settings.atlasEnabled, atlasConnected, syncState.lastCloudSyncedAt, latestClipTimestamp])
 
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [localUri, setLocalUri] = useState(settings.mongoUri ?? 'mongodb://127.0.0.1:27017/clipmaster')
@@ -36,7 +56,8 @@ const Settings: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [localConnecting, setLocalConnecting] = useState(false)
   const [atlasConnecting, setAtlasConnecting] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [localSyncing, setLocalSyncing] = useState(false)
+  const [atlasSyncing, setAtlasSyncing] = useState(false)
   const [localStatus, setLocalStatus] = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
   const [localError, setLocalError] = useState('')
   const [atlasStatus, setAtlasStatus] = useState<'idle'|'ok'|'fail'|'connecting'>('idle')
@@ -51,12 +72,15 @@ const Settings: React.FC = () => {
   useEffect(() => { setLocalUri(settings.mongoUri ?? 'mongodb://127.0.0.1:27017/clipmaster') }, [settings.mongoUri])
   useEffect(() => { setAtlasUri(settings.atlasUri ?? '') }, [settings.atlasUri])
 
+  // Auto-connect to Atlas if URI is present
+  const hasAutoConnected = useRef(false)
   useEffect(() => {
-    const unsub = window.clipAPI.onSyncUpdate?.((state) => {
-      useClipStore.getState().setSyncState(state)
-    }) ?? (() => {})
-    return unsub
-  }, [])
+    if (!settingsLoading && atlasUri && !atlasConnected && !hasAutoConnected.current) {
+      hasAutoConnected.current = true
+      handleConnectAtlas(true)
+    }
+  }, [settingsLoading, atlasUri, atlasConnected])
+
 
   const handleSave = async () => {
     setSaving(true)
@@ -80,38 +104,60 @@ const Settings: React.FC = () => {
     } finally { setLocalConnecting(false) }
   }
 
-  const handleConnectAtlas = async () => {
+  const handleConnectAtlas = async (isAuto = false) => {
     if (!atlasUri.trim()) { setAtlasStatus('fail'); setAtlasError('Enter an Atlas connection string'); return }
     setAtlasConnecting(true); setAtlasStatus('connecting'); setAtlasError('')
     try {
       const ok = await window.clipAPI.atlasConnect(atlasUri.trim())
       setAtlasConnected(ok)
       setAtlasStatus(ok ? 'ok' : 'fail')
-      if (!ok) setAtlasError('Atlas connection failed. Check credentials and IP whitelist.')
-      else await saveSettings({ atlasEnabled: true, atlasUri: atlasUri.trim() })
+      if (!ok) {
+        setAtlasError('Atlas connection failed. Check credentials and IP whitelist.')
+      } else if (!isAuto) {
+        // Only force enable and save if it's a manual connection attempt
+        await saveSettings({ atlasEnabled: true, atlasUri: atlasUri.trim() })
+      }
     } catch (e) {
       setAtlasStatus('fail'); setAtlasError(String(e))
     } finally { setAtlasConnecting(false) }
   }
 
-  const handleSyncAll = async () => {
-    setSyncing(true)
-    await window.clipAPI.triggerSync?.()
-    setSyncing(false)
+  const handleSync = async (target: 'local' | 'atlas') => {
+    if (target === 'local') setLocalSyncing(true)
+    else setAtlasSyncing(true)
+    
+    await window.clipAPI.triggerSync?.(target)
+    
+    if (target === 'local') setLocalSyncing(false)
+    else setAtlasSyncing(false)
   }
 
   const handleDisconnectLocal = async () => {
-    setMongoConnected(false); setLocalStatus('idle')
-    await saveSettings({ mongoEnabled: false })
+    try {
+      await window.clipAPI.mongoDisconnect()
+      setMongoConnected(false)
+      setLocalStatus('idle')
+      setSyncState({ lastLocalSyncedAt: null })
+      await saveSettings({ mongoEnabled: false })
+    } catch (err) {
+      console.error('Failed to disconnect local:', err)
+    }
   }
 
   const handleDisconnectAtlas = async () => {
-    setAtlasConnected(false); setAtlasStatus('idle')
-    await saveSettings({ atlasEnabled: false, atlasUri: '' })
-    setAtlasUri('')
+    try {
+      await window.clipAPI.atlasDisconnect()
+      setAtlasConnected(false)
+      setAtlasStatus('idle')
+      setAtlasUri('')
+      setSyncState({ lastCloudSyncedAt: null })
+      await saveSettings({ atlasEnabled: false, atlasUri: '' })
+    } catch (e) {
+      console.error('Failed to disconnect atlas:', e)
+    }
   }
 
-  const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+  const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
 
   if (settingsLoading) {
     return (
@@ -125,13 +171,13 @@ const Settings: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-surface-900 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-3 px-6 py-4 border-b border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
+      <header className="flex items-center gap-3 px-6 py-3.5 border-b border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
         <div className="p-1.5 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400">
           <IconSettings size={18} />
         </div>
         <div>
           <h2 className="text-[15px] font-semibold text-white/90">Settings</h2>
-          <p className="text-[11px] text-gray-500 mt-0.5">Application configuration and synchronization</p>
+          <p className="text-[11px] text-gray-500">Application configuration and synchronization</p>
         </div>
       </header>
 
@@ -182,37 +228,6 @@ const Settings: React.FC = () => {
             </div>
           </Section>
 
-          {/* Sync Status Overlay */}
-          <div className="p-4 rounded-xl bg-surface-800 border border-gray-700 shadow-sm">
-            <header className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <IconRefresh size={14} className="text-brand-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Live Sync Status</span>
-              </div>
-              {syncState.pendingCount > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-500 font-medium">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  {syncState.pendingCount} pending
-                </div>
-              )}
-            </header>
-            <div className="grid grid-cols-3 gap-3">
-              <StatusCard label="LocalStorage" status="ok" detail="Active" icon={<IconShield size={14} />} />
-              <StatusCard 
-                label="Local Mongo" 
-                status={mongoConnected ? syncState.localMongo : 'offline'} 
-                detail={mongoConnected ? (syncState.localMongo === 'syncing' ? 'Syncing…' : 'Linked') : 'Inactive'} 
-                icon={<IconDatabase size={14} />}
-              />
-              <StatusCard 
-                label="Atlas Cloud" 
-                status={atlasConnected ? syncState.atlas : 'offline'} 
-                detail={atlasConnected ? `Last: ${fmtTime(syncState.lastSyncedAt)}` : 'Inactive'} 
-                icon={<IconCloud size={14} />}
-              />
-            </div>
-          </div>
-
           {/* Local Database */}
           <Section 
             title="Local persistence" 
@@ -235,6 +250,7 @@ const Settings: React.FC = () => {
                       type="text"
                       value={localUri}
                       onChange={(e) => { setLocalUri(e.target.value); setLocalStatus('idle') }}
+                      onBlur={() => saveSettings({ mongoUri: localUri })}
                       placeholder="mongodb://localhost:27017/clipmaster"
                       className="w-full bg-surface-900 border border-gray-700 rounded-lg px-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
                     />
@@ -252,11 +268,11 @@ const Settings: React.FC = () => {
                     {mongoConnected && (
                       <>
                         <button 
-                          onClick={handleSyncAll}
-                          disabled={syncing}
+                          onClick={() => handleSync('local')}
+                          disabled={localSyncing}
                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
                         >
-                          {syncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
+                          {localSyncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
                           Sync Data
                         </button>
                         <button 
@@ -301,6 +317,7 @@ const Settings: React.FC = () => {
                         type="password"
                         value={atlasUri}
                         onChange={(e) => { setAtlasUri(e.target.value); setAtlasStatus('idle') }}
+                        onBlur={() => saveSettings({ atlasUri: atlasUri })}
                         placeholder="mongodb+srv://..."
                         className="w-full bg-surface-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
                       />
@@ -312,7 +329,7 @@ const Settings: React.FC = () => {
                   
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={handleConnectAtlas}
+                      onClick={() => handleConnectAtlas(false)}
                       disabled={atlasConnecting}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
                     >
@@ -322,11 +339,11 @@ const Settings: React.FC = () => {
                     {atlasConnected && (
                       <>
                         <button 
-                          onClick={handleSyncAll}
-                          disabled={syncing}
+                          onClick={() => handleSync('atlas')}
+                          disabled={atlasSyncing}
                           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
                         >
-                          {syncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
+                          {atlasSyncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
                           Sync Data
                         </button>
                         <button 
@@ -345,13 +362,40 @@ const Settings: React.FC = () => {
             </div>
           </Section>
 
+          {/* Sync Status Overlay */}
+          <div className="p-4 rounded-xl border-gray-700 shadow-sm">
+            <header className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <IconRefresh size={14} className="text-brand-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Live Sync Status</span>
+            </div>
+          </header>
+            <div className="grid grid-cols-3 gap-3">
+              <StatusCard label="LocalStorage" status="ok" detail="Primary" icon={<IconShield size={14} />} />
+              <StatusCard 
+                label="Local Mongo" 
+                status={mongoConnected ? (localHealth === 'stale' ? 'stale' : (syncState.localMongo === 'syncing' ? 'syncing' : 'ok')) : 'offline'} 
+                detail={mongoConnected ? (syncState.localMongo === 'syncing' ? 'Syncing…' : (syncState.lastLocalSyncedAt ? fmtTime(syncState.lastLocalSyncedAt) || 'Linked' : 'Linked')) : 'Inactive'} 
+                icon={<IconDatabase size={14} />}
+                isStale={localHealth === 'stale'}
+              />
+              <StatusCard 
+                label="Atlas Cloud" 
+                status={atlasConnected ? (cloudHealth === 'stale' ? 'stale' : (syncState.atlas === 'syncing' ? 'syncing' : 'ok')) : (settings.atlasEnabled ? 'connecting' : 'offline')} 
+                detail={atlasConnected ? (syncState.atlas === 'syncing' ? 'Syncing…' : (syncState.lastCloudSyncedAt ? fmtTime(syncState.lastCloudSyncedAt) || 'Linked' : 'Linked')) : (settings.atlasEnabled ? 'Connecting…' : 'Inactive')} 
+                icon={<IconCloud size={14} />}
+                isStale={cloudHealth === 'stale'}
+              />
+            </div>
+          </div>
+
           {/* About */}
           <Section title="Application Info" icon={<IconInfo size={14} className="text-gray-500" />}>
-            <div className="p-4 rounded-xl bg-surface-800">
+            <div className="p-4 rounded-xl">
                 <div className="flex items-center gap-4">
                     <div className="relative group">
                      <div className="absolute inset-0 bg-brand-500/20 blur-xl rounded-full group-hover:bg-brand-500/30 transition-colors" />
-                     <img src="/icon.png" alt="Logo" className="relative w-16 h-16 object-contain drop-shadow-2xl" />
+                     <img src={logoIcon} alt="Logo" className="relative w-16 h-16 object-contain drop-shadow-2xl" />
                    </div>
                    <div className="space-y-1">
                    <h3 className="text-[15px] font-bold text-white/90">ClipMaster Pro</h3>
@@ -480,22 +524,30 @@ const SettingRow: React.FC<{ label: string; desc?: string; children: React.React
   </div>
 )
 
-const StatusCard: React.FC<{ label: string; status: string; detail: string; icon: React.ReactNode }> = ({ label, status, detail, icon }) => {
-  const isOk = status === 'ok' || status === 'idle'
+const StatusCard: React.FC<{ 
+  label: string; 
+  status: string; 
+  detail: string; 
+  icon: React.ReactNode;
+  isStale?: boolean;
+}> = ({ label, status, detail, icon, isStale }) => {
+  const isOk = (status === 'ok' || status === 'idle') && !isStale
   const isErr = status === 'error' || status === 'fail' || status === 'offline'
-  const isWarn = status === 'syncing'
+  
+  let cardStyle = 'bg-brand-500/5 border-brand-500/20 text-brand-400'
+  if (isOk) cardStyle = 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400 font-medium'
+  if (isErr) cardStyle = 'bg-rose-500/5 border-rose-500/20 text-rose-400'
+  if (isStale) cardStyle = 'bg-amber-500/5 border-amber-500/20 text-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.1)]'
 
   return (
-    <div className={`p-3 rounded-lg border transition-all ${
-      isOk ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' :
-      isErr ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' :
-      'bg-brand-500/5 border-brand-500/20 text-brand-400'
-    }`}>
-      <div className="flex items-center gap-2 mb-1.5 opacity-80">
-        {icon}
-        <span className="text-[11px] font-bold">{label}</span>
+    <div className={`p-3 rounded-xl transition-all duration-300 ${cardStyle}`}>
+      <div className="flex items-center gap-2 mb-2 opacity-80">
+        <span className={`${isStale ? 'text-amber-500' : ''}`}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
       </div>
-      <p className="text-[10px] font-medium opacity-70 truncate">{detail}</p>
+      <div className="text-[13px] font-bold truncate tabular-nums leading-none">
+        {detail}
+      </div>
     </div>
   )
 }
@@ -581,17 +633,6 @@ const CustomSelect: React.FC<{ value: any; onChange: (v: any) => void; options: 
     </div>
   )
 }
-
-const InfoModule: React.FC<{ label: string; value: string; icon: React.ReactNode }> = ({ label, value, icon }) => (
-  <div className="p-3 rounded-xl bg-surface-900/50 border border-white/5 space-y-1">
-    <div className="flex items-center gap-2 opacity-40">
-      {icon}
-      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
-    </div>
-    <p className="text-[12px] font-mono font-bold text-gray-300 px-0.5">{value}</p>
-  </div>
-)
-
 
 const ConnectionStatus: React.FC<{ connected: boolean }> = ({ connected }) => (
   <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${

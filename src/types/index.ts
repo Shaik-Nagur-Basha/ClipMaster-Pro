@@ -28,8 +28,9 @@ export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline'
 export interface SyncState {
   localMongo: SyncStatus
   atlas: SyncStatus
-  lastSyncedAt: string | null
-  pendingCount: number
+  lastLocalSyncedAt: string | null
+  lastCloudSyncedAt: string | null
+  latestSyncedAt: string | null
 }
 
 export interface SyncQueueEntry {
@@ -61,14 +62,16 @@ export interface FilterState {
 export interface AppSettings {
   autoLaunch: boolean
   mongoEnabled: boolean
-  mongoUri: string           // local MongoDB URI
+  mongoUri: string | null
   atlasEnabled: boolean
-  atlasUri: string           // Atlas (cloud) connection string — never logged
+  atlasUri: string | null
   maxEntries: number
   pollingInterval: number
-  syncInterval: number       // background sync interval in seconds (default 30)
   viewMode: ViewMode
   displayMode: DisplayMode
+  lastLocalSyncedAt: string | null
+  lastCloudSyncedAt: string | null
+  latestSyncedAt: string | null
 }
 
 // ─── Store State Types ────────────────────────────────────────────────────
@@ -145,12 +148,14 @@ export interface ClipAPI {
 
   // Sync
   getSyncState: () => Promise<SyncState>
-  triggerSync: () => Promise<SyncState>
+  triggerSync: (target?: 'local' | 'atlas' | 'all') => Promise<SyncState>
   mongoConnect: (uri: string) => Promise<boolean>
   atlasConnect: (uri: string) => Promise<boolean>
   mongoStatus: () => Promise<boolean>
   atlasStatus: () => Promise<boolean>
   mongoSyncAll: () => Promise<boolean>
+  atlasDisconnect: () => Promise<boolean>
+  mongoDisconnect: () => Promise<boolean>
 
   openExternal: (url: string) => void
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void

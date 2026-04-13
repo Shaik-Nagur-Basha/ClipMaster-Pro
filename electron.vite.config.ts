@@ -25,6 +25,7 @@ export default defineConfig({
     }
   },
   renderer: {
+    assetsInclude: ["**/*.png"],
     root: '.',
     build: {
       rollupOptions: {
