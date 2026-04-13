@@ -252,7 +252,7 @@ const Settings: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <main className="flex-1 overflow-y-auto p-6 settings-scrollbar">
         <div className="max-w-2xl mx-auto space-y-8">
           {/* General Section */}
           <Section

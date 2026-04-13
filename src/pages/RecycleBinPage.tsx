@@ -27,7 +27,7 @@ const RecycleBinPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Toolbar */}
-      <div className="relative z-50 flex items-center gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
+      <div className="relative z-10 flex items-center gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
         <div className="flex-1 max-w-2xl">
           <SearchBar />
         </div>

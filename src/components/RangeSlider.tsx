@@ -30,11 +30,11 @@ const RangeSlider: React.FC<Props> = ({
       <div className="relative w-full">
 
         {/* Outer Bar */}
-        <div className="absolute h-1.5 w-full rounded-full z-10" />
+        <div className="absolute h-1.5 w-full rounded-full" />
 
         {/* Inner Bar */}
         <div
-          className="absolute h-1.5 bg-brand-500 rounded-full z-20"
+          className="absolute h-1.5 bg-brand-500 rounded-full"
           style={{
             left: `${getPercent(valueMin)}%`,
             width: `${getPercent(valueMax) - getPercent(valueMin)}%`,
@@ -51,12 +51,11 @@ const RangeSlider: React.FC<Props> = ({
             const val = Math.min(Number(e.target.value), valueMax);
             onChange(val, valueMax);
           }}
-          className="absolute rounded-full w-full h-1.5 top-0 z-30 appearance-none bg-transparent pointer-events-none
+          className="absolute rounded-full w-full h-1.5 top-0 appearance-none bg-transparent pointer-events-none
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:pointer-events-auto
           [&::-webkit-slider-thumb]:w-3.5
           [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:z-50
           [&::-webkit-slider-thumb]:rounded-full
           [&::-webkit-slider-thumb]:bg-white
           [&::-webkit-slider-thumb]:border
@@ -74,12 +73,11 @@ const RangeSlider: React.FC<Props> = ({
             const val = Math.max(Number(e.target.value), valueMin);
             onChange(valueMin, val);
           }}
-          className="absolute rounded-full w-full h-1.5 top-0 z-30 appearance-none bg-transparent pointer-events-none
+          className="absolute rounded-full w-full h-1.5 top-0 appearance-none bg-transparent pointer-events-none
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:pointer-events-auto
           [&::-webkit-slider-thumb]:w-3.5
           [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:z-50
           [&::-webkit-slider-thumb]:rounded-full
           [&::-webkit-slider-thumb]:bg-white
           [&::-webkit-slider-thumb]:border

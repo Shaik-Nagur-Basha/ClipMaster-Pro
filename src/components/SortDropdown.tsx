@@ -61,7 +61,7 @@ const SortDropdown: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 4, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute top-full mt-2 right-0 w-48 z-[100] bg-surface-800 border-white/10 rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden p-1.5"
+                        className="absolute top-full mt-2 right-0 w-48 bg-surface-800 border border-white/10 rounded-xl p-1.5"
                     >
                         <div className="px-2 py-1 mb-1">
                             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sort By</span>
