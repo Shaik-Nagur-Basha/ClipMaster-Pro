@@ -17,7 +17,7 @@ const ViewToggle: React.FC = () => {
       {/* Mode Controls */}
       <div className="flex items-center gap-2">
         {/* Display mode toggle */}
-        <div className="flex items-center p-0.5 bg-surface-800 border border-gray-700 rounded-lg">
+        <div className="flex items-center p-0.5 bg-surface-800 border-gray-700 rounded-lg">
           {(['preview', 'full'] as DisplayMode[]).map((mode) => (
             <button
               key={mode}
@@ -35,7 +35,7 @@ const ViewToggle: React.FC = () => {
         </div>
 
         {/* View mode toggle */}
-        <div className="flex items-center p-0.5 bg-surface-800 border border-gray-700 rounded-lg">
+        <div className="flex items-center p-0.5 bg-surface-800 border-gray-700 rounded-lg">
           {([
             { mode: 'list', icon: <IconList size={16} />, label: 'List view' },
             { mode: 'grid', icon: <IconGrid size={16} />, label: 'Grid view' },

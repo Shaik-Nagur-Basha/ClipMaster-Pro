@@ -43,7 +43,7 @@ const SortDropdown: React.FC = () => {
         <div className="relative" ref={containerRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 h-9 px-3 rounded-lg border transition-all duration-200 ${
+                className={`flex items-center gap-2 h-9 px-3 rounded-lg transition-all duration-200 ${
                     isOpen 
                     ? 'bg-surface-700 border-brand-500/30 text-brand-400 shadow-lg shadow-brand-500/5' 
                     : 'bg-surface-800/50 border-gray-700/50 text-gray-400 hover:border-gray-600 hover:bg-surface-700/50 hover:text-gray-300'
@@ -61,7 +61,7 @@ const SortDropdown: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 4, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute top-full mt-2 right-0 w-48 z-[100] bg-surface-800 border border-white/10 rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden p-1.5"
+                        className="absolute top-full mt-2 right-0 w-48 z-[100] bg-surface-800 border-white/10 rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden p-1.5"
                     >
                         <div className="px-2 py-1 mb-1">
                             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sort By</span>

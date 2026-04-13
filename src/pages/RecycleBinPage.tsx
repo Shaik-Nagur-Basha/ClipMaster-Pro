@@ -27,7 +27,7 @@ const RecycleBinPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Toolbar */}
-      <div className="relative z-50 flex items-center gap-4 px-6 py-4 border-b border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
+      <div className="relative z-50 flex items-center gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
         <div className="flex-1 max-w-2xl">
           <SearchBar />
         </div>
@@ -46,7 +46,7 @@ const RecycleBinPage: React.FC = () => {
           <button
             onClick={handleEmptyBin}
             disabled={emptying || isLoading}
-            className="text-[10px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-all disabled:opacity-30 active:scale-95"
+            className="text-[10px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20 transition-all disabled:opacity-30 active:scale-95"
           >
             {emptying ? 'Clearing…' : 'Empty Bin'}
           </button>
@@ -122,7 +122,7 @@ const EmptyState: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 py-20 opacity-80">
     <div className="relative">
       <div className="absolute inset-0 bg-red-500/10 blur-3xl rounded-full" />
-      <div className="relative w-24 h-24 rounded-3xl bg-surface-800 border-2 border-gray-700 flex items-center justify-center text-gray-500">
+      <div className="relative w-24 h-24 rounded-3xl bg-surface-800 border-gray-700 flex items-center justify-center text-gray-500">
         <IconTrash size={48} strokeWidth={1.5} />
       </div>
     </div>
@@ -141,7 +141,7 @@ const LoadingSkeleton: React.FC = () => (
     {Array.from({ length: 5 }).map((_, i) => (
       <div
         key={i}
-        className="h-32 rounded-xl bg-surface-800 border border-gray-700/50 animate-pulse"
+        className="h-32 rounded-xl bg-surface-800 border-gray-700/50 animate-pulse"
         style={{ opacity: 1 - i * 0.15 }}
       />
     ))}
