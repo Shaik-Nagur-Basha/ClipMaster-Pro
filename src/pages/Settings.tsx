@@ -171,8 +171,8 @@ const Settings: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-surface-900 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-3 px-6 py-3.5 border-b border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
-        <div className="p-1.5 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400">
+      <header className="flex items-center gap-3 px-6 py-3.5 border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
+        <div className="p-1.5 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400">
           <IconSettings size={18} />
         </div>
         <div>
@@ -252,7 +252,7 @@ const Settings: React.FC = () => {
                       onChange={(e) => { setLocalUri(e.target.value); setLocalStatus('idle') }}
                       onBlur={() => saveSettings({ mongoUri: localUri })}
                       placeholder="mongodb://localhost:27017/clipmaster"
-                      className="w-full bg-surface-900 border border-gray-700 rounded-lg px-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                      className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
                     />
                   </div>
                   
@@ -260,7 +260,7 @@ const Settings: React.FC = () => {
                     <button 
                       onClick={handleConnectLocal}
                       disabled={localConnecting}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
                     >
                       {localConnecting ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
                       {mongoConnected ? 'Reconnect Database' : 'Connect Database'}
@@ -270,14 +270,14 @@ const Settings: React.FC = () => {
                         <button 
                           onClick={() => handleSync('local')}
                           disabled={localSyncing}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
                         >
                           {localSyncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
                           Sync Data
                         </button>
                         <button 
                           onClick={handleDisconnectLocal}
-                          className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400 hover:text-white transition-colors"
+                          className="p-2 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400 hover:text-white transition-colors"
                           title="Disconnect"
                         >
                           <IconX size={16} />
@@ -319,7 +319,7 @@ const Settings: React.FC = () => {
                         onChange={(e) => { setAtlasUri(e.target.value); setAtlasStatus('idle') }}
                         onBlur={() => saveSettings({ atlasUri: atlasUri })}
                         placeholder="mongodb+srv://..."
-                        className="w-full bg-surface-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                        className="w-full bg-surface-900 border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
                       />
                     </div>
                     <p className="text-[11px] text-gray-600 leading-relaxed px-1">
@@ -331,7 +331,7 @@ const Settings: React.FC = () => {
                     <button 
                       onClick={() => handleConnectAtlas(false)}
                       disabled={atlasConnecting}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
                     >
                       {atlasConnecting ? <IconRefresh size={14} className="animate-spin" /> : <IconCloud size={14} />}
                       {atlasConnected ? 'Reconnect Cloud' : 'Connect Cloud'}
@@ -341,14 +341,14 @@ const Settings: React.FC = () => {
                         <button 
                           onClick={() => handleSync('atlas')}
                           disabled={atlasSyncing}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
                         >
                           {atlasSyncing ? <IconRefresh size={14} className="animate-spin" /> : <IconRefresh size={14} />}
                           Sync Data
                         </button>
                         <button 
                           onClick={handleDisconnectAtlas}
-                          className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 text-gray-400 hover:text-white transition-colors"
+                          className="p-2 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400 hover:text-white transition-colors"
                           title="Disconnect"
                         >
                           <IconX size={16} />
@@ -416,7 +416,7 @@ const Settings: React.FC = () => {
       </main>
 
       {/* Sticky Bottom Actions */}
-      <footer className="px-6 py-4 border-t border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
+      <footer className="px-6 py-4 border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <p className="text-[11px] text-gray-500 italic max-w-[200px]">Changes are applied instantly to local state but require a manual save for persistence in background services.</p>
           <motion.button 
@@ -427,7 +427,7 @@ const Settings: React.FC = () => {
             className={`
               relative group flex items-center gap-2.5 px-7 py-2.5 rounded-xl
               text-[12px] font-bold uppercase tracking-widest transition-all duration-500
-              overflow-hidden border border-white/5
+              overflow-hidden border-white/5
               ${showSuccess 
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]' 
                 : 'bg-surface-900/50 backdrop-blur-md text-white/90 hover:text-white shadow-lg border-white/10'}
@@ -515,7 +515,7 @@ const Section: React.FC<{ title: string; badge?: React.ReactNode; icon?: React.R
 )
 
 const SettingRow: React.FC<{ label: string; desc?: string; children: React.ReactNode }> = ({ label, desc, children }) => (
-  <div className="flex items-center justify-between gap-6 p-4 rounded-xl bg-surface-800 border border-gray-700 hover:border-gray-600 transition-colors group">
+  <div className="flex items-center justify-between gap-6 p-4 rounded-xl bg-surface-800 border-gray-700 hover:border-gray-600 transition-colors group">
     <div className="min-w-0 space-y-1">
       <h4 className="text-[13px] font-medium text-gray-200 group-hover:text-white transition-colors">{label}</h4>
       {desc && <p className="text-xs text-gray-500 leading-normal">{desc}</p>}
@@ -587,10 +587,10 @@ const CustomSelect: React.FC<{ value: any; onChange: (v: any) => void; options: 
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-3 h-9 px-4 rounded-xl border transition-all duration-200 ${
+        className={`flex items-center gap-3 h-9 px-4 rounded-xl transition-all duration-200 ${
           isOpen 
           ? 'bg-surface-700 border-brand-500/30 text-brand-400 shadow-lg shadow-brand-500/5' 
-          : 'bg-surface-900 border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+          : 'border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'
         }`}
       >
         {currentOption.icon && <span className="opacity-70">{currentOption.icon}</span>}
@@ -605,7 +605,7 @@ const CustomSelect: React.FC<{ value: any; onChange: (v: any) => void; options: 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full mt-1 right-0 w-48 z-[100] bg-surface-800 border border-white/10 rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden p-1.5"
+            className="absolute top-full mt-1 right-0 w-48 z-[100] bg-surface-800 border-white/10 rounded-xl border overflow-hidden p-1.5"
           >
             {options.map((opt) => (
               <button
@@ -635,7 +635,7 @@ const CustomSelect: React.FC<{ value: any; onChange: (v: any) => void; options: 
 }
 
 const ConnectionStatus: React.FC<{ connected: boolean }> = ({ connected }) => (
-  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
     connected ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-gray-700/50 border-gray-600/50 text-gray-500'
   }`}>
     <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-600'}`} />
@@ -645,13 +645,13 @@ const ConnectionStatus: React.FC<{ connected: boolean }> = ({ connected }) => (
 
 const InlineStatus: React.FC<{ status: string; message: string; label: string }> = ({ status, message, label }) => {
   if (status === 'ok') return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
       <IconCheck size={16} />
       <span className="text-[13px] font-medium">{label} connected successfully</span>
     </div>
   )
   if (status === 'fail') return (
-    <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+    <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10 border-rose-500/20 text-rose-400">
       <IconAlertCircle size={16} className="shrink-0 mt-0.5" />
       <div className="space-y-1">
         <h5 className="text-[13px] font-bold">Connection Failed</h5>
