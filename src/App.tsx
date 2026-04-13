@@ -84,7 +84,7 @@ function TitleBar() {
         danger={false}
       />
       <WinBtn
-        label="&#x25A1;"
+        label="&#x2610;"
         title="Maximize / Restore"
         onClick={winMaximize}
         danger={false}

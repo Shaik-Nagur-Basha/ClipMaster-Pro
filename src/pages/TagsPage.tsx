@@ -10,11 +10,11 @@ const TagsPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Header Area */}
-      <div className="px-8 py-10 shrink-0 border-b border-white/5 bg-surface-800/20">
+      <div className="px-8 py-10 shrink-0 border-white/5 bg-surface-800/20">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-brand-500/10 text-brand-400 border border-brand-500/20 shadow-lg shadow-brand-500/5">
+              <div className="p-2.5 rounded-2xl bg-brand-500/10 text-brand-400 border-brand-500/20 shadow-lg shadow-brand-500/5">
                 <IconTag size={24} />
               </div>
               <h2 className="text-3xl font-bold text-white tracking-tight">Tag Management</h2>
@@ -40,7 +40,7 @@ const TagsPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="p-8 rounded-3xl bg-surface-800/40 border border-white/5 backdrop-blur-xl shadow-2xl"
+            className="p-8 rounded-3xl bg-surface-800/40 border-white/5 backdrop-blur-xl shadow-2xl"
           >
             <TagManager />
           </motion.div>

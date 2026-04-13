@@ -53,7 +53,7 @@ const TagManager: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Creation Section */}
-      <div className="bg-surface-700/20 rounded-2xl p-4 border border-white/5 space-y-4">
+      <div className="bg-surface-700/20 rounded-2xl p-4 border-white/5 space-y-4">
         <div className="flex items-center gap-2">
            <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
              <IconPlus size={14} />
@@ -69,12 +69,12 @@ const TagManager: React.FC = () => {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              className="flex-1 bg-surface-900 border border-gray-700 text-white text-[12px] rounded-xl px-3 py-2 outline-none focus:ring-0 focus:border-gray-500 transition-colors"
+              className="flex-1 bg-surface-900 border-gray-700 text-white text-[12px] rounded-xl px-3 py-2 outline-none focus:ring-0 focus:border-gray-500 transition-colors"
             />
             <button
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="px-4 py-2 rounded-xl border transition-all duration-200 font-bold text-[11px] uppercase tracking-wider disabled:opacity-20 hover:brightness-110 active:scale-[0.98]"
+              className="px-4 py-2 rounded-xl shadow-md transition-all duration-200 font-bold text-[11px] uppercase tracking-wider disabled:opacity-20 hover:brightness-110 active:scale-[0.98]"
               style={{
                 backgroundColor: newColor + '15',
                 color: newColor,
@@ -91,7 +91,7 @@ const TagManager: React.FC = () => {
                  <button
                    key={c}
                    onClick={() => setNewColor(c)}
-                   className={`w-4 h-4 rounded-full transition-all duration-200 border border-black/20 ${
+                   className={`w-4 h-4 rounded-full transition-all duration-200 border-black/20 ${
                      newColor === c ? 'ring-1 ring-white/60 scale-125' : 'opacity-40 hover:opacity-100'
                    }`}
                    style={{ backgroundColor: c }}
@@ -183,7 +183,7 @@ const TagManager: React.FC = () => {
               value={editingTag?.name ?? ''}
               onChange={(e) => setEditingTag(prev => prev ? { ...prev, name: e.target.value } : null)}
               onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
-              className="w-full bg-surface-900 border border-gray-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-gray-600 transition-colors"
+              className="w-full bg-surface-900 border-gray-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-gray-600 transition-colors"
             />
           </div>
 
@@ -194,7 +194,7 @@ const TagManager: React.FC = () => {
                 <button
                   key={c}
                   onClick={() => setEditingTag(prev => prev ? { ...prev, color: c } : null)}
-                  className={`w-6 h-6 rounded-full transition-all duration-200 border border-black/20 ${
+                  className={`w-6 h-6 rounded-full transition-all duration-200 border-black/20 ${
                     editingTag?.color === c ? 'ring-1 ring-white/40 scale-125 shadow-lg' : 'hover:opacity-100 opacity-60'
                   }`}
                   style={{ backgroundColor: c }}
@@ -223,13 +223,13 @@ const TagManager: React.FC = () => {
           <div className="flex gap-3 pt-4">
             <button
               onClick={() => setEditingTag(null)}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-wider"
+              className="flex-1 px-4 py-2.5 rounded-xl border-gray-700 text-gray-400 hover:text-gray-300 bg-white/5 transition-all text-xs font-bold uppercase tracking-wider"
             >
               Cancel
             </button>
             <button
               onClick={handleEditSave}
-              className="flex-1 px-4 py-2.5 rounded-xl border transition-all duration-200 text-xs font-bold uppercase tracking-wider hover:brightness-110 active:scale-[0.98]"
+              className="flex-1 px-4 py-2.5 rounded-xl transition-all duration-200 text-xs font-bold uppercase tracking-wider hover:brightness-110 active:scale-[0.98]"
               style={{
                 backgroundColor: (editingTag?.color ?? '#6366f1') + '15',
                 color: editingTag?.color ?? '#6366f1',
@@ -250,7 +250,7 @@ const TagManager: React.FC = () => {
         maxWidth="max-w-xs"
       >
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="p-4 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 mb-2">
+          <div className="p-4 rounded-full bg-red-500/10 text-red-400 border-red-500/20 mb-2">
             <IconTrash size={32} />
           </div>
           <div className="space-y-1">
