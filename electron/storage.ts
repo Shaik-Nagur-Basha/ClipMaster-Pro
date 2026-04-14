@@ -228,7 +228,7 @@ class StorageManager {
     // Never log Atlas URI
     const safe = { ...partial }
     if ('atlasUri' in safe) delete (safe as Record<string, unknown>)['atlasUri']
-    console.log('[Storage] Saving settings:', safe)
+    // console.log('[Storage] Saving settings:', safe)
 
     this.settingsCache = { ...this.settingsCache, ...partial }
     writeFileSync(getSettingsPath(), JSON.stringify(this.settingsCache, null, 2), 'utf-8')

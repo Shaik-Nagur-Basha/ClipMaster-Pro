@@ -144,7 +144,7 @@ const FilterPanel: React.FC = () => {
       </div>
 
       {/* Date Range */}
-      <div className="pb-2">
+      <div className="pb-4">
         <button
           onClick={() => setDateExpanded(!dateExpanded)}
           className="flex items-center justify-between w-full text-[11px] text-gray-500 font-semibold uppercase tracking-tight hover:text-gray-300 transition-colors"
@@ -161,9 +161,9 @@ const FilterPanel: React.FC = () => {
         </button>
         {dateExpanded && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 ml-2 mt-4">
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-500 font-medium px-1">
+                <label className="text-[10px] text-gray-500 font-medium px-1 cursor-pointer">
                   From
                 </label>
                 <input
@@ -172,11 +172,11 @@ const FilterPanel: React.FC = () => {
                   onChange={(e) =>
                     setFilters({ dateFrom: e.target.value || null })
                   }
-                  className="w-full border-0 outline-0 bg-surface-900 text-gray-300 text-[11px] rounded-lg px-2 py-1.5 outline-none focus:outline-none focus:ring-0 transition-colors appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                  className="w-full border-0 outline-0 bg-surface-900 text-gray-300 text-[11px] rounded-lg outline-none focus:outline-none focus:ring-0 transition-colors appearance-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:saturate-200 [&::-webkit-calendar-picker-indicator]:hue-rotate-[250deg] [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:transition [&::-webkit-calendar-picker-indicator]:duration-200 [&::-webkit-calendar-picker-indicator]:mr-1.5"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-500 font-medium px-1">
+                <label className="text-[10px] text-gray-500 font-medium px-1 cursor-pointer">
                   To
                 </label>
                 <input
@@ -185,7 +185,7 @@ const FilterPanel: React.FC = () => {
                   onChange={(e) =>
                     setFilters({ dateTo: e.target.value || null })
                   }
-                  className="w-full border-0 outline-0 bg-surface-900 text-gray-300 text-[11px] rounded-lg px-2 py-1.5 outline-none focus:outline-none focus:ring-0 transition-colors appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                  className="w-full border-0 outline-0 bg-surface-900 text-gray-300 text-[11px] rounded-lg outline-none focus:outline-none focus:ring-0 transition-colors appearance-none cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:saturate-200 [&::-webkit-calendar-picker-indicator]:hue-rotate-[250deg] [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:transition [&::-webkit-calendar-picker-indicator]:duration-200 [&::-webkit-calendar-picker-indicator]:mr-1.5"
                 />
               </div>
             </div>
@@ -205,7 +205,7 @@ const FilterPanel: React.FC = () => {
               </span>
             </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap ml-2 gap-1.5">
             {tags.map((tag) => (
               <TagBadge
                 key={tag.id}

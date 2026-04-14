@@ -15,6 +15,7 @@ import {
   IconX,
   IconCheck,
   IconZap,
+  IconSearch,
 } from "./Icons";
 
 interface Props {
@@ -40,6 +41,7 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
   const [copied, setCopied] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [tagSearchFilter, setTagSearchFilter] = useState("");
 
   const isEditing = editingClipId === item.id;
   const tagObjects = tags.filter((t) => item.tags.includes(t.id));
@@ -173,9 +175,12 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
     >
       {/* Main row - content and controls */}
       <div className="flex items-start gap-3 min-h-[40px]">
-        {/* Favorite indicator dot */}
+        {/* Favorite indicator star */}
         {item.isFavorite && (
-          <div className="w-1.5 h-1.5 rounded-full bg-accent-500 mt-2 flex-shrink-0" />
+          <IconStarFilled
+            size={16}
+            className="text-accent-500 mt-1 flex-shrink-0"
+          />
         )}
 
         {/* Content area */}
@@ -190,16 +195,16 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
           </p>
 
           {/* Meta info row - time, count, tags */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center flex-wrap">
             <span
-              className={`text-[10px] ${
+              className={`text-[10px] mr-3 ${
                 item.isFavorite ? "text-accent-400" : "text-gray-500"
               }`}
             >
               {timeAgo()}
             </span>
             <div
-              className={`text-[10px] ${
+              className={`text-[10px] mr-3 ${
                 item.isFavorite ? "text-accent-300/60" : "text-gray-600"
               }`}
             >
@@ -211,18 +216,12 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
                 <span className="font-mono">{item.wordCount}W</span>
               )}
             </div>
-            {tagObjects.length > 0 && (
-              <div className="flex items-center gap-1">
-                {tagObjects.map((t) => (
-                  <TagBadge key={t.id} tag={t} size="sm" />
-                ))}
-                {/* {tagObjects.length > 2 && (
-                  <span className="text-[9px] text-gray-600 px-1.5">
-                    +{tagObjects.length - 2}
-                  </span>
-                )} */}
-              </div>
-            )}
+            {tagObjects.length > 0 &&
+              tagObjects.map((t) => (
+                <div key={t.id} className="mr-1">
+                  <TagBadge tag={t} size="sm" />
+                </div>
+              ))}
           </div>
         </div>
 
@@ -287,36 +286,77 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
             exit={{ opacity: 0, height: 0 }}
             className="mt-2 ml-5 bg-surface-800/50 rounded-lg p-2 border border-gray-700/30"
           >
-            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
-              Select Tags
+            {/* Header with label and search input */}
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">
+                Select Tags
+              </div>
+              
+              {/* Tag Search Input */}
+              <div className="relative flex items-center group w-48">
+                <div className="absolute left-2 text-gray-600 group-focus-within:text-gray-400 transition-colors pointer-events-none duration-150">
+                  <IconSearch size={14} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search tags…"
+                  value={tagSearchFilter}
+                  onChange={(e) => setTagSearchFilter(e.target.value)}
+                  style={{
+                    boxShadow: "none",
+                    outline: "none",
+                    border: "none",
+                    borderBottom: "1px solid #4b5563",
+                  }}
+                  className="w-full bg-transparent hover:border-b hover:border-gray-600 focus:border-b focus:border-gray-500 pl-7 pr-7 py-1.5 text-[12px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+                />
+                {tagSearchFilter && (
+                  <button
+                    onClick={() => setTagSearchFilter("")}
+                    className="absolute right-1 p-0.5 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                    title="Clear search"
+                  >
+                    <IconX size={12} />
+                  </button>
+                )}
+              </div>
             </div>
+
             <div className="flex flex-wrap gap-1">
               {tags.length === 0 ? (
                 <p className="text-[10px] text-gray-600">No tags defined</p>
               ) : (
-                tags.map((tag) => {
-                  const isSelected = item.tags.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTagOnClip(item.id, tag.id)}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
-                        isSelected
-                          ? "bg-surface-700 text-white"
-                          : "hover:bg-surface-700/60 text-gray-500 hover:text-gray-300"
-                      }`}
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="truncate max-w-[100px] ">{tag.name}</span>
-                      {isSelected && (
-                        <IconCheck size={12} className="text-brand-400" />
-                      )}
-                    </button>
-                  );
-                })
+                tags
+                  .filter((tag) =>
+                    tag.name
+                      .toLowerCase()
+                      .includes(tagSearchFilter.toLowerCase())
+                  )
+                  .map((tag) => {
+                    const isSelected = item.tags.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTagOnClip(item.id, tag.id)}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                          isSelected
+                            ? "bg-surface-700 text-white"
+                            : "hover:bg-surface-700/60 text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <span className="truncate max-w-[100px] ">
+                          {tag.name}
+                        </span>
+                        {isSelected && (
+                          <IconCheck size={12} className="text-brand-400" />
+                        )}
+                      </button>
+                    );
+                  })
               )}
             </div>
           </motion.div>
