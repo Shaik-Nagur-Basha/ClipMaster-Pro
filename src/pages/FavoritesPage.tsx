@@ -1,21 +1,23 @@
-import React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { useClipStore, selectFilteredClips } from '../store/useClipStore'
-import EntryCard from '../components/EntryCard'
-import SearchBar from '../components/SearchBar'
-import ViewToggle from '../components/ViewToggle'
-import { IconStar } from '../components/Icons'
-import type { ClipboardItem } from '../types'
+import React, { useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useClipStore, selectFilteredClips } from "../store/useClipStore";
+import EntryCard from "../components/EntryCard";
+import SearchBar from "../components/SearchBar";
+import ViewToggle from "../components/ViewToggle";
+import FloatingScrollButtons from "../components/FloatingScrollButtons";
+import { IconStar } from "../components/Icons";
+import type { ClipboardItem } from "../types";
 
 const FavoritesPage: React.FC = () => {
-  const store = useClipStore()
-  const { viewMode, displayMode, isLoading } = store
-  
-  // Filter for favorite items that are not deleted
-  const allClips = selectFilteredClips(store)
-  const filtered = allClips.filter(c => c.isFavorite)
+  const store = useClipStore();
+  const { viewMode, displayMode, isLoading } = store;
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  const isEmpty = filtered.length === 0
+  // Filter for favorite items that are not deleted
+  const allClips = selectFilteredClips(store);
+  const filtered = allClips.filter((c) => c.isFavorite);
+
+  const isEmpty = filtered.length === 0;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
@@ -32,74 +34,49 @@ const FavoritesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <IconStar size={14} className="text-accent-500" />
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            {filtered.length} Favorite {filtered.length === 1 ? 'Entry' : 'Entries'}
+            {filtered.length} Favorite{" "}
+            {filtered.length === 1 ? "Entry" : "Entries"}
           </p>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
           <EmptyState />
         ) : (
           <div className="px-6 py-4">
-            {viewMode === 'grid' ? (
-              <GridView clips={filtered} displayMode={displayMode} />
-            ) : viewMode === 'compact' ? (
-              <CompactView clips={filtered} />
-            ) : (
-              <ListView clips={filtered} displayMode={displayMode} />
-            )}
+            <ListView clips={filtered} displayMode={displayMode} />
           </div>
         )}
       </div>
+
+      {/* Floating Scroll Buttons */}
+      {!isEmpty && <FloatingScrollButtons containerRef={contentRef} />}
     </div>
-  )
-}
+  );
+};
 
 // ─── List View (Standard Scrollable) ──────────────────────────────────────
-const ListView: React.FC<{ clips: ClipboardItem[]; displayMode: 'preview' | 'full' }> = ({
-  clips,
-  displayMode
-}) => (
+const ListView: React.FC<{
+  clips: ClipboardItem[];
+  displayMode: "preview" | "full";
+}> = ({ clips, displayMode }) => (
   <div className="space-y-4">
     <AnimatePresence mode="popLayout">
       {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode={displayMode} viewMode="list" />
+        <EntryCard
+          key={item.id}
+          item={item}
+          displayMode={displayMode}
+          viewMode="list"
+        />
       ))}
     </AnimatePresence>
   </div>
-)
-
-// ─── Grid View ────────────────────────────────────────────────────────────
-const GridView: React.FC<{ clips: ClipboardItem[]; displayMode: 'preview' | 'full' }> = ({
-  clips,
-  displayMode
-}) => (
-  <motion.div
-    layout
-    className="grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"
-  >
-    <AnimatePresence mode="popLayout">
-      {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode={displayMode} viewMode="grid" />
-      ))}
-    </AnimatePresence>
-  </motion.div>
-)
-
-// ─── Compact View ─────────────────────────────────────────────────────────
-const CompactView: React.FC<{ clips: ClipboardItem[] }> = ({ clips }) => (
-  <div className="space-y-2">
-    <AnimatePresence mode="popLayout">
-      {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode="preview" viewMode="compact" />
-      ))}
-    </AnimatePresence>
-  </div>
-)
+);
 
 // ─── Empty State ──────────────────────────────────────────────────────────
 const EmptyState: React.FC = () => (
@@ -111,13 +88,15 @@ const EmptyState: React.FC = () => (
       </div>
     </div>
     <div className="text-center space-y-2">
-      <h3 className="text-lg font-bold text-white tracking-tight">No Favorites Yet</h3>
+      <h3 className="text-lg font-bold text-white tracking-tight">
+        No Favorites Yet
+      </h3>
       <p className="text-sm text-gray-500 max-w-[240px] leading-relaxed">
         Star your important clips to keep them separate and easy to find.
       </p>
     </div>
   </div>
-)
+);
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────
 const LoadingSkeleton: React.FC = () => (
@@ -130,6 +109,6 @@ const LoadingSkeleton: React.FC = () => (
       />
     ))}
   </div>
-)
+);
 
-export default FavoritesPage
+export default FavoritesPage;

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useClipStore } from "../store/useClipStore";
 import TagBadge from "./TagBadge";
 import Dialog from "./Dialog";
+import FormattedContent from "./FormattedContent";
 import type { ClipboardItem } from "../types";
 import {
   IconCopy,
@@ -21,7 +22,7 @@ import {
 interface Props {
   item: ClipboardItem;
   displayMode: "preview" | "full";
-  viewMode: "list" | "grid" | "compact";
+  viewMode: "list";
 }
 
 const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
@@ -87,79 +88,6 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
     setIsEditDialogOpen(true);
   };
 
-  if (viewMode === "compact") {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, x: -8 }}
-        className={`group flex items-center gap-3 px-3 py-1.5 rounded-md border transition-all ${
-          item.isFavorite
-            ? "bg-surface-800 border-accent-500/40 hover:border-accent-500/60"
-            : "bg-surface-800 border-gray-700/50 hover:border-gray-600 hover:bg-surface-700"
-        }`}
-      >
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          {item.isFavorite && (
-            <IconStarFilled
-              size={12}
-              className="text-accent-400 flex-shrink-0"
-            />
-          )}
-          <p
-            className={`text-[13px] truncate font-mono ${
-              item.isFavorite ? "text-accent-100" : "text-gray-300"
-            }`}
-          >
-            {item.text.slice(0, 80)}
-          </p>
-        </div>
-        <span className="text-[11px] text-gray-500 shrink-0 tabular-nums">
-          {timeAgo()}
-        </span>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ActionBtn
-            icon={copied ? IconCheck : IconCopy}
-            label="Copy"
-            onClick={handleCopy}
-            active={copied}
-          />
-          {item.isDeleted ? (
-            <>
-              <ActionBtn
-                icon={IconRestore}
-                label="Restore"
-                onClick={() => restoreClip(item.id)}
-              />
-              <ActionBtn
-                icon={IconX}
-                label="Delete Forever"
-                onClick={() => permanentDelete(item.id)}
-                danger
-              />
-            </>
-          ) : (
-            <>
-              <ActionBtn
-                icon={item.isFavorite ? IconStarFilled : IconStar}
-                label="Favorite"
-                onClick={() => toggleFavorite(item.id)}
-                active={item.isFavorite}
-              />
-              <ActionBtn
-                icon={IconTrash}
-                label="Delete"
-                onClick={() => deleteClip(item.id)}
-                danger
-              />
-            </>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       layout
@@ -185,14 +113,14 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
 
         {/* Content area */}
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          {/* Main text */}
-          <p
-            className={`text-[13px] leading-snug break-words line-clamp-2 transition-colors ${
+          {/* Main text - formatted content */}
+          <FormattedContent
+            content={displayText}
+            displayMode={displayMode}
+            className={`transition-colors ${
               item.isFavorite ? "text-accent-100 font-medium" : "text-gray-300"
             }`}
-          >
-            {displayText}
-          </p>
+          />
 
           {/* Meta info row - time, count, tags */}
           <div className="flex items-center flex-wrap">
@@ -291,7 +219,7 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
               <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">
                 Select Tags
               </div>
-              
+
               {/* Tag Search Input */}
               <div className="relative flex items-center group w-48">
                 <div className="absolute left-2 text-gray-600 group-focus-within:text-gray-400 transition-colors pointer-events-none duration-150">
@@ -330,7 +258,7 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
                   .filter((tag) =>
                     tag.name
                       .toLowerCase()
-                      .includes(tagSearchFilter.toLowerCase())
+                      .includes(tagSearchFilter.toLowerCase()),
                   )
                   .map((tag) => {
                     const isSelected = item.tags.includes(tag.id);

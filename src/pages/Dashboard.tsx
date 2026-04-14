@@ -1,21 +1,25 @@
-import React, { useLayoutEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { useClipStore, selectFilteredClips } from '../store/useClipStore'
-import EntryCard from '../components/EntryCard'
-import SearchBar from '../components/SearchBar'
-import ViewToggle from '../components/ViewToggle'
-import { IconInbox } from '../components/Icons'
-import type { ClipboardItem } from '../types'
+import React, { useLayoutEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useClipStore, selectFilteredClips } from "../store/useClipStore";
+import EntryCard from "../components/EntryCard";
+import SearchBar from "../components/SearchBar";
+import ViewToggle from "../components/ViewToggle";
+import FloatingScrollButtons from "../components/FloatingScrollButtons";
+import { IconInbox } from "../components/Icons";
+import type { ClipboardItem } from "../types";
 
 const Dashboard: React.FC = () => {
-  const store = useClipStore()
-  const { viewMode, displayMode, isLoading } = store
-  const filtered = selectFilteredClips(store)
+  const store = useClipStore();
+  const { viewMode, displayMode, isLoading } = store;
+  const filtered = selectFilteredClips(store);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  const isEmpty = filtered.length === 0
+  const isEmpty = filtered.length === 0;
 
   useLayoutEffect(() => {
-    console.log(`[Dashboard] Rendered. Items: ${filtered.length}, View: ${viewMode}, Loading: ${isLoading}`);
+    console.log(
+      `[Dashboard] Rendered. Items: ${filtered.length}, View: ${viewMode}, Loading: ${isLoading}`,
+    );
   }, [filtered.length, viewMode, isLoading]);
 
   return (
@@ -31,73 +35,47 @@ const Dashboard: React.FC = () => {
       {/* Stats Bar */}
       <div className="flex items-center justify-between px-6 py-2 shrink-0 bg-surface-800/20">
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-          {filtered.length} {filtered.length === 1 ? 'Entry' : 'Entries'} Cached
+          {filtered.length} {filtered.length === 1 ? "Entry" : "Entries"} Cached
         </p>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
           <EmptyState />
         ) : (
           <div className="px-6 py-4">
-            {viewMode === 'grid' ? (
-              <GridView clips={filtered} displayMode={displayMode} />
-            ) : viewMode === 'compact' ? (
-              <CompactView clips={filtered} />
-            ) : (
-              <ListView clips={filtered} displayMode={displayMode} />
-            )}
+            <ListView clips={filtered} displayMode={displayMode} />
           </div>
         )}
       </div>
+
+      {/* Floating Scroll Buttons */}
+      {!isEmpty && <FloatingScrollButtons containerRef={contentRef} />}
     </div>
-  )
-}
+  );
+};
 
 // ─── List View (Standard Scrollable) ──────────────────────────────────────
-const ListView: React.FC<{ clips: ClipboardItem[]; displayMode: 'preview' | 'full' }> = ({
-  clips,
-  displayMode
-}) => (
+const ListView: React.FC<{
+  clips: ClipboardItem[];
+  displayMode: "preview" | "full";
+}> = ({ clips, displayMode }) => (
   <div className="space-y-4">
     <AnimatePresence mode="popLayout">
       {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode={displayMode} viewMode="list" />
+        <EntryCard
+          key={item.id}
+          item={item}
+          displayMode={displayMode}
+          viewMode="list"
+        />
       ))}
     </AnimatePresence>
   </div>
-)
-
-// ─── Grid View ────────────────────────────────────────────────────────────
-const GridView: React.FC<{ clips: ClipboardItem[]; displayMode: 'preview' | 'full' }> = ({
-  clips,
-  displayMode
-}) => (
-  <motion.div
-    layout
-    className="grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"
-  >
-    <AnimatePresence mode="popLayout">
-      {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode={displayMode} viewMode="grid" />
-      ))}
-    </AnimatePresence>
-  </motion.div>
-)
-
-// ─── Compact View ─────────────────────────────────────────────────────────
-const CompactView: React.FC<{ clips: ClipboardItem[] }> = ({ clips }) => (
-  <div className="space-y-2">
-    <AnimatePresence mode="popLayout">
-      {clips.map((item) => (
-        <EntryCard key={item.id} item={item} displayMode="preview" viewMode="compact" />
-      ))}
-    </AnimatePresence>
-  </div>
-)
+);
 
 // ─── Empty State ──────────────────────────────────────────────────────────
 const EmptyState: React.FC = () => (
@@ -109,13 +87,15 @@ const EmptyState: React.FC = () => (
       </div>
     </div>
     <div className="text-center space-y-2">
-      <h3 className="text-lg font-bold text-white tracking-tight">No Clips Found</h3>
+      <h3 className="text-lg font-bold text-white tracking-tight">
+        No Clips Found
+      </h3>
       <p className="text-sm text-gray-500 max-w-[240px] leading-relaxed">
         Your clipboard history is empty. Copy some text to see it appear here.
       </p>
     </div>
   </div>
-)
+);
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────
 const LoadingSkeleton: React.FC = () => (
@@ -128,6 +108,6 @@ const LoadingSkeleton: React.FC = () => (
       />
     ))}
   </div>
-)
+);
 
-export default Dashboard
+export default Dashboard;
