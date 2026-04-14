@@ -375,7 +375,7 @@ const EntryCard: React.FC<Props> = ({ item, displayMode, viewMode }) => {
             autoFocus
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
-            className="w-full min-h-[200px] max-h-[400px] bg-surface-900 text-gray-100 text-[13px] rounded-lg p-3 resize-none outline-none border border-gray-700 focus:border-brand-500 font-mono leading-relaxed transition-colors"
+            className="w-full min-h-[200px] max-h-[400px] bg-surface-900 text-gray-100 text-[13px] rounded-lg p-3 resize-y outline-none border border-gray-700 focus:border-brand-500 font-mono leading-relaxed transition-colors"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
                 handleSaveEdit();
