@@ -231,9 +231,20 @@ const Settings: React.FC = () => {
         setShowResetDialog(false);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2000);
-        // Reload all data
-        setTimeout(() => {
-          loadSettings();
+        // Reload all data after reset
+        setTimeout(async () => {
+          // Reload clips, tags, and settings from storage
+          const store = useClipStore.getState();
+          await Promise.all([
+            store.loadClips(),
+            store.loadTags(),
+            loadSettings(),
+          ]);
+          // Reset UI state
+          store.resetFilters();
+          store.setActivePage("dashboard");
+          store.setMongoConnected(false);
+          store.setAtlasConnected(false);
         }, 500);
       }
     } catch (e) {
