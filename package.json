@@ -9,9 +9,11 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
-    "dist:portable": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
-    "dist:dir": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir",
+    "optimize": "node optimize-bundle.js",
+    "clean": "node -e \"const fs=require('fs');['release','out'].forEach(p=>{if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})})\"",
+    "dist": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis && npm run optimize",
+    "dist:portable": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && npm run optimize",
+    "dist:dir": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir && npm run optimize",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -21,7 +23,6 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^6.22.0",
     "react-syntax-highlighter": "^16.1.1",
     "react-window": "^1.8.10",
     "uuid": "^9.0.0",
@@ -50,22 +51,16 @@
     "productName": "ClipMaster Pro",
     "copyright": "Copyright © 2026 ClipMaster Pro",
     "forceCodeSigning": false,
+    "asar": true,
+    "asarUnpack": [
+      "out/**/*.node"
+    ],
     "directories": {
       "output": "release"
     },
     "files": [
       "out/**/*",
-      "data/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "data",
-        "to": "data",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "win": {
       "target": [
@@ -96,7 +91,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "ClipMaster Pro",
-      "artifactName": "ClipMaster-Pro-Setup.exe"
+      "artifactName": "ClipMaster-Pro-Setup.exe",
+      "displayLanguageSelector": false,
+      "differentialPackage": true
     }
   }
 }

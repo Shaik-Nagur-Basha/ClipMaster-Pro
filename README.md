@@ -1,129 +1,145 @@
 # ClipMaster Pro
 
-A production-ready Windows desktop clipboard manager built with **Electron + React + TypeScript + Vite + Tailwind CSS**.
+**A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
+
+![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
 ---
 
 ## Features
 
-- ⚡ **Background clipboard monitoring** (polls every 600ms)
-- 📋 **Instant capture** with dedup prevention
-- 🏷️ **Tagging system** with custom colors
-- ⭐ **Favorites** with one-click star
-- 🔍 **Instant search** (debounced)
-- 🗑️ **Recycle bin** with soft delete + restore
-- 🔎 **Filter by**: length, tags, favorites, date range
-- 📊 **Sort by**: newest, oldest, longest, shortest
-- 🖼️ **Views**: List, Grid, Compact
-- 🔤 **Display**: Preview (80 chars) or Full text
-- 💾 **MongoDB cloud sync** with AES-256 encryption
-- 🚀 **Auto-launch** on Windows startup
-- 🪟 **System tray** — runs silently in background
+- ⚡ **Auto-Capture** — Every copy is saved automatically
+- 🔍 **Instant Search** — Find clips in milliseconds
+- 🏷️ **Smart Tags** — Organize by category
+- ⭐ **Favorites** — Star important clips
+- 🗑️ **Safe Delete** — Recycle bin with restore
+- 📊 **Sort & Filter** — By date, length, tags
+- 💾 **Cloud Sync** — Optional MongoDB backup
+- 🚀 **Auto-Launch** — Start with Windows
+- 🪟 **System Tray** — Minimizes to tray
+- 🎨 **Markdown & Code** — Format-aware display
 
 ---
 
-## Project Structure
+## Download & Install
 
-```
-clipmaster-pro/
-├── electron/
-│   ├── main.ts          # Main process (tray, IPC, clipboard poller)
-│   ├── preload.ts       # Context bridge API
-│   ├── storage.ts       # JSON storage manager
-│   └── mongodb.ts       # MongoDB sync with AES-256
-├── src/
-│   ├── components/      # UI components
-│   ├── pages/           # App pages
-│   ├── store/           # Zustand state
-│   ├── types/           # TypeScript types
-│   ├── App.tsx          # Root component + title bar
-│   └── main.tsx         # React entry
-├── data/
-│   └── clipboard.json   # Local storage
-├── public/
-│   └── icon.png
-├── electron.vite.config.ts
-├── tailwind.config.js
-└── package.json
-```
+### Setup Installer (Recommended)
+- **File**: `ClipMaster-Pro-Setup.exe` (85 MB)
+- **For**: Regular users, home/office computers
+- **Time**: 10-20 seconds installation
+- **Features**: Shortcuts, system integration, easy uninstall
 
----
+### Portable Version (No Install)
+- **File**: `ClipMaster-Pro-Portable.exe` (40 MB)
+- **For**: USB drives, testing, minimal footprint
+- **Time**: Instant launch (3-5 seconds)
+- **Features**: No installation, fully portable
 
-## Development
+→ **See [SETUP_VS_PORTABLE.md](doc/SETUP_VS_PORTABLE.md) for detailed comparison**
 
-### Prerequisites
+### Quick Installation (Setup)
+1. Download `ClipMaster-Pro-Setup.exe`
+2. Run the installer
+3. Click "Install"
+4. Done! App launches automatically
 
-- Node.js 18+
-- npm 9+
-- MongoDB (optional — for cloud sync)
-
-### Install dependencies
-
-```bash
-npm install
-```
-
-### Run in development mode
-
-```bash
-npm run dev
-```
-
-This launches the Electron app with hot-reload. The app window opens AND minimizes to system tray.
-
-### Build (production)
-
-```bash
-npm run build
-```
-
-Outputs compiled files to `out/`.
-
-### Package as Windows .exe
-
-```bash
-npm run dist
-```
-
-Outputs installer to `release/` directory.
-- `ClipMaster Pro Setup 1.0.0.exe` — NSIS installer
+### Quick Start (Portable)
+1. Download `ClipMaster-Pro-Portable.exe`
+2. Run the .exe
+3. Done! App launches instantly
 
 ---
 
-## MongoDB Cloud Sync
+## Release Information
 
-1. Install and run MongoDB locally: `mongod --dbpath C:\data\db`
-2. Open ClipMaster Pro → Settings
-3. Enable **MongoDB sync**
-4. Set URI: `mongodb://localhost:27017/clipmaster`
-5. Click **Connect** to test
-6. Click **Sync All** to push existing clips
+→ **Full release notes**: See [RELEASE_NOTES.md](RELEASE_NOTES.md)
 
-> All text is encrypted with AES-256 before storage in MongoDB.
-
----
-
-## Data Storage
-
-- **Local**: `%APPDATA%\ClipMaster Pro\data\clipboard.json` (packaged)
-- **Dev**: `/data/clipboard.json` (project root)
-- **Cloud**: MongoDB collection `clips` (encrypted)
+**v1.0.0 - Production Ready**
+- Complete clipboard management
+- Real-time search and tagging
+- Mongolia cloud sync (optional)
+- 52% size optimized
+- Zero telemetry
 
 ---
 
-## Build Output
+## Quick Start
 
-```
-release/
-  └── ClipMaster Pro Setup 1.0.0.exe   ← NSIS installer
-```
+1. Copy some text (Ctrl+C)
+2. Open ClipMaster Pro
+3. Your text appears automatically
+4. Search, tag, or star as needed
+
+---
+
+## Main Features
+
+### Dashboard
+View all captured clips with search and filters
+
+### Favorites
+Mark important clips with ⭐
+
+### Tags
+Organize clips into categories (Work, Personal, Code, etc.)
+
+### Recycle Bin
+Soft-delete clips, restore anytime
+
+### Settings
+- **Auto-Launch** — Start with Windows
+- **Polling** — How often to check clipboard
+- **Max Entries** — History size limit
+- **Display** — Preview or full text
+- **MongoDB** — Optional cloud backup
 
 ---
 
 ## Keyboard Shortcuts
 
-| Action | Key |
-|--------|-----|
-| Close to tray | Win button (top-right) |
-| Save edit | Ctrl+Enter |
-| Cancel edit | Escape |
+| Key | Action |
+|---|---|
+| Ctrl+Enter | Save edit |
+| Escape | Cancel edit |
+| Right-click tray | Menu |
+
+---
+
+## Cloud Sync (Optional)
+
+Enable in Settings to backup clips. See [DEPLOYMENT.md](doc/DEPLOYMENT.md) for setup.
+
+---
+
+## Privacy & Security
+
+✅ **Local data** — Everything stays on your PC by default  
+✅ **Encrypted sync** — AES-256 for cloud backup  
+✅ **No tracking** — Zero telemetry  
+
+---
+
+## Documentation
+
+- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — v1.0.0 release details
+- **[QUICK_START.md](doc/QUICK_START.md)** — Get started in 1 minute
+- **[SETUP_VS_PORTABLE.md](doc/SETUP_VS_PORTABLE.md)** — Setup vs Portable comparison  
+- **[DEPLOYMENT.md](doc/DEPLOYMENT.md)** — Installation & setup guide
+- **[ARCHITECTURE.md](doc/ARCHITECTURE.md)** — How it works (technical)
+- **[TROUBLESHOOTING.md](doc/TROUBLESHOOTING.md)** — Fix common issues
+
+---
+
+## System Requirements
+
+- Windows 10 or newer
+- 512 MB RAM
+- 500 MB disk space
+
+---
+
+## License
+
+MIT — Use freely

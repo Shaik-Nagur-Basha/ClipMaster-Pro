@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
 import SearchBar from "../components/SearchBar";
@@ -10,7 +10,7 @@ import type { ClipboardItem } from "../types";
 
 const FavoritesPage: React.FC = () => {
   const store = useClipStore();
-  const { viewMode, displayMode, isLoading } = store;
+  const { displayMode, isLoading } = store;
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Filter for favorite items that are not deleted

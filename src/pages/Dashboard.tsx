@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
 import SearchBar from "../components/SearchBar";
@@ -10,17 +10,11 @@ import type { ClipboardItem } from "../types";
 
 const Dashboard: React.FC = () => {
   const store = useClipStore();
-  const { viewMode, displayMode, isLoading } = store;
+  const { displayMode, isLoading } = store;
   const filtered = selectFilteredClips(store);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = filtered.length === 0;
-
-  useLayoutEffect(() => {
-    console.log(
-      `[Dashboard] Rendered. Items: ${filtered.length}, View: ${viewMode}, Loading: ${isLoading}`,
-    );
-  }, [filtered.length, viewMode, isLoading]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">

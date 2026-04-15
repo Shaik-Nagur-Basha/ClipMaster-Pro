@@ -16,9 +16,8 @@ const FormattedContent: React.FC<FormattedContentProps> = ({
   className = "",
 }) => {
   // Check if content looks like Markdown (has markdown-like patterns)
-  const isMarkdown = /^#+\s|^\*{1,3}|^\-\s|^\d+\.|^\`{1,3}|^\[.+\]\(|^>|^\|/m.test(
-    content,
-  );
+  const isMarkdown =
+    /^#+\s|^\*{1,3}|^\-\s|^\d+\.|^\`{1,3}|^\[.+\]\(|^>|^\|/m.test(content);
 
   if (!isMarkdown) {
     // For non-markdown plain text, use whitespace-pre-wrap
@@ -48,21 +47,27 @@ const FormattedContent: React.FC<FormattedContentProps> = ({
       }
 
       return (
-        <SyntaxHighlighter
-          language={lang}
-          style={oneDark}
-          className="rounded-lg text-[12px] font-mono my-1 max-h-[300px] overflow-auto"
-          customStyle={{
-            backgroundColor: "#0f1419",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #2d3139",
-          }}
-        >
-          {String(children).replace(/\n$/, "")}
-        </SyntaxHighlighter>
+        <div className="my-2">
+          <SyntaxHighlighter
+            language={lang}
+            style={oneDark}
+            className="rounded-lg text-[12px] font-mono max-h-[300px] overflow-auto"
+            customStyle={{
+              backgroundColor: "#0f1419",
+              padding: "12px",
+              borderRadius: "8px",
+              border: "1px solid #2d3139",
+              margin: 0,
+            }}
+          >
+            {String(children).replace(/\n$/, "")}
+          </SyntaxHighlighter>
+        </div>
       );
     },
+    pre: ({ children }: any) => (
+      <div className="my-2 rounded-lg overflow-auto">{children}</div>
+    ),
     a: ({ href, children }: any) => (
       <a
         href={href}
@@ -101,9 +106,7 @@ const FormattedContent: React.FC<FormattedContentProps> = ({
         {children}
       </blockquote>
     ),
-    p: ({ children }: any) => (
-      <p className="text-gray-300 my-1">{children}</p>
-    ),
+    p: ({ children }: any) => <p className="text-gray-300 my-1">{children}</p>,
     strong: ({ children }: any) => (
       <strong className="text-brand-300 font-semibold">{children}</strong>
     ),

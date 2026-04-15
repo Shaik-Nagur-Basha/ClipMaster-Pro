@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
 import SearchBar from "../components/SearchBar";
@@ -11,7 +11,7 @@ import type { ClipboardItem } from "../types";
 
 const RecycleBinPage: React.FC = () => {
   const store = useClipStore();
-  const { viewMode, displayMode, isLoading, permanentDelete } = store;
+  const { displayMode, isLoading, permanentDelete } = store;
   const filtered = selectFilteredClips(store, true);
   const contentRef = useRef<HTMLDivElement>(null);
 

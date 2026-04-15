@@ -15,13 +15,11 @@ import {
   IconAlertCircle,
   IconCheck,
   IconX,
-  IconGrid,
-  IconList,
-  IconCompact,
   IconLayers,
   IconMinimize,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
+import Dialog from "../components/Dialog";
 
 const Settings: React.FC = () => {
   const {
@@ -93,6 +91,9 @@ const Settings: React.FC = () => {
   >("idle");
   const [atlasError, setAtlasError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     setSettingsLoading(true);
@@ -217,6 +218,31 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleResetAll = async () => {
+    if (resetConfirmText !== "RESET ALL") {
+      return;
+    }
+    setResetting(true);
+    try {
+      const ok = await window.clipAPI.resetAll();
+      if (ok) {
+        // Clear local state
+        setResetConfirmText("");
+        setShowResetDialog(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000);
+        // Reload all data
+        setTimeout(() => {
+          loadSettings();
+        }, 500);
+      }
+    } catch (e) {
+      console.error("Failed to reset:", e);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const fmtTime = (iso: string | null) =>
     iso
       ? new Date(iso).toLocaleTimeString([], {
@@ -297,33 +323,6 @@ const Settings: React.FC = () => {
                       label: "10,000 clips",
                       value: 10000,
                       icon: <IconDatabase size={14} />,
-                    },
-                  ]}
-                />
-              </SettingRow>
-
-              <SettingRow
-                label="Default View Mode"
-                desc="Preferred layout for the dashboard."
-              >
-                <CustomSelect
-                  value={settings.viewMode}
-                  onChange={(v) => saveSettings({ viewMode: v as any })}
-                  options={[
-                    {
-                      label: "List View",
-                      value: "list",
-                      icon: <IconList size={14} />,
-                    },
-                    {
-                      label: "Grid View",
-                      value: "grid",
-                      icon: <IconGrid size={14} />,
-                    },
-                    {
-                      label: "Compact View",
-                      value: "compact",
-                      icon: <IconCompact size={14} />,
                     },
                   ]}
                 />
@@ -577,6 +576,37 @@ const Settings: React.FC = () => {
               />
             </div>
           </div>
+          {/* End Sync Status Overlay */}
+
+          {/* Data Management & Reset */}
+          <Section
+            title="Data Management"
+            icon={<IconAlertCircle size={14} className="text-rose-500/60" />}
+          >
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-rose-500/5 border-rose-500/20 space-y-3">
+                <div className="space-y-1">
+                  <h4 className="text-[13px] font-semibold text-rose-400">
+                    Clear All Data & Reset
+                  </h4>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Permanently delete all clipboard entries, tags, and
+                    settings. This action cannot be undone.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowResetDialog(true);
+                    setResetConfirmText("");
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 border-rose-500/30 text-[13px] text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all"
+                >
+                  <IconAlertCircle size={14} />
+                  Clear All Data
+                </button>
+              </div>
+            </div>
+          </Section>
 
           {/* About */}
           <Section
@@ -719,6 +749,79 @@ const Settings: React.FC = () => {
           </motion.button>
         </div>
       </footer>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog
+        isOpen={showResetDialog}
+        onClose={() => {
+          setShowResetDialog(false);
+          setResetConfirmText("");
+        }}
+        title="Confirm Data Reset"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-rose-500/10 border-rose-500/20 rounded-lg space-y-2">
+            <h4 className="text-sm font-semibold text-rose-400 flex items-center gap-2">
+              <IconAlertCircle size={16} />
+              This action cannot be undone
+            </h4>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              You are about to permanently delete:
+            </p>
+            <ul className="text-xs text-gray-500 space-y-1 ml-4 list-disc">
+              <li>All clipboard entries (including favorites)</li>
+              <li>All custom tags and filters</li>
+              <li>All application settings</li>
+              <li>All sync connections (local MongoDB and Atlas)</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">
+              Type <span className="text-rose-400 font-bold">RESET ALL</span> to
+              confirm:
+            </label>
+            <input
+              type="text"
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value)}
+              placeholder="Type RESET ALL"
+              className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:border-rose-500/50 outline-none transition-all"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowResetDialog(false);
+                setResetConfirmText("");
+              }}
+              className="flex-1 px-4 py-2.5 rounded-lg border-gray-700 text-gray-300 font-medium hover:bg-surface-700 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleResetAll}
+              disabled={resetConfirmText !== "RESET ALL" || resetting}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-rose-500/10 border-rose-500/30 text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resetting ? (
+                <>
+                  <IconRefresh size={14} className="animate-spin" />
+                  <span>Resetting...</span>
+                </>
+              ) : (
+                <>
+                  <IconAlertCircle size={14} />
+                  <span>Reset All Data</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };
