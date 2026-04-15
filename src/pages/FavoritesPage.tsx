@@ -41,7 +41,10 @@ const FavoritesPage: React.FC = () => {
       </div>
 
       {/* Content Area */}
-      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+      <div
+        ref={contentRef}
+        className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative"
+      >
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
