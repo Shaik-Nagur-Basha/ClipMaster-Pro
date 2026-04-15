@@ -4,7 +4,7 @@ import { useClipStore } from "../store/useClipStore";
 import TagBadge from "./TagBadge";
 import Dialog from "./Dialog";
 import FormattedContent from "./FormattedContent";
-import type { ClipboardItem } from "../types";
+import type { ClipboardItem, Tag } from "../types";
 import {
   IconCopy,
   IconStar,
@@ -86,6 +86,45 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
     const openEditDialog = () => {
       setEditText(item.text);
       setIsEditDialogOpen(true);
+    };
+
+    const handleCreateTag = async () => {
+      if (!tagSearchFilter.trim()) return;
+
+      // Check if tag with this name already exists
+      const exists = tags.some(
+        (t) => t.name.toLowerCase() === tagSearchFilter.toLowerCase(),
+      );
+      if (exists) return;
+
+      // Generate a simple ID and pick a random color
+      const colors = [
+        "#ff6b6b",
+        "#4ecdc4",
+        "#45b7d1",
+        "#f9ca24",
+        "#6c5ce7",
+        "#a29bfe",
+        "#fd79a8",
+        "#fdcb6e",
+        "#6c7a89",
+        "#00b894",
+      ];
+      const newTag: Tag = {
+        id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: tagSearchFilter.trim(),
+        color: colors[Math.floor(Math.random() * colors.length)],
+      };
+
+      // Add the new tag and save
+      const updatedTags = [...tags, newTag];
+      await useClipStore.getState().saveTags(updatedTags);
+
+      // Automatically toggle this tag on the current clip
+      await toggleTagOnClip(item.id, newTag.id);
+
+      // Clear the search filter
+      setTagSearchFilter("");
     };
 
     return (
@@ -257,37 +296,57 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                 {tags.length === 0 ? (
                   <p className="text-[10px] text-gray-600">No tags defined</p>
                 ) : (
-                  tags
-                    .filter((tag) =>
-                      tag.name
-                        .toLowerCase()
-                        .includes(tagSearchFilter.toLowerCase()),
-                    )
-                    .map((tag) => {
-                      const isSelected = item.tags.includes(tag.id);
-                      return (
+                  <>
+                    {tags
+                      .filter((tag) =>
+                        tag.name
+                          .toLowerCase()
+                          .includes(tagSearchFilter.toLowerCase()),
+                      )
+                      .map((tag) => {
+                        const isSelected = item.tags.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => toggleTagOnClip(item.id, tag.id)}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                              isSelected
+                                ? "bg-surface-700 text-white"
+                                : "hover:bg-surface-700/60 text-gray-500 hover:text-gray-300"
+                            }`}
+                          >
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            <span className="truncate max-w-[100px] ">
+                              {tag.name}
+                            </span>
+                            {isSelected && (
+                              <IconCheck size={12} className="text-brand-400" />
+                            )}
+                          </button>
+                        );
+                      })}
+
+                    {/* Create New Tag Button */}
+                    {tagSearchFilter.trim() &&
+                      !tags.some(
+                        (t) =>
+                          t.name.toLowerCase() ===
+                          tagSearchFilter.toLowerCase(),
+                      ) && (
                         <button
-                          key={tag.id}
-                          onClick={() => toggleTagOnClip(item.id, tag.id)}
-                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
-                            isSelected
-                              ? "bg-surface-700 text-white"
-                              : "hover:bg-surface-700/60 text-gray-500 hover:text-gray-300"
-                          }`}
+                          onClick={handleCreateTag}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all bg-brand-500/15 text-brand-400 border border-brand-500/40 hover:bg-brand-500/25 hover:border-brand-500/60"
                         >
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: tag.color }}
-                          />
-                          <span className="truncate max-w-[100px] ">
-                            {tag.name}
+                          <span className="text-sm leading-none">+</span>
+                          <span className="truncate">
+                            Create "{tagSearchFilter}"
                           </span>
-                          {isSelected && (
-                            <IconCheck size={12} className="text-brand-400" />
-                          )}
                         </button>
-                      );
-                    })
+                      )}
+                  </>
                 )}
               </div>
             </motion.div>
