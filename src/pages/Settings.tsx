@@ -8,7 +8,6 @@ import {
   IconDatabase,
   IconCloud,
   IconRefresh,
-  IconSave,
   IconInfo,
   IconChevronDown,
   IconShield,
@@ -77,7 +76,6 @@ const Settings: React.FC = () => {
     settings.mongoUri ?? "mongodb://127.0.0.1:27017/clipmaster",
   );
   const [atlasUri, setAtlasUri] = useState(settings.atlasUri ?? "");
-  const [saving, setSaving] = useState(false);
   const [localConnecting, setLocalConnecting] = useState(false);
   const [atlasConnecting, setAtlasConnecting] = useState(false);
   const [localSyncing, setLocalSyncing] = useState(false);
@@ -90,7 +88,6 @@ const Settings: React.FC = () => {
     "idle" | "ok" | "fail" | "connecting"
   >("idle");
   const [atlasError, setAtlasError] = useState("");
-  const [showSuccess, setShowSuccess] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -120,14 +117,6 @@ const Settings: React.FC = () => {
       handleConnectAtlas(true);
     }
   }, [settingsLoading, atlasUri, atlasConnected]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    await saveSettings({ mongoUri: localUri, atlasUri });
-    setSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2000);
-  };
 
   const handleConnectLocal = async () => {
     if (!localUri.trim()) {
@@ -229,8 +218,6 @@ const Settings: React.FC = () => {
         // Clear local state
         setResetConfirmText("");
         setShowResetDialog(false);
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 2000);
         // Reload all data after reset
         setTimeout(async () => {
           // Reload clips, tags, and settings from storage
@@ -660,104 +647,13 @@ const Settings: React.FC = () => {
         </div>
       </main>
 
-      {/* Sticky Bottom Actions */}
+      {/* Sticky Bottom Notice */}
       <footer className="px-6 py-4 border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <p className="text-[11px] text-gray-500 italic max-w-[200px]">
-            Changes are applied instantly to local state but require a manual
-            save for persistence in background services.
+        <div className="max-w-2xl mx-auto">
+          <p className="text-[11px] text-gray-500 italic">
+            Settings are saved automatically and synced from local to cloud in
+            the background.
           </p>
-          <motion.button
-            onClick={handleSave}
-            disabled={saving}
-            layout
-            initial={false}
-            className={`
-              relative group flex items-center gap-2.5 px-7 py-2.5 rounded-xl
-              text-[12px] font-bold uppercase tracking-widest transition-all duration-500
-              overflow-hidden border-white/5
-              ${
-                showSuccess
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
-                  : "bg-surface-900/50 backdrop-blur-md text-white/90 hover:text-white shadow-lg border-white/10"
-              }
-              disabled:opacity-50 disabled:cursor-not-allowed
-            `}
-          >
-            {/* Background Glow */}
-            <div
-              className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none
-              ${
-                showSuccess
-                  ? "bg-emerald-500/5"
-                  : "bg-gradient-to-tr from-brand-500/10 via-brand-500/5 to-transparent"
-              }`}
-            />
-
-            {/* Shine sweep */}
-            {!saving && !showSuccess && (
-              <motion.div
-                initial={{ x: "-100%", opacity: 0 }}
-                animate={{ x: "100%", opacity: [0, 0.5, 0] }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatDelay: 3,
-                  ease: "easeInOut",
-                }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 translate-y-[-50%] h-[200%]"
-              />
-            )}
-
-            <AnimatePresence mode="wait">
-              {saving ? (
-                <motion.div
-                  key="saving"
-                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
-                  className="flex items-center gap-2"
-                >
-                  <IconRefresh
-                    size={14}
-                    className="animate-spin text-brand-400"
-                  />
-                  <span className="text-gray-400">Saving...</span>
-                </motion.div>
-              ) : showSuccess ? (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
-                  className="flex items-center gap-2"
-                >
-                  <IconCheck size={14} className="text-emerald-400" />
-                  <span className="text-emerald-400 font-extrabold">Saved</span>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="idle"
-                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 1.1, y: -5 }}
-                  className="flex items-center gap-2"
-                >
-                  <IconSave
-                    size={14}
-                    className="text-brand-400 group-hover:-translate-y-0.5 transition-transform"
-                  />
-                  <span>Save Changes</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Bottom Accent Line */}
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-[2px] transition-all duration-300
-              ${showSuccess ? "bg-emerald-500" : "bg-brand-500/40 group-hover:bg-brand-500 group-hover:shadow-[0_0_8px_rgba(99,102,241,0.5)]"}`}
-            />
-          </motion.button>
         </div>
       </footer>
 
