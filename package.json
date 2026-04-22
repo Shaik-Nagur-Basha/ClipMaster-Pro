@@ -1,6 +1,6 @@
 {
   "name": "clipmaster-pro",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "High-performance clipboard manager for Windows",
   "main": "out/main/main.js",
   "author": "ClipMaster Pro",

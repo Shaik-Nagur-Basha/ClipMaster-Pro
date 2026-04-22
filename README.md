@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![Version](https://img.shields.io/badge/Version-1.2.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 

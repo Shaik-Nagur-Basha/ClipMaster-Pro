@@ -105,7 +105,7 @@ Section "Install ClipMaster Pro"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipMaster Pro" \
     "DisplayIcon" "$INSTDIR\ClipMaster Pro.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipMaster Pro" \
-    "DisplayVersion" "1.0.0"
+    "DisplayVersion" "1.2.0"
   
   DetailPrint "  │  ├─ Add/Remove Programs entry... ✓"
   DetailPrint "  │  └─ File associations registered"
