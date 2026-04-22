@@ -31,7 +31,8 @@ const TagManager: React.FC = () => {
     const tag: Tag = {
       id: Date.now().toString(),
       name,
-      color: newColor
+      color: newColor,
+      updatedAt: new Date().toISOString()
     }
     await saveTags([...tags, tag])
     setNewName('')
@@ -40,7 +41,8 @@ const TagManager: React.FC = () => {
 
   const handleEditSave = async () => {
     if (!editingTag || !editingTag.name.trim()) return
-    await saveTags(tags.map((t) => (t.id === editingTag.id ? editingTag : t)))
+    const updatedTag = { ...editingTag, updatedAt: new Date().toISOString() }
+    await saveTags(tags.map((t) => (t.id === updatedTag.id ? updatedTag : t)))
     setEditingTag(null)
   }
 

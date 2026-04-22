@@ -10,7 +10,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "optimize": "node optimize-bundle.js",
-    "clean": "node -e \"const fs=require('fs');['release','out'].forEach(p=>{if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})})\"",
+    "clean": "node -e \"const {execSync}=require('child_process');try{execSync('taskkill /F /IM \\\"ClipMaster Pro.exe\\\" /T',{stdio:'ignore'})}catch(e){}const{execSync:ex}=require('child_process');['release','out'].forEach(p=>{try{ex('powershell -Command \\\"if(Test-Path '+p+'){Remove-Item -Path '+p+' -Recurse -Force -ErrorAction SilentlyContinue}\\\"',{stdio:'inherit'})}catch(e){}})\"",
     "dist": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis && npm run optimize",
     "dist:portable": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && npm run optimize",
     "dist:dir": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir && npm run optimize",

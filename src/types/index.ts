@@ -17,6 +17,7 @@ export type Tag = {
   id: string;
   name: string;
   color: string;
+  updatedAt?: string;
 };
 
 // ─── Sync-specific Types ──────────────────────────────────────────────────

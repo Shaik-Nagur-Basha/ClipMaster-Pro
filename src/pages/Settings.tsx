@@ -178,6 +178,10 @@ const Settings: React.FC = () => {
 
     await window.clipAPI.triggerSync?.(target);
 
+    // Refresh UI state after bidirectional sync completes
+    await useClipStore.getState().loadClips();
+    await useClipStore.getState().loadTags();
+
     if (target === "local") setLocalSyncing(false);
     else setAtlasSyncing(false);
   };
@@ -330,14 +334,14 @@ const Settings: React.FC = () => {
 
           {/* Local Database */}
           <Section
-            title="Local persistence"
+            title="Local Mongo sync"
             badge={<ConnectionStatus connected={mongoConnected} />}
             icon={<IconDatabase size={14} className="text-gray-500" />}
           >
             <div className="space-y-4">
               <SettingRow
                 label="Enable MongoDB Sync"
-                desc="Persist clips to a local MongoDB instance for scalability."
+                desc="Sync clipboard data from local JSON to local MongoDB."
               >
                 <Toggle
                   checked={settings.mongoEnabled}
@@ -694,7 +698,7 @@ const Settings: React.FC = () => {
               value={resetConfirmText}
               onChange={(e) => setResetConfirmText(e.target.value)}
               placeholder="Type RESET ALL"
-              className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:border-rose-500/50 outline-none transition-all"
+              className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:border-rose-500/50 focus:ring-0 focus-visible:ring-0 focus:outline-none outline-none transition-all"
               autoFocus
             />
           </div>

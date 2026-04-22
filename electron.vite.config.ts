@@ -7,7 +7,10 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
-        entry: resolve('electron/main.ts')
+        entry: {
+          main: resolve('electron/main.ts'),
+          clipboardWorker: resolve('electron/clipboardWorker.ts')
+        }
       }
     },
     resolve: {

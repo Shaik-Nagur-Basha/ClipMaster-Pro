@@ -114,6 +114,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: tagSearchFilter.trim(),
         color: colors[Math.floor(Math.random() * colors.length)],
+        updatedAt: new Date().toISOString(),
       };
 
       // Add the new tag and save
@@ -125,6 +126,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
 
       // Clear the search filter
       setTagSearchFilter("");
+      setShowTagPicker(false);
     };
 
     return (

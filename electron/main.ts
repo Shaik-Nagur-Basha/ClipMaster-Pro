@@ -27,7 +27,7 @@ if (!gotLock) {
 // ─── State ──────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let clipboardPoller: NodeJS.Timeout | null = null;
+let pollTimer: NodeJS.Timeout | null = null;
 let lastClipboardText = "";
 let isQuitting = false;
 
@@ -119,44 +119,57 @@ function createTray(): void {
 }
 
 // ─── Clipboard Polling ──────────────────────────────────────────────────────
-function startPoller(): void {
-  if (clipboardPoller) return;
-  lastClipboardText = clipboard.readText() ?? "";
+async function handleClipboardCapture(text: string): Promise<void> {
+  console.log("[Clipboard] Capture triggered, length:", text.length);
+  try {
+    const newItem = await storageManager.addEntry(text);
+    console.log("[Clipboard] addEntry result:", newItem ? newItem.id : "null (ignored)");
+    if (!newItem) return;
 
-  clipboardPoller = setInterval(async () => {
+    mainWindow?.webContents.send("new-clip", newItem);
+    syncManager.enqueue(newItem, "upsert");
+    syncManager
+      .runSync()
+      .then((state) => {
+        mainWindow?.webContents.send("sync-update", state);
+      })
+      .catch(() => {});
+  } catch (err) {
+    console.error("[Clipboard] Capture error:", err);
+  }
+}
+
+const POLL_INTERVAL_MS = 500;
+let pollTick = 0;
+
+function startPoller(): void {
+  if (pollTimer) return;
+  lastClipboardText = clipboard.readText() ?? "";
+  console.log("[Clipboard] Poller started, seed:", JSON.stringify(lastClipboardText.substring(0, 60)));
+
+  pollTimer = setInterval(() => {
     try {
       const current = clipboard.readText() ?? "";
+      pollTick++;
+      // Log every 10 ticks (5 seconds) so we can see readText() is working
+      if (pollTick % 10 === 0) {
+        console.log(`[Clipboard] tick=${pollTick} current[0..40]=${JSON.stringify(current.substring(0, 40))} same=${current === lastClipboardText}`);
+      }
       if (!current.trim() || current === lastClipboardText) return;
+      console.log("[Clipboard] Change detected! length:", current.length, "preview:", JSON.stringify(current.substring(0, 80)));
       lastClipboardText = current;
-
-      // ════ LAYER 1: Write to JSON (ALWAYS FIRST) ════
-      const newItem = await storageManager.addEntry(current);
-      if (!newItem) return;
-
-      // Notify renderer immediately (UI updates before any sync)
-      mainWindow?.webContents.send("new-clip", newItem);
-
-      // ════ LAYERS 2 & 3: Enqueue for async sync (non-blocking) ════
-      syncManager.enqueue(newItem, "upsert");
-      syncManager
-        .runSync(
-          () => storageManager.readAll(),
-          (items) => storageManager.mergeItems(items),
-        )
-        .then((state) => {
-          mainWindow?.webContents.send("sync-update", state);
-        })
-        .catch(() => {});
-    } catch {
-      /* ignore poller errors */
+      handleClipboardCapture(current);
+    } catch (err) {
+      console.error("[Clipboard] Poll error:", err);
     }
-  }, 600);
+  }, POLL_INTERVAL_MS);
 }
 
 function stopPoller(): void {
-  if (clipboardPoller) {
-    clearInterval(clipboardPoller);
-    clipboardPoller = null;
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    console.log("[Clipboard] Poller stopped");
   }
 }
 
@@ -185,10 +198,7 @@ function registerIPC(): void {
     if (item) {
       syncManager.enqueue(item, "upsert");
       syncManager
-        .runSync(
-          () => storageManager.readAll(),
-          (items) => storageManager.mergeItems(items),
-        )
+        .runSync()
         .then((s) => mainWindow?.webContents.send("sync-update", s))
         .catch(() => {});
     }
@@ -198,26 +208,46 @@ function registerIPC(): void {
   ipcMain.handle("update-clip", async (_e, item: ClipboardItem) => {
     await storageManager.updateEntry(item);
     syncManager.enqueue(item, "upsert");
+    syncManager
+      .runSync()
+      .then((s) => mainWindow?.webContents.send("sync-update", s))
+      .catch(() => {});
     return true;
   });
 
   ipcMain.handle("delete-clip", async (_e, id: string) => {
     await storageManager.softDelete(id);
     const item = storageManager.readAll().find((c) => c.id === id);
-    if (item) syncManager.enqueue(item, "soft-delete");
+    if (item) {
+      syncManager.enqueue(item, "soft-delete");
+      syncManager
+        .runSync()
+        .then((s) => mainWindow?.webContents.send("sync-update", s))
+        .catch(() => {});
+    }
     return true;
   });
 
   ipcMain.handle("permanent-delete", async (_e, id: string) => {
     await storageManager.permanentDelete(id);
     syncManager.enqueue({ id } as ClipboardItem, "permanent-delete");
+    syncManager
+      .runSync()
+      .then((s) => mainWindow?.webContents.send("sync-update", s))
+      .catch(() => {});
     return true;
   });
 
   ipcMain.handle("restore-clip", async (_e, id: string) => {
     await storageManager.restoreEntry(id);
     const item = storageManager.readAll().find((c) => c.id === id);
-    if (item) syncManager.enqueue(item, "upsert");
+    if (item) {
+      syncManager.enqueue(item, "upsert");
+      syncManager
+        .runSync()
+        .then((s) => mainWindow?.webContents.send("sync-update", s))
+        .catch(() => {});
+    }
     return true;
   });
 
@@ -229,9 +259,15 @@ function registerIPC(): void {
 
   // ── Tags & Settings ──────────────────────────────────────────────────────
   ipcMain.handle("get-tags", () => storageManager.getTags());
-  ipcMain.handle("save-tags", (_e, tags) =>
-    storageManager.saveTags(tags).then(() => true),
-  );
+  ipcMain.handle("save-tags", async (_e, tags) => {
+    await storageManager.saveTags(tags);
+    syncManager.enqueueTagSync();
+    syncManager
+      .runSync(true)
+      .then((s) => mainWindow?.webContents.send("sync-update", s))
+      .catch(() => {});
+    return true;
+  });
   ipcMain.handle("get-settings", () => storageManager.getSettings());
   ipcMain.handle(
     "save-settings",
@@ -253,12 +289,7 @@ function registerIPC(): void {
   ipcMain.handle(
     "trigger-sync",
     async (_e, target: "local" | "atlas" | "all" = "all") => {
-      const state = await syncManager.runSync(
-        () => storageManager.readAll(),
-        (items) => storageManager.mergeItems(items),
-        true, // force: true
-        target,
-      );
+      const state = await syncManager.runSync(true, target);
       return state;
     },
   );
@@ -268,10 +299,7 @@ function registerIPC(): void {
     if (ok) {
       await storageManager.saveSettings({ mongoEnabled: true, mongoUri: uri });
       // Bootstrap sync from local Mongo
-      await syncManager.bootstrapSync(
-        () => storageManager.readAll(),
-        (items) => storageManager.mergeItems(items),
-      );
+      await syncManager.bootstrapSync(() => storageManager.readAll());
     }
     return ok;
   });
@@ -282,10 +310,7 @@ function registerIPC(): void {
       await storageManager.saveSettings({ atlasEnabled: true, atlasUri: uri });
       // Bootstrap sync from Atlas
       await syncManager
-        .bootstrapSync(
-          () => storageManager.readAll(),
-          (items) => storageManager.mergeItems(items),
-        )
+        .bootstrapSync(() => storageManager.readAll())
         .catch(() => {});
     }
     return ok;
@@ -368,10 +393,7 @@ app.whenReady().then(async () => {
       .then((ok) => {
         if (ok) {
           syncManager
-            .bootstrapSync(
-              () => storageManager.readAll(),
-              (items) => storageManager.mergeItems(items),
-            )
+            .bootstrapSync(() => storageManager.readAll())
             .catch(() => {});
         }
       })
@@ -385,10 +407,7 @@ app.whenReady().then(async () => {
       .then(async (ok) => {
         if (ok) {
           syncManager
-            .bootstrapSync(
-              () => storageManager.readAll(),
-              (items) => storageManager.mergeItems(items),
-            )
+            .bootstrapSync(() => storageManager.readAll())
             .catch(() => {});
         }
       })
@@ -410,10 +429,7 @@ app.whenReady().then(async () => {
   });
 
   // ════ 6. Start background sync + clipboard polling ════
-  syncManager.startBackgroundSync(
-    () => storageManager.readAll(),
-    (items) => storageManager.mergeItems(items),
-  );
+  syncManager.startBackgroundSync();
   startPoller();
 
   app.on("activate", () => {

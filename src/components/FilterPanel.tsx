@@ -5,11 +5,15 @@ import { IconFilter, IconClock, IconChevronUp, IconChevronDown } from "./Icons";
 import RangeSlider from "./RangeSlider";
 
 const FilterPanel: React.FC = () => {
-  const { filters, setFilters, resetFilters, tags, clips } = useClipStore();
+  const { filters, setFilters, resetFilters, tags, clips, activePage } = useClipStore();
   const [dateExpanded, setDateExpanded] = useState(true);
 
-  // Calculate min/max character counts from filtered clips
-  let filteredClips = clips.filter((c) => !c.isDeleted);
+  const isRecycleBin = activePage === "recycle";
+
+  // Calculate min/max character counts from relevant clips (active or deleted)
+  let filteredClips = clips.filter((c) =>
+    isRecycleBin ? c.isDeleted : !c.isDeleted,
+  );
 
   // Apply search filter
   if (filters.search.trim()) {
@@ -45,7 +49,12 @@ const FilterPanel: React.FC = () => {
 
   const charCounts = filteredClips.map((c) => c.charCount ?? c.text.length);
   const globalMin = charCounts.length > 0 ? Math.min(...charCounts) : 0;
-  const globalMax = charCounts.length > 0 ? Math.max(...charCounts) : 1000;
+  let globalMax = charCounts.length > 0 ? Math.max(...charCounts) : 1000;
+
+  // Ensure max is always at least min + 1 to avoid division by zero in RangeSlider
+  if (globalMax <= globalMin) {
+    globalMax = globalMin + 1;
+  }
 
   const hasActiveFilters =
     filters.search ||

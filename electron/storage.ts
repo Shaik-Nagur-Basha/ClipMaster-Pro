@@ -66,6 +66,7 @@ class StorageManager {
   private clipsCache: ClipboardItem[] = [];
   private tagsCache: Tag[] = [];
   private settingsCache: AppSettings = { ...DEFAULT_SETTINGS };
+  private needsFlush = false;
 
   private debouncedFlush = debounce(
     this.flush.bind(this) as (...args: unknown[]) => void,
@@ -75,6 +76,7 @@ class StorageManager {
   // ── Init ────────────────────────────────────────────────────────────────
   async init(): Promise<void> {
     const dir = getDataDir();
+    console.log("[Storage] Data directory:", dir);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
     this.ensureFile(getClipsPath(), "[]");
@@ -85,6 +87,7 @@ class StorageManager {
     );
 
     this.clipsCache = this.readJSON<ClipboardItem[]>(getClipsPath(), []);
+    console.log("[Storage] Loaded", this.clipsCache.length, "clips from", getClipsPath());
     this.tagsCache = this.readJSON<Tag[]>(getTagsPath(), DEFAULT_TAGS);
 
     // Migration logic
@@ -124,24 +127,29 @@ class StorageManager {
         JSON.stringify(this.clipsCache, null, 2),
         "utf-8",
       );
+      this.needsFlush = false;
     } catch (e) {
       console.error("[Storage] Flush failed:", e);
+      this.needsFlush = true;
     }
+  }
+
+  private scheduleFlush(): void {
+    this.needsFlush = true;
+    this.debouncedFlush();
   }
 
   // ── CLIPS ───────────────────────────────────────────────────────────────
 
-  /** Always reads from disk — never returns stale cache */
+  /**
+   * Return current clipboard cache and flush any pending disk writes.
+   * Avoids reloading the full JSON file on every read.
+   */
   readAll(): ClipboardItem[] {
-    try {
-      const fresh = JSON.parse(
-        readFileSync(getClipsPath(), "utf-8"),
-      ) as ClipboardItem[];
-      this.clipsCache = fresh; // keep cache in sync
-      return fresh;
-    } catch {
-      return this.clipsCache; // fallback to cache on read error
+    if (this.needsFlush) {
+      this.flush();
     }
+    return this.clipsCache;
   }
 
   /**
@@ -153,9 +161,23 @@ class StorageManager {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
-    // Dedup: ignore if exact same text already exists (non-deleted)
-    if (this.clipsCache.some((c) => c.text === trimmed && !c.isDeleted))
-      return null;
+    console.log("[Storage] addEntry called, trimmed length:", trimmed.length, "cache size:", this.clipsCache.length);
+
+    const now = new Date().toISOString();
+
+    // Dedup: if exact same text exists (non-deleted), re-surface it to the top
+    const existingIdx = this.clipsCache.findIndex(
+      (c) => c.text === trimmed && !c.isDeleted,
+    );
+    if (existingIdx !== -1) {
+      const [existing] = this.clipsCache.splice(existingIdx, 1);
+      existing.timestamp = now;
+      existing.updatedAt = now;
+      this.clipsCache.unshift(existing);
+      this.flush();
+      console.log("[Storage] Re-surfaced existing clip:", existing.id);
+      return existing;
+    }
 
     // Enforce max entries: purge oldest non-favorite first
     const maxEntries = this.settingsCache.maxEntries ?? 5000;
@@ -170,12 +192,11 @@ class StorageManager {
       if (oldest) await this.permanentDelete(oldest.id);
     }
 
-    const now = new Date().toISOString();
     const item: ClipboardItem = {
       id: uuidv4(),
       text: trimmed,
       timestamp: now,
-      updatedAt: now, // ← required for conflict resolution
+      updatedAt: now,
       tags: [],
       isFavorite: false,
       isDeleted: false,
@@ -185,6 +206,7 @@ class StorageManager {
 
     this.clipsCache.unshift(item);
     this.flush(); // Layer 1 write (immediate for new entries)
+    console.log("[Storage] New clip saved:", item.id, "→", getClipsPath());
     return item;
   }
 
@@ -197,7 +219,7 @@ class StorageManager {
       wordCount: item.text.split(/\s+/).filter(Boolean).length,
       charCount: item.text.length,
     };
-    this.debouncedFlush();
+    this.scheduleFlush();
   }
 
   async softDelete(id: string): Promise<void> {
@@ -206,7 +228,7 @@ class StorageManager {
     item.isDeleted = true;
     item.deletedAt = new Date().toISOString();
     item.updatedAt = item.deletedAt;
-    this.debouncedFlush();
+    this.scheduleFlush();
   }
 
   async restoreEntry(id: string): Promise<void> {
@@ -215,12 +237,12 @@ class StorageManager {
     item.isDeleted = false;
     item.updatedAt = new Date().toISOString();
     delete item.deletedAt;
-    this.debouncedFlush();
+    this.scheduleFlush();
   }
 
   async permanentDelete(id: string): Promise<void> {
     this.clipsCache = this.clipsCache.filter((c) => c.id !== id);
-    this.debouncedFlush();
+    this.scheduleFlush();
   }
 
   /**
