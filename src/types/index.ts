@@ -109,6 +109,7 @@ export interface ClipStore {
   updateClip: (item: ClipboardItem) => Promise<void>;
   deleteClip: (id: string) => Promise<void>;
   permanentDelete: (id: string) => Promise<void>;
+  permanentDeleteBulk: (ids: string[]) => Promise<void>;
   restoreClip: (id: string) => Promise<boolean>;
   toggleFavorite: (id: string) => Promise<void>;
   copyToClipboard: (text: string) => Promise<void>;
@@ -143,6 +144,7 @@ export interface ClipAPI {
   updateClip: (item: ClipboardItem) => Promise<boolean>;
   deleteClip: (id: string) => Promise<boolean>;
   permanentDelete: (id: string) => Promise<boolean>;
+  permanentDeleteBulk: (ids: string[]) => Promise<boolean>;
   restoreClip: (id: string) => Promise<boolean>;
   copyToClipboard: (text: string) => Promise<boolean>;
 

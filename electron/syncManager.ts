@@ -248,6 +248,11 @@ class MongoConnection {
     await this.ClipModel.deleteOne({ clipId: id });
   }
 
+  async permanentDeleteBulk(ids: string[]): Promise<void> {
+    if (!this.connected || !this.ClipModel || ids.length === 0) return;
+    await this.ClipModel.deleteMany({ clipId: { $in: ids } });
+  }
+
   async syncTags(tags: any[]): Promise<void> {
     if (!this.connected || !this.TagModel) return;
     if (tags.length === 0) {
@@ -475,6 +480,26 @@ class SyncManager {
     this.emitState({}); // update pendingCount
   }
 
+  enqueueBulk(
+    items: ClipboardItem[],
+    operation: SyncQueueEntry["operation"] = "upsert",
+  ): void {
+    for (const item of items) {
+      if (operation === "permanent-delete") {
+        this.deleteQueue.add(item.id);
+        this.syncQueue.delete(item.id);
+      } else {
+        this.syncQueue.set(item.id, {
+          item,
+          operation,
+          enqueuedAt: new Date().toISOString(),
+          retries: 0,
+        });
+      }
+    }
+    this.emitState({});
+  }
+
   enqueueTagSync(): void {
     this.tagsDirty = true;
     this.emitState({});
@@ -508,14 +533,17 @@ class SyncManager {
 
     try {
       const settings = storageManager.getSettings();
-      const changedItems = Array.from(this.syncQueue.values()).map(
-        (entry) => entry.item,
-      );
-      const localTags = storageManager.getTags();
+      
+      // 1. Snapshot current queues to avoid race conditions with concurrent enqueues
+      const syncSnapshot = Array.from(this.syncQueue.values());
+      const deleteSnapshot = Array.from(this.deleteQueue);
       const tagDelta = this.tagsDirty || force;
+      
+      const changedItems = syncSnapshot.map((entry) => entry.item);
+      const localTags = storageManager.getTags();
       const hasChanges =
         changedItems.length > 0 ||
-        this.deleteQueue.size > 0 ||
+        deleteSnapshot.length > 0 ||
         tagDelta;
 
       // ─── Layer 2: Local MongoDB ────────────────────────────────────────────
@@ -533,8 +561,8 @@ class SyncManager {
             if (tagDelta) {
               await this.localConn.syncTags(localTags);
             }
-            for (const id of Array.from(this.deleteQueue)) {
-              await this.localConn.permanentDelete(id);
+            if (deleteSnapshot.length > 0) {
+              await this.localConn.permanentDeleteBulk(deleteSnapshot);
             }
 
             const now = new Date().toISOString();
@@ -574,8 +602,8 @@ class SyncManager {
             if (tagDelta) {
               await this.atlasConn.syncTags(localTags);
             }
-            for (const id of Array.from(this.deleteQueue)) {
-              await this.atlasConn.permanentDelete(id);
+            if (deleteSnapshot.length > 0) {
+              await this.atlasConn.permanentDeleteBulk(deleteSnapshot);
             }
 
             const now = new Date().toISOString();
@@ -598,7 +626,7 @@ class SyncManager {
       }
 
       // ─── Finalize Queues ──────────────────────────────────────────────────
-      // Only clear the shared queues if all enabled sync targets are available and idle.
+      // Only clear the specific items we successfully processed
       const localEligible = settings.mongoEnabled && this.localConn.connected;
       const atlasEligible = settings.atlasEnabled && this.atlasConn.connected;
       const localSucceeded = !localEligible || this.state.localMongo === "idle";
@@ -658,9 +686,18 @@ class SyncManager {
           }
         }
 
-        this.syncQueue.clear();
-        this.deleteQueue.clear();
-        this.tagsDirty = false;
+        // Remove only what we processed
+        for (const entry of syncSnapshot) {
+          const current = this.syncQueue.get(entry.item.id);
+          // Only remove if it hasn't been updated since we started
+          if (current && current.enqueuedAt === entry.enqueuedAt) {
+            this.syncQueue.delete(entry.item.id);
+          }
+        }
+        for (const id of deleteSnapshot) {
+          this.deleteQueue.delete(id);
+        }
+        if (tagDelta) this.tagsDirty = false;
       }
     } finally {
       if (target === "all" || target === "local") this.isLocalSyncing = false;

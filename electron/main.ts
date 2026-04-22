@@ -238,6 +238,19 @@ function registerIPC(): void {
     return true;
   });
 
+  ipcMain.handle("permanent-delete-bulk", async (_e, ids: string[]) => {
+    await storageManager.permanentDeleteBulk(ids);
+    syncManager.enqueueBulk(
+      ids.map((id) => ({ id }) as ClipboardItem),
+      "permanent-delete",
+    );
+    syncManager
+      .runSync()
+      .then((s) => mainWindow?.webContents.send("sync-update", s))
+      .catch(() => {});
+    return true;
+  });
+
   ipcMain.handle("restore-clip", async (_e, id: string) => {
     await storageManager.restoreEntry(id);
     const item = storageManager.readAll().find((c) => c.id === id);

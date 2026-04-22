@@ -245,6 +245,12 @@ class StorageManager {
     this.scheduleFlush();
   }
 
+  async permanentDeleteBulk(ids: string[]): Promise<void> {
+    const idSet = new Set(ids);
+    this.clipsCache = this.clipsCache.filter((c) => !idSet.has(c.id));
+    this.scheduleFlush();
+  }
+
   /**
    * Merge-into-JSON — called by SyncManager after Atlas two-way sync.
    * Replaces in-memory cache AND flushes to disk immediately.

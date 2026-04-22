@@ -148,6 +148,12 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     set((state) => ({ clips: state.clips.filter((c) => c.id !== id) }));
   },
 
+  permanentDeleteBulk: async (ids: string[]) => {
+    await window.clipAPI.permanentDeleteBulk(ids);
+    const idSet = new Set(ids);
+    set((state) => ({ clips: state.clips.filter((c) => !idSet.has(c.id)) }));
+  },
+
   restoreClip: async (id: string): Promise<boolean> => {
     await window.clipAPI.restoreClip(id);
     set((state) => ({

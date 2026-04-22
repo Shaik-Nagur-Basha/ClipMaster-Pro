@@ -13,6 +13,8 @@ const clipAPI = {
   updateClip: (item: ClipboardItem) => ipcRenderer.invoke("update-clip", item),
   deleteClip: (id: string) => ipcRenderer.invoke("delete-clip", id),
   permanentDelete: (id: string) => ipcRenderer.invoke("permanent-delete", id),
+  permanentDeleteBulk: (ids: string[]) =>
+    ipcRenderer.invoke("permanent-delete-bulk", ids),
   restoreClip: (id: string) => ipcRenderer.invoke("restore-clip", id),
   copyToClipboard: (text: string) =>
     ipcRenderer.invoke("copy-to-clipboard", text),

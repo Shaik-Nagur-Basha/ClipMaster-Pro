@@ -11,7 +11,7 @@ import type { ClipboardItem } from "../types";
 
 const RecycleBinPage: React.FC = () => {
   const store = useClipStore();
-  const { displayMode, isLoading, permanentDelete } = store;
+  const { displayMode, isLoading, permanentDeleteBulk } = store;
   const filtered = selectFilteredClips(store, true);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -21,11 +21,15 @@ const RecycleBinPage: React.FC = () => {
 
   const handleEmptyBin = async () => {
     setEmptying(true);
-    for (const item of filtered) {
-      await permanentDelete(item.id);
+    try {
+      const ids = filtered.map((item) => item.id);
+      await permanentDeleteBulk(ids);
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+    } finally {
+      setEmptying(false);
+      setShowConfirmDialog(false);
     }
-    setEmptying(false);
-    setShowConfirmDialog(false);
   };
 
   const handleOpenConfirm = () => {
