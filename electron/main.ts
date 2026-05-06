@@ -462,6 +462,7 @@ app.on("before-quit", () => {
   isQuitting = true;
   stopPoller();
   syncManager.stopBackgroundSync();
+  storageManager.forceFlush();
 });
 
 app.on("window-all-closed", () => {

@@ -7,7 +7,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                                                         │
-│ Welcome to ClipMaster Pro v1.0.0 Setup Wizard          │
+│ Welcome to ClipMaster Pro v2.0.0 Setup Wizard          │
 │                                                         │
 │ This wizard will guide you through the installation    │
 │ of ClipMaster Pro, a professional clipboard manager   │
@@ -26,7 +26,7 @@ The installation window shows real-time progress with detailed information:
 
 ```
 ═══════════════════════════════════════════════════════════
-📦 CLIPMASTER PRO INSTALLATION v1.0.0
+📦 CLIPMASTER PRO INSTALLATION v2.0.0
 ═══════════════════════════════════════════════════════════
 
 ⏳ Phase 1: Initializing Installation...
@@ -288,11 +288,11 @@ C:\Users\[Username]\AppData\Local\
 HKEY_CURRENT_USER\Software\Microsoft\Windows\
   CurrentVersion\Uninstall\ClipMaster Pro
 
-  DisplayName: "ClipMaster Pro v1.0.0"
+  DisplayName: "ClipMaster Pro v2.0.0"
   UninstallString: "C:\Program Files\ClipMaster Pro\uninstall.exe"
   InstallLocation: "C:\Program Files\ClipMaster Pro"
   DisplayIcon: "C:\Program Files\ClipMaster Pro\ClipMaster Pro.exe"
-  DisplayVersion: "1.0.0"
+  DisplayVersion: "2.0.0"
 ```
 
 **Auto-Launch (if enabled)**

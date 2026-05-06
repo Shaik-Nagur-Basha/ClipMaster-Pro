@@ -1,4 +1,29 @@
-# ClipMaster Pro v1.0.0 - Release Notes
+# ClipMaster Pro Release Notes
+
+## 🚀 v2.0.0 - Hardened Persistence & UI Refinement (Latest)
+
+**"The Data Integrity Update"**
+
+This major release focuses on making ClipMaster Pro 100% resilient to system crashes and power loss, while introducing a more refined, technical UI for clipboard metadata.
+
+### 🛡️ Data Integrity & Persistence
+- **Atomic File Writing**: Implemented a "write-then-rename" strategy to ensure settings and clips are never corrupted during a crash.
+- **Hardware-Level Sync (`fsync`)**: Every write is now forced to the physical disk before completion, surviving sudden power cuts.
+- **Automatic Backup System**: The app now creates and maintains `.bak` files, with automatic recovery logic if the primary data files ever become unreadable.
+- **Corruption Forensics**: Corrupt files are now preserved (renamed to `.corrupt`) instead of being silently overwritten.
+
+### 🎨 UI & UX Modernization
+- **Technical Metadata Row**: Refined the display of character counts, word counts, and timestamps with a high-contrast, premium aesthetic.
+- **Dynamic Color Highlighting**: Non-favorited items now feature subtle, scannable rose/sky highlights for technical metrics.
+- **Zero-Latency Polling**: Improved clipboard monitoring to be even more responsive while maintaining low CPU usage.
+
+### 📁 Documentation
+- **Screenshots Directory**: Added a new `/screenshots` folder in the root directory for repository previews.
+- **Updated Architecture**: Documentation updated to reflect the new atomic storage engine.
+
+---
+
+# v1.0.0 - Production Ready (Initial Release)
 
 ## 🎉 What's New
 

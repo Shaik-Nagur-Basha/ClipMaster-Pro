@@ -294,7 +294,7 @@ Self-extracting executable:
 ### Release Notes Format
 
 ```markdown
-## ClipMaster Pro v1.0.0 - Release Notes
+## ClipMaster Pro v2.0.0 - Release Notes
 
 📦 **What's New**
 

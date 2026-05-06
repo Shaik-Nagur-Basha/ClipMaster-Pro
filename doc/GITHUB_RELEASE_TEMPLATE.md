@@ -1,15 +1,15 @@
 # GitHub Release Template
 
-## For Publishing ClipMaster Pro v1.0.0 to GitHub
+## For Publishing ClipMaster Pro v2.0.0 to GitHub
 
 ### Release Title
 ```
-ClipMaster Pro v1.0.0 - Production Release
+ClipMaster Pro v2.0.0 - The Data Integrity Update
 ```
 
 ### Release Description
 ```markdown
-## 🎉 ClipMaster Pro v1.0.0 - Official Release
+## 🎉 ClipMaster Pro v2.0.0 - The Data Integrity Update
 
 A fast, lightweight clipboard manager for Windows that automatically captures, 
 organizes, and syncs everything you copy.
@@ -21,13 +21,13 @@ organizes, and syncs everything you copy.
 **Choose one of the two options below:**
 
 ### Option 1: Setup Installer (Recommended)
-- **[ClipMaster-Pro-Setup.exe](https://github.com/your-user/ClipMaster-Pro/releases/download/v1.0.0/ClipMaster-Pro-Setup.exe)** (85 MB)
+- **[ClipMaster-Pro-Setup.exe](https://github.com/your-user/ClipMaster-Pro/releases/download/v2.0.0/ClipMaster-Pro-Setup.exe)** (85 MB)
 - For: Regular users, home/office computers
 - Installation time: 10-20 seconds
 - Features: System shortcuts, easy uninstall
 
 ### Option 2: Portable (No Installation)
-- **[ClipMaster-Pro-Portable.exe](https://github.com/your-user/ClipMaster-Pro/releases/download/v1.0.0/ClipMaster-Pro-Portable.exe)** (40 MB)
+- **[ClipMaster-Pro-Portable.exe](https://github.com/your-user/ClipMaster-Pro/releases/download/v2.0.0/ClipMaster-Pro-Portable.exe)** (40 MB)
 - For: USB drives, testing, minimal footprint
 - Launch time: 3-5 seconds instantly
 - Features: Fully portable, no system changes
@@ -36,9 +36,20 @@ organizes, and syncs everything you copy.
 
 ---
 
-## ✨ What's New
+## ✨ What's New in v2.0.0
 
-### Core Features
+### 🛡️ Data Integrity & Persistence
+- **Atomic File Writing** - Prevents settings/clips corruption during hard shutdowns or crashes.
+- **Hardware-Level Sync (`fsync`)** - Forces data to physical disk to survive power loss.
+- **Automatic Recovery System** - New `.bak` system restores data automatically if corruption is detected.
+- **Forensics** - Corrupt files are preserved (renamed to `.corrupt`) for manual recovery.
+
+### 🎨 UI & UX Refinement
+- **Technical Metadata Row** - High-contrast metrics for character/word counts and timestamps.
+- **Smart Highlights** - New scannable rose/sky highlights for technical data.
+- **Performance** - Zero-latency clipboard monitoring with minimal CPU footprint.
+
+### 📊 Previous Core Features
 - ⚡ **Auto-Capture** - Every copy automatically saved
 - 🔍 **Instant Search** - Find clips in milliseconds
 - 🏷️ **Smart Tags** - Organize by category
@@ -49,12 +60,6 @@ organizes, and syncs everything you copy.
 - 🚀 **Auto-Launch** - Start with Windows
 - 🪟 **System Tray** - Minimize/resume instantly
 - 🎨 **Markdown & Code** - Format-aware display
-
-### Performance
-- 52% size optimization (ASAR compression + unused library removal)
-- Memory efficient: 150-300 MB usage
-- Instant search: <50ms query time
-- Minimal CPU: <1% idle
 
 ---
 
@@ -226,8 +231,8 @@ When uploading this release to GitHub, include these files:
 1. **Create Release**
    - Go to GitHub repo
    - Click "Releases" → "Create a new release"
-   - Tag: `v1.0.0`
-   - Title: `ClipMaster Pro v1.0.0 - Production Release`
+   - Tag: `v2.0.0`
+   - Title: `ClipMaster Pro v2.0.0 - The Data Integrity Update`
 
 2. **Upload Files**
    - Drag & drop exe files or use upload button

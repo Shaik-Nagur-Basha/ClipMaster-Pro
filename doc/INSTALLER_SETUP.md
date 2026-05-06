@@ -46,7 +46,7 @@ When users run Setup.exe, they'll see:
 
 ```
 ═══════════════════════════════════════════════════════════
-📦 CLIPMASTER PRO INSTALLATION v1.0.0
+📦 CLIPMASTER PRO INSTALLATION v2.0.0
 ═══════════════════════════════════════════════════════════
 
 ⏳ Phase 1: Initializing Installation...
