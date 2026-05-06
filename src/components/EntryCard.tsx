@@ -37,6 +37,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       toggleTagOnClip,
       restoreClip,
       permanentDelete,
+      filters,
     } = useClipStore();
     const [editText, setEditText] = useState(item.text);
     const [copied, setCopied] = useState(false);
@@ -159,6 +160,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
             <FormattedContent
               content={displayText}
               displayMode={displayMode}
+              highlight={filters.search}
               className={`transition-colors ${
                 item.isFavorite
                   ? "text-accent-100 font-medium"

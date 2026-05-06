@@ -4,6 +4,7 @@ import { useClipStore } from "../store/useClipStore";
 import FilterPanel from "./FilterPanel";
 import TagManager from "./TagManager";
 import type { ActivePage } from "../types";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   IconGrid,
   IconTrash,
@@ -12,6 +13,8 @@ import {
   IconZap,
   IconStar,
   IconTag,
+  IconChevronUp,
+  IconChevronDown,
 } from "./Icons";
 
 const NAV_ITEMS: { page: ActivePage; icon: any; label: string }[] = [
@@ -32,9 +35,23 @@ const Sidebar: React.FC = () => {
     atlasConnected,
     syncState,
     loadClips,
-    loadSettings,
     settings,
   } = useClipStore();
+
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = React.useState(0);
+
+  const onScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      if (scrollHeight <= clientHeight) {
+        if (scrollProgress !== 0) setScrollProgress(0);
+        return;
+      }
+      const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+      setScrollProgress(progress);
+    }
+  };
 
   const latestClipTimestamp = React.useMemo(() => {
     if (clips.length === 0) return 0;
@@ -175,9 +192,122 @@ const Sidebar: React.FC = () => {
       {/* Divider */}
       <div className="mx-4 border-t border-gray-700/50 my-1" />
 
-      {/* Scrollable filter area */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4 scrollbar-hide [&::-webkit-scrollbar]:w-0 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent">
-        <FilterPanel />
+      {/* Scrollable filter area with Custom Indicator & Compact Buttons */}
+      <div className="flex-1 relative overflow-hidden group/filters">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="h-full overflow-y-auto px-2 py-2 space-y-4 scrollbar-hide [&::-webkit-scrollbar]:w-0 [&::-webkit-scrollbar]:h-0 [ms-overflow-style:none] [scrollbar-width:none]"
+        >
+          <FilterPanel />
+        </div>
+
+        {/* Top/Bottom Faded Edges */}
+        <div
+          className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${scrollProgress > 1 ? "opacity-100" : "opacity-0"}`}
+        />
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${scrollProgress < 99 ? "opacity-100" : "opacity-0"}`}
+        />
+
+        {/* Compact Scroll to Top Button (Top Corner) */}
+        <div className="absolute right-3 top-4 z-20 pointer-events-none">
+          <AnimatePresence>
+            {scrollProgress > 10 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.5, y: -5 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                  borderColor: [
+                    "rgba(255, 255, 255, 0.1)",
+                    "rgba(59, 130, 246, 0.5)",
+                    "rgba(255, 255, 255, 0.1)",
+                  ],
+                  boxShadow: [
+                    "0 0 0px rgba(59, 130, 246, 0)",
+                    "0 0 10px rgba(59, 130, 246, 0.2)",
+                    "0 0 0px rgba(59, 130, 246, 0)",
+                  ],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  times: [0, 0.5, 1],
+                  opacity: { duration: 0.2, repeat: 0 },
+                  scale: { duration: 0.2, repeat: 0 },
+                  y: { duration: 0.2, repeat: 0 },
+                }}
+                exit={{ opacity: 0, scale: 0.5, y: -5 }}
+                whileHover={{
+                  scale: 1.1,
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() =>
+                  scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+                }
+                className="w-5 h-5 rounded bg-surface-800/90 border border-white/10 text-gray-400 hover:text-brand-400 flex items-center justify-center backdrop-blur-md shadow-xl pointer-events-auto transition-colors"
+                title="Scroll to Top"
+              >
+                <IconChevronUp size={12} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Compact Scroll to Bottom Button (Bottom Corner) */}
+        <div className="absolute right-3 bottom-4 z-20 pointer-events-none">
+          <AnimatePresence>
+            {scrollProgress < 90 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.5, y: 5 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                  borderColor: [
+                    "rgba(255, 255, 255, 0.1)",
+                    "rgba(59, 130, 246, 0.5)",
+                    "rgba(255, 255, 255, 0.1)",
+                  ],
+                  boxShadow: [
+                    "0 0 0px rgba(59, 130, 246, 0)",
+                    "0 0 10px rgba(59, 130, 246, 0.2)",
+                    "0 0 0px rgba(59, 130, 246, 0)",
+                  ],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  times: [0, 0.5, 1],
+                  opacity: { duration: 0.2, repeat: 0 },
+                  scale: { duration: 0.2, repeat: 0 },
+                  y: { duration: 0.2, repeat: 0 },
+                }}
+                exit={{ opacity: 0, scale: 0.5, y: 5 }}
+                whileHover={{
+                  scale: 1.1,
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() =>
+                  scrollRef.current?.scrollTo({
+                    top: scrollRef.current.scrollHeight,
+                    behavior: "smooth",
+                  })
+                }
+                className="w-5 h-5 rounded bg-surface-800/90 border border-white/10 text-gray-400 hover:text-brand-400 flex items-center justify-center backdrop-blur-md shadow-xl pointer-events-auto transition-colors"
+                title="Scroll to Bottom"
+              >
+                <IconChevronDown size={12} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Divider */}
