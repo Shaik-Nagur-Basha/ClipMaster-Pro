@@ -53,15 +53,16 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         ? item.text.slice(0, 120) + "…"
         : item.text;
 
-    const timeAgo = useCallback(() => {
+    const getTimeInfo = useCallback(() => {
       const diff = Date.now() - new Date(item.timestamp).getTime();
       const mins = Math.floor(diff / 60000);
       const hrs = Math.floor(mins / 60);
       const days = Math.floor(hrs / 24);
-      if (days > 0) return `${days}d ago`;
-      if (hrs > 0) return `${hrs}h ago`;
-      if (mins > 0) return `${mins}m ago`;
-      return "just now";
+
+      if (days > 0) return { val: days, unit: "d" };
+      if (hrs > 0) return { val: hrs, unit: "h" };
+      if (mins > 0) return { val: mins, unit: "m" };
+      return { val: "now", unit: "" };
     }, [item.timestamp]);
 
     const handleCopy = async () => {
@@ -138,7 +139,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className={`group flex flex-col py-2 px-4 border-b transition-colors ${
+        className={`group flex flex-col pb-2 px-4 border-b transition-colors ${
           item.isFavorite
             ? "border-accent-500/20 bg-surface-900/30"
             : "border-gray-700/20 hover:bg-surface-900/20"
@@ -169,25 +170,48 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
             />
 
             {/* Meta info row - time, count, tags */}
-            <div className="flex items-center flex-wrap">
-              <span
-                className={`text-[10px] mr-3 ${
-                  item.isFavorite ? "text-accent-400" : "text-gray-500"
-                }`}
-              >
-                {timeAgo()}
-              </span>
-              <div
-                className={`text-[10px] mr-3 ${
-                  item.isFavorite ? "text-accent-300/60" : "text-gray-600"
-                }`}
-              >
-                <span className="font-mono">
-                  {item.charCount ?? item.text.length}C
-                </span>
-                {item.wordCount && <span className="mx-1.5">•</span>}
+            <div className="flex items-center flex-wrap gap-x-4 mt-0.5 select-none">
+              {(() => {
+                const time = getTimeInfo();
+                const numClass = item.isFavorite
+                  ? "text-accent-400"
+                  : "text-sky-400/60";
+                return (
+                  <div className="text-[10px] flex items-baseline">
+                    <span className={`font-mono font-bold ${numClass}`}>
+                      {time.val}
+                    </span>
+                    <span className="text-gray-600 font-bold lowercase">
+                      {time.unit}
+                      {time.val !== "now" ? " ago" : ""}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] flex items-baseline">
+                  <span
+                    className={`font-mono font-bold ${
+                      item.isFavorite ? "text-accent-400" : "text-sky-400/60"
+                    }`}
+                  >
+                    {item.charCount ?? item.text.length}
+                  </span>
+                  <span className="text-gray-600 font-bold lowercase">ch</span>
+                </div>
+
                 {item.wordCount && (
-                  <span className="font-mono">{item.wordCount}W</span>
+                  <div className="text-[10px] flex items-baseline">
+                    <span
+                      className={`font-mono font-bold ${
+                        item.isFavorite ? "text-accent-400" : "text-sky-400/60"
+                      }`}
+                    >
+                      {item.wordCount}
+                    </span>
+                    <span className="text-gray-600 font-bold lowercase">w</span>
+                  </div>
                 )}
               </div>
               {tagObjects.length > 0 &&

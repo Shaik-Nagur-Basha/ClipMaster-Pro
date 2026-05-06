@@ -40,18 +40,34 @@ const Sidebar: React.FC = () => {
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = React.useState(0);
+  const [hasMoreTop, setHasMoreTop] = React.useState(false);
+  const [hasMoreBottom, setHasMoreBottom] = React.useState(false);
 
-  const onScroll = () => {
+  const updateScrollState = React.useCallback(() => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      if (scrollHeight <= clientHeight) {
-        if (scrollProgress !== 0) setScrollProgress(0);
-        return;
+      const isScrollable = scrollHeight > clientHeight;
+
+      setHasMoreTop(isScrollable && scrollTop > 5);
+      setHasMoreBottom(
+        isScrollable && scrollTop + clientHeight < scrollHeight - 5,
+      );
+
+      if (!isScrollable) {
+        setScrollProgress(0);
+      } else {
+        const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+        setScrollProgress(progress);
       }
-      const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
-      setScrollProgress(progress);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    updateScrollState();
+    // Add a small delay to ensure DOM is settled
+    const timer = setTimeout(updateScrollState, 100);
+    return () => clearTimeout(timer);
+  }, [tags, clips, updateScrollState]);
 
   const latestClipTimestamp = React.useMemo(() => {
     if (clips.length === 0) return 0;
@@ -196,7 +212,7 @@ const Sidebar: React.FC = () => {
       <div className="flex-1 relative overflow-hidden group/filters">
         <div
           ref={scrollRef}
-          onScroll={onScroll}
+          onScroll={updateScrollState}
           className="h-full overflow-y-auto px-2 py-2 space-y-4 scrollbar-hide [&::-webkit-scrollbar]:w-0 [&::-webkit-scrollbar]:h-0 [ms-overflow-style:none] [scrollbar-width:none]"
         >
           <FilterPanel />
@@ -204,16 +220,16 @@ const Sidebar: React.FC = () => {
 
         {/* Top/Bottom Faded Edges */}
         <div
-          className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${scrollProgress > 1 ? "opacity-100" : "opacity-0"}`}
+          className={`absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${hasMoreTop ? "opacity-100" : "opacity-0"}`}
         />
         <div
-          className={`absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${scrollProgress < 99 ? "opacity-100" : "opacity-0"}`}
+          className={`absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-surface-900 to-transparent pointer-events-none transition-opacity duration-300 ${hasMoreBottom ? "opacity-100" : "opacity-0"}`}
         />
 
         {/* Compact Scroll to Top Button (Top Corner) */}
         <div className="absolute right-3 top-4 z-20 pointer-events-none">
           <AnimatePresence>
-            {scrollProgress > 10 && (
+            {hasMoreTop && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.5, y: -5 }}
                 animate={{
@@ -261,7 +277,7 @@ const Sidebar: React.FC = () => {
         {/* Compact Scroll to Bottom Button (Bottom Corner) */}
         <div className="absolute right-3 bottom-4 z-20 pointer-events-none">
           <AnimatePresence>
-            {scrollProgress < 90 && (
+            {hasMoreBottom && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.5, y: 5 }}
                 animate={{

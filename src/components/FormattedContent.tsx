@@ -1,7 +1,8 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { IconCopy, IconCheck } from "./Icons";
 import type { ReactNode } from "react";
 
 interface FormattedContentProps {
@@ -59,9 +60,65 @@ const FormattedContent: React.FC<FormattedContentProps> = ({
     });
   };
 
+  // Internal CodeBlock component for copy functionality and premium minimalist styling
+  const CodeBlock = ({ language, value }: { language: string; value: string }) => {
+    const [copied, setCopied] = React.useState(false);
+
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy!", err);
+      }
+    };
+
+    return (
+      <div className="group relative my-3 rounded-lg border border-white/10 bg-[#0d1117]/40 overflow-hidden transition-all hover:border-white/20">
+        {/* Floating Copy Button - Compact & Simple */}
+        <button
+          onClick={handleCopy}
+          className={`absolute top-2 right-2 z-10 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 border ${
+            copied
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+              : "bg-white/5 border-white/10 text-gray-500 hover:text-white hover:bg-white/10"
+          }`}
+          title="Copy Code"
+        >
+          {copied ? (
+            <IconCheck size={12} strokeWidth={3} />
+          ) : (
+            <IconCopy size={12} strokeWidth={2} />
+          )}
+        </button>
+
+        <SyntaxHighlighter
+          language={language}
+          style={atomDark}
+          PreTag="div"
+          className="!m-0 !bg-transparent text-[12.5px] font-mono leading-relaxed scrollbar-thin max-h-[450px] overflow-auto"
+          customStyle={{
+            background: "transparent",
+            padding: "1rem",
+            margin: 0,
+          }}
+          codeTagProps={{
+            style: {
+              background: "transparent",
+              fontFamily: "inherit",
+            },
+          }}
+        >
+          {value}
+        </SyntaxHighlighter>
+      </div>
+    );
+  };
+
   // Check if content looks like Markdown (has markdown-like patterns)
   const isMarkdown =
-    /^#+\s|^\*{1,3}|^\-\s|^\d+\.|^\`{1,3}|^\[.+\]\(|^>|^\|/m.test(content);
+    /#+\s|\*{1,3}|\-\s|\d+\.|\`{1,3}|\[.+\]\(|>|\|/.test(content);
 
   if (!isMarkdown) {
     // For non-markdown plain text, use whitespace-pre-wrap
@@ -78,35 +135,25 @@ const FormattedContent: React.FC<FormattedContentProps> = ({
 
   // For markdown content, render with formatting
   const components: any = {
-    code: ({ inline, className: codeClassName, children }: any) => {
-      const match = (codeClassName || "").match(/language-(\w+)/);
+    code: (props: any) => {
+      const { className, children } = props;
+      const match = /language-(\w+)/.exec(className || "");
       const lang = match ? match[1] : "text";
 
-      if (inline) {
+      // react-markdown v9+ does not pass 'inline'. 
+      // We detect inline code by the absence of a language class and no newlines.
+      const isInline = !match && !String(children).includes("\n");
+
+      if (isInline) {
         return (
-          <code className="bg-surface-800/70 text-brand-300 px-1.5 py-0.5 rounded text-[12px] font-mono break-all">
+          <code className="bg-[#2d2d3d] text-gray-100 px-1.5 py-0.5 rounded-md text-[12px] font-mono border border-white/10 mx-0.5 inline align-baseline">
             {renderHighlightedChildren(children, highlight)}
           </code>
         );
       }
 
       return (
-        <div className="my-2">
-          <SyntaxHighlighter
-            language={lang}
-            style={oneDark}
-            className="rounded-lg text-[12px] font-mono max-h-[300px] overflow-auto"
-            customStyle={{
-              backgroundColor: "#0f1419",
-              padding: "12px",
-              borderRadius: "8px",
-              border: "1px solid #2d3139",
-              margin: 0,
-            }}
-          >
-            {String(children).replace(/\n$/, "")}
-          </SyntaxHighlighter>
-        </div>
+        <CodeBlock language={lang} value={String(children).replace(/\n$/, "")} />
       );
     },
     pre: ({ children }: any) => (
