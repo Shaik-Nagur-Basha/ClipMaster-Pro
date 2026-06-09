@@ -4,7 +4,6 @@ Gradient Coloring For Tags
 Add some extra options in settings, add custom max, when max reaches more than 90% yellow warning popup window for every time open of application, reachs to max - stop clips catch and show popup red warning for every time application open, but some functionalities still works but clips catching was stopped.
 
 Rename Favourite in favourites
-character count is not updated when clip edited.
 Individual Clip in Full View, expand
 Multiple select delete in all clips, favourites, recycle bin -->> By option which is selected clip to be with full border  --->> Because to many clips for delete leads to stuck expecially in full view, normal view
 
@@ -22,6 +21,10 @@ change local json to another method for fast crud operations in opened applicati
 restric the frequent uploads to Local mongoDB, Cloud mongoDB when application opened
 restric to the very minimal upload frequents to local and cloud DB's when application closed time
 Maintain an log system for above 3 conditions for making variation b/w local, local DB and Cloud DB.
-Pagination Option in settings, instead of load every thing
+✅ Pagination Option in settings, instead of load every thing
+✅ When application is active window in pc then any keyboard input automatically seacrh
+✅ character count is not updated when clip edited.
 ✅ Individual Clip have perminanet delete option
 ✅ Each clip Width to be full, options overlay on top with bg-black
+
+rename

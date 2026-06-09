@@ -31,6 +31,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   atlasUri: null,
   maxEntries: 5000,
   pollingInterval: 600,
+  paginationEnabled: false,
   viewMode: "list",
   displayMode: "preview",
   lastLocalSyncedAt: null,
@@ -51,6 +52,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   clips: [],
   tags: [],
   settings: { ...DEFAULT_SETTINGS },
+  searchInputRef: null,
   viewMode: "list",
   displayMode: "preview",
   sortMode: "newest",
@@ -125,9 +127,18 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   },
 
   updateClip: async (item: ClipboardItem) => {
-    await window.clipAPI.updateClip(item);
+    const trimmedText = item.text.trim();
+    const updated: ClipboardItem = {
+      ...item,
+      text: trimmedText,
+      updatedAt: new Date().toISOString(),
+      charCount: trimmedText.length,
+      wordCount: trimmedText.length > 0 ? trimmedText.split(/\s+/).length : 0,
+    };
+
+    await window.clipAPI.updateClip(updated);
     set((state) => ({
-      clips: state.clips.map((c) => (c.id === item.id ? item : c)),
+      clips: state.clips.map((c) => (c.id === updated.id ? updated : c)),
       editingClipId: null,
     }));
   },
@@ -203,6 +214,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setActivePage: (page: ActivePage) => set({ activePage: page }),
   setSelectedClip: (id: string | null) => set({ selectedClipId: id }),
   setEditingClip: (id: string | null) => set({ editingClipId: id }),
+  setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) =>
+    set({ searchInputRef: ref }),
   setMongoConnected: (v: boolean) => set({ mongoConnected: v }),
   setAtlasConnected: (v: boolean) => {
     if (!v) {
@@ -297,7 +310,8 @@ export function selectFilteredClips(
   if (sortMode === "newest")
     result.sort(
       (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        new Date(b.updatedAt || b.timestamp).getTime() -
+        new Date(a.updatedAt || a.timestamp).getTime(),
     );
   else if (sortMode === "oldest")
     result.sort(
@@ -331,6 +345,7 @@ export function selectFavoriteClips(state: ClipStore): ClipboardItem[] {
     .filter((c) => !c.isDeleted && c.isFavorite)
     .sort(
       (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        new Date(b.updatedAt || b.timestamp).getTime() -
+        new Date(a.updatedAt || a.timestamp).getTime(),
     );
 }

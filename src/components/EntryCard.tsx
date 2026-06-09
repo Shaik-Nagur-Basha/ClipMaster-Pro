@@ -15,6 +15,7 @@ import {
   IconRestore,
   IconX,
   IconCheck,
+  IconEye,
   IconSearch,
 } from "./Icons";
 
@@ -43,6 +44,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
     const [copied, setCopied] = useState(false);
     const [showTagPicker, setShowTagPicker] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isExpandDialogOpen, setIsExpandDialogOpen] = useState(false);
     const [tagSearchFilter, setTagSearchFilter] = useState("");
 
     const isEditing = editingClipId === item.id;
@@ -54,7 +56,8 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         : item.text;
 
     const getTimeInfo = useCallback(() => {
-      const diff = Date.now() - new Date(item.timestamp).getTime();
+      const timestamp = item.updatedAt || item.timestamp;
+      const diff = Date.now() - new Date(timestamp).getTime();
       const mins = Math.floor(diff / 60000);
       const hrs = Math.floor(mins / 60);
       const days = Math.floor(hrs / 24);
@@ -63,7 +66,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       if (hrs > 0) return { val: hrs, unit: "h" };
       if (mins > 0) return { val: mins, unit: "m" };
       return { val: "now", unit: "" };
-    }, [item.timestamp]);
+    }, [item.timestamp, item.updatedAt]);
 
     const handleCopy = async () => {
       await copyToClipboard(item.text);
@@ -83,6 +86,22 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       setEditText(item.text);
       setIsEditDialogOpen(false);
       setEditingClip(null);
+    };
+
+    const openExpandDialog = (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      setIsExpandDialogOpen(true);
+    };
+
+    const closeExpandDialog = () => {
+      setIsExpandDialogOpen(false);
+    };
+
+    const computeExpandHeight = () => {
+      const length = item.text.length;
+      const base = 240;
+      const extra = Math.min(360, Math.max(0, Math.floor(length / 8)));
+      return base + extra;
     };
 
     const openEditDialog = () => {
@@ -241,6 +260,13 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
               onClick={handleCopy}
               active={copied}
             />
+            {displayMode === "preview" && item.text.length > 120 && (
+              <ActionBtn
+                icon={IconEye}
+                label="Expand"
+                onClick={openExpandDialog}
+              />
+            )}
             {item.isDeleted ? (
               <>
                 <ActionBtn
@@ -391,6 +417,28 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
           )}
         </AnimatePresence>
 
+        {/* Expand Dialog */}
+        <Dialog
+          isOpen={isExpandDialogOpen}
+          onClose={closeExpandDialog}
+          title="Expanded Clipboard View"
+          maxWidth="max-w-4xl"
+        >
+          <div
+            style={{
+              maxHeight: `${computeExpandHeight()}px`,
+              minHeight: "180px",
+              overflow: "auto",
+            }}
+          >
+            <FormattedContent
+              content={item.text}
+              displayMode="full"
+              className="text-sm"
+            />
+          </div>
+        </Dialog>
+
         {/* Edit Dialog */}
         <Dialog
           isOpen={isEditDialogOpen}
@@ -467,10 +515,10 @@ const ActionBtn: React.FC<ActionBtnProps> = ({
     }}
     className={`size-7 rounded-md flex items-center justify-center transition-all duration-150 active:scale-75 ${
       danger
-        ? "hover:bg-red-500/10 text-gray-500 hover:text-red-400"
+        ? "hover:bg-red-500/10 text-red-400 hover:text-red-300"
         : active
-          ? "bg-brand-500/15 text-brand-400 border border-brand-500/20 shadow-sm"
-          : "hover:bg-gray-800 text-gray-500 hover:text-gray-200"
+          ? "bg-brand-500/15 text-brand-300 border border-brand-500/20 shadow-sm"
+          : "hover:bg-gray-800 text-gray-300 hover:text-white"
     }`}
   >
     <Icon size={15} />

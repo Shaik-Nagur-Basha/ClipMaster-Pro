@@ -73,6 +73,7 @@ export interface AppSettings {
   atlasUri: string | null;
   maxEntries: number;
   pollingInterval: number;
+  paginationEnabled: boolean;
   viewMode: ViewMode;
   displayMode: DisplayMode;
   lastLocalSyncedAt: string | null;
@@ -87,6 +88,7 @@ export interface ClipStore {
   clips: ClipboardItem[];
   tags: Tag[];
   settings: AppSettings;
+  searchInputRef: React.RefObject<HTMLInputElement> | null;
 
   // UI State
   viewMode: ViewMode;
@@ -126,6 +128,7 @@ export interface ClipStore {
   setActivePage: (page: ActivePage) => void;
   setSelectedClip: (id: string | null) => void;
   setEditingClip: (id: string | null) => void;
+  setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) => void;
   setMongoConnected: (v: boolean) => void;
   setAtlasConnected: (v: boolean) => void;
   setSyncState: (s: Partial<SyncState>) => void;

@@ -4,10 +4,12 @@ import { IconArrowUp, IconArrowDown } from "./Icons";
 
 interface FloatingScrollButtonsProps {
   containerRef: React.RefObject<HTMLDivElement>;
+  disabled?: boolean;
 }
 
 const FloatingScrollButtons: React.FC<FloatingScrollButtonsProps> = ({
   containerRef,
+  disabled = false,
 }) => {
   const [showTopButton, setShowTopButton] = useState(false);
   const [showBottomButton, setShowBottomButton] = useState(false);
@@ -44,6 +46,8 @@ const FloatingScrollButtons: React.FC<FloatingScrollButtonsProps> = ({
       behavior: "smooth",
     });
   };
+
+  if (disabled) return null;
 
   return (
     <div className="fixed right-6 bottom-6 flex flex-col gap-3 pointer-events-none z-50">

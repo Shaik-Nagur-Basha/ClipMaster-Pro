@@ -272,7 +272,47 @@ export default function App() {
     setMongoConnected,
     setAtlasConnected,
     setSyncState,
+    searchInputRef,
   } = useClipStore();
+
+  useEffect(() => {
+    // Global keyboard listener — auto-focus search input on typing
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true"
+      )
+        return;
+
+      // Ignore special keys (Ctrl, Alt, Shift, Meta, Escape, etc.)
+      if (
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.key === "Escape" ||
+        e.key.length > 1
+      )
+        return;
+
+      // Focus search input and type the character
+      if (searchInputRef?.current) {
+        e.preventDefault();
+        searchInputRef.current.focus();
+        // Simulate typing the key
+        const currentValue = searchInputRef.current.value;
+        searchInputRef.current.value = currentValue + e.key;
+        // Trigger the change event so React handler picks it up
+        const event = new Event("change", { bubbles: true });
+        searchInputRef.current.dispatchEvent(event);
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [searchInputRef]);
 
   useEffect(() => {
     // Load all data on mount

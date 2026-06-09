@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
@@ -11,9 +11,25 @@ import type { ClipboardItem } from "../types";
 
 const RecycleBinPage: React.FC = () => {
   const store = useClipStore();
-  const { displayMode, isLoading, permanentDeleteBulk } = store;
+  const { displayMode, isLoading, permanentDeleteBulk, settings } = store;
   const filtered = selectFilteredClips(store, true);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const paginated = settings.paginationEnabled;
+  const totalPages = paginated
+    ? Math.max(1, Math.ceil(filtered.length / pageSize))
+    : 1;
+  const pageClips = paginated
+    ? filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : filtered;
+  const pageEndCount = paginated
+    ? Math.min(currentPage * pageSize, filtered.length)
+    : filtered.length;
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const isEmpty = filtered.length === 0;
   const [emptying, setEmptying] = React.useState(false);
@@ -59,15 +75,40 @@ const RecycleBinPage: React.FC = () => {
             {filtered.length === 1 ? "Entry" : "Entries"}
           </p>
         </div>
-        {!isEmpty && (
-          <button
-            onClick={handleOpenConfirm}
-            disabled={emptying || isLoading}
-            className="text-[10px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 transition-all disabled:opacity-30 active:scale-95"
-          >
-            {emptying ? "Clearing…" : "Empty Bin"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {paginated && filtered.length > pageSize && (
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <span>
+                Page {currentPage}/{totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          {!isEmpty && (
+            <button
+              onClick={handleOpenConfirm}
+              disabled={emptying || isLoading}
+              className="text-[10px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 transition-all disabled:opacity-30 active:scale-95"
+            >
+              {emptying ? "Clearing…" : "Empty Bin"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Confirmation Dialog */}
@@ -117,20 +158,57 @@ const RecycleBinPage: React.FC = () => {
       </Dialog>
 
       {/* Content Area */}
-      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative">
+      <div
+        ref={contentRef}
+        className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar relative ${
+          paginated ? "hide-scrollbar-thumb" : ""
+        }`}
+      >
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
           <EmptyState />
         ) : (
           <div className="px-6 py-4">
-            <ListView clips={filtered} displayMode={displayMode} />
+            <ListView clips={pageClips} displayMode={displayMode} />
           </div>
         )}
       </div>
 
+      {/* Pagination Footer */}
+      {paginated && !isEmpty && filtered.length > pageSize && (
+        <div className="flex items-center justify-between px-6 py-3 shrink-0 bg-surface-800/20 border-t border-white/5">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            <span className="text-cyan-400/75">{pageEndCount}</span> of {filtered.length} deleted items
+          </p>
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
+            <button
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <span>
+              Page {currentPage}/{totalPages}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((page) => Math.min(totalPages, page + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Scroll Buttons */}
-      {!isEmpty && <FloatingScrollButtons containerRef={contentRef} />}
+      {!isEmpty && (
+        <FloatingScrollButtons containerRef={contentRef} disabled={paginated} />
+      )}
     </div>
   );
 };

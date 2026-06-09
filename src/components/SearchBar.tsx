@@ -1,11 +1,17 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useRef, useEffect } from "react";
 import { useClipStore } from "../store/useClipStore";
 import { IconSearch, IconX } from "./Icons";
 
 const SearchBar: React.FC = () => {
-  const { filters, setFilters } = useClipStore();
+  const { filters, setFilters, setSearchInputRef } = useClipStore();
   const debounceRef = useRef<NodeJS.Timeout>();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Register search input ref with store for global keyboard access
+  useEffect(() => {
+    setSearchInputRef(inputRef);
+    return () => setSearchInputRef(null);
+  }, [setSearchInputRef]);
 
   const handleSearch = useCallback(
     (value: string) => {

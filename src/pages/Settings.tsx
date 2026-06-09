@@ -344,6 +344,16 @@ const Settings: React.FC = () => {
                   ]}
                 />
               </SettingRow>
+
+              <SettingRow
+                label="Enable pagination"
+                desc="Show clips page-by-page in dashboard, favorites, and recycle bin."
+              >
+                <Toggle
+                  checked={settings.paginationEnabled}
+                  onChange={(v) => saveSettings({ paginationEnabled: v })}
+                />
+              </SettingRow>
             </div>
           </Section>
 

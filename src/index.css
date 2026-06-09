@@ -96,6 +96,14 @@ body {
   background: rgba(255 255 255 / 0.25);
 }
 
+/* ─── Hide scrollbar thumb for paginated content ────────────────────── */
+.hide-scrollbar-thumb::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.hide-scrollbar-thumb::-webkit-scrollbar-thumb:hover {
+  background: transparent;
+}
+
 /* ─── Glassmorphism card ──────────────────────────────────────────────── */
 .glass {
   background: rgba(255 255 255 / 0.04);
