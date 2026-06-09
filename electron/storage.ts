@@ -36,11 +36,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   atlasUri: null,
   maxEntries: 5000,
   pollingInterval: 600,
+  paginationEnabled: false,
   viewMode: "list",
   displayMode: "preview",
   lastLocalSyncedAt: null,
   lastCloudSyncedAt: null,
   latestSyncedAt: null,
+  pauseCaptureOption: "never",
+  pauseUntil: null,
 };
 
 const DEFAULT_TAGS: Tag[] = [

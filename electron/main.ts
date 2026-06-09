@@ -30,6 +30,7 @@ let tray: Tray | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let lastClipboardText = "";
 let isQuitting = false;
+let pauseTimeout: NodeJS.Timeout | null = null;
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
@@ -84,6 +85,19 @@ function createTray(): void {
   );
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  tray.setToolTip("ClipMaster Pro");
+  tray.on("double-click", () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+  updateTrayMenu();
+}
+
+function updateTrayMenu(): void {
+  if (!tray) return;
+  const settings = storageManager.getSettings();
+  const isPaused = settings.pauseCaptureOption && settings.pauseCaptureOption !== "never";
+
   const menu = Menu.buildFromTemplate([
     {
       label: "Open ClipMaster Pro",
@@ -96,9 +110,19 @@ function createTray(): void {
     {
       label: "Pause Capturing",
       type: "checkbox",
-      checked: false,
-      click: (item) => {
-        item.checked ? stopPoller() : startPoller();
+      checked: Boolean(isPaused),
+      click: async (item) => {
+        const option = item.checked ? "restart" : "never";
+        if (option === "never") {
+          clearPauseTimeout();
+        }
+        await storageManager.saveSettings({
+          pauseCaptureOption: option,
+          pauseUntil: null,
+        });
+        const updated = storageManager.getSettings();
+        mainWindow?.webContents.send("settings-updated", updated);
+        updateTrayMenu();
       },
     },
     { type: "separator" },
@@ -110,12 +134,28 @@ function createTray(): void {
       },
     },
   ]);
-  tray.setToolTip("ClipMaster Pro");
   tray.setContextMenu(menu);
-  tray.on("double-click", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
-  });
+}
+
+function clearPauseTimeout(): void {
+  if (pauseTimeout) {
+    clearTimeout(pauseTimeout);
+    pauseTimeout = null;
+  }
+}
+
+function setupPauseTimeout(ms: number): void {
+  clearPauseTimeout();
+  pauseTimeout = setTimeout(async () => {
+    await storageManager.saveSettings({
+      pauseCaptureOption: "never",
+      pauseUntil: null,
+    });
+    const updated = storageManager.getSettings();
+    mainWindow?.webContents.send("settings-updated", updated);
+    updateTrayMenu();
+    pauseTimeout = null;
+  }, ms);
 }
 
 // ─── Clipboard Polling ──────────────────────────────────────────────────────
@@ -155,6 +195,33 @@ function startPoller(): void {
       if (pollTick % 10 === 0) {
         console.log(`[Clipboard] tick=${pollTick} current[0..40]=${JSON.stringify(current.substring(0, 40))} same=${current === lastClipboardText}`);
       }
+
+      // Check if capturing is paused
+      const settings = storageManager.getSettings();
+      if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
+        if (settings.pauseCaptureOption === "restart") {
+          // Paused until restart, skip capturing
+          lastClipboardText = current;
+          return;
+        }
+
+        if (settings.pauseUntil) {
+          if (Date.now() < settings.pauseUntil) {
+            // Still paused
+            lastClipboardText = current;
+            return;
+          } else {
+            // Expired! Reset settings in background
+            storageManager.saveSettings({
+              pauseCaptureOption: "never",
+              pauseUntil: null,
+            });
+            mainWindow?.webContents.send("settings-updated", storageManager.getSettings());
+            updateTrayMenu();
+          }
+        }
+      }
+
       if (!current.trim() || current === lastClipboardText) return;
       console.log("[Clipboard] Change detected! length:", current.length, "preview:", JSON.stringify(current.substring(0, 80)));
       lastClipboardText = current;
@@ -285,6 +352,24 @@ function registerIPC(): void {
   ipcMain.handle(
     "save-settings",
     async (_e, partial: Record<string, unknown>) => {
+      // Calculate pauseUntil and setup timer if pauseCaptureOption is updated
+      if ("pauseCaptureOption" in partial) {
+        const option = partial.pauseCaptureOption as string;
+        if (option === "15mins") {
+          partial.pauseUntil = Date.now() + 15 * 60 * 1000;
+          setupPauseTimeout(15 * 60 * 1000);
+        } else if (option === "30mins") {
+          partial.pauseUntil = Date.now() + 30 * 60 * 1000;
+          setupPauseTimeout(30 * 60 * 1000);
+        } else if (option === "1hour") {
+          partial.pauseUntil = Date.now() + 60 * 60 * 1000;
+          setupPauseTimeout(60 * 60 * 1000);
+        } else {
+          partial.pauseUntil = null;
+          clearPauseTimeout();
+        }
+      }
+
       await storageManager.saveSettings(partial as never);
       if ("autoLaunch" in partial) {
         app.setLoginItemSettings({
@@ -292,7 +377,8 @@ function registerIPC(): void {
           name: "ClipMaster Pro",
         });
       }
-      return true;
+      updateTrayMenu();
+      return storageManager.getSettings();
     },
   );
 
@@ -358,6 +444,7 @@ function registerIPC(): void {
 
   ipcMain.handle("reset-all", async () => {
     try {
+      clearPauseTimeout();
       // Clear all clips
       await storageManager.resetClips();
       // Reset tags to defaults
@@ -367,6 +454,7 @@ function registerIPC(): void {
       // Disconnect sync services
       await syncManager.disconnectLocal().catch(() => {});
       await syncManager.disconnectAtlas().catch(() => {});
+      updateTrayMenu();
       return true;
     } catch (err) {
       console.error("[IPC] reset-all failed:", err);
@@ -443,6 +531,27 @@ app.whenReady().then(async () => {
 
   // ════ 6. Start background sync + clipboard polling ════
   syncManager.startBackgroundSync();
+
+  // Initialize/recover pause state on startup
+  const initSettings = storageManager.getSettings();
+  if (initSettings.pauseCaptureOption === "restart") {
+    // Reset pause until restart
+    storageManager.saveSettings({
+      pauseCaptureOption: "never",
+      pauseUntil: null,
+    }).catch(() => {});
+  } else if (initSettings.pauseUntil) {
+    const remaining = initSettings.pauseUntil - Date.now();
+    if (remaining <= 0) {
+      storageManager.saveSettings({
+        pauseCaptureOption: "never",
+        pauseUntil: null,
+      }).catch(() => {});
+    } else {
+      setupPauseTimeout(remaining);
+    }
+  }
+
   startPoller();
 
   app.on("activate", () => {

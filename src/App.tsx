@@ -196,6 +196,7 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     openExternal: noop,
     onNewClip: () => noop,
     onSyncUpdate: () => noop,
+    onSettingsUpdated: () => noop,
   } as any;
 }
 
@@ -235,7 +236,7 @@ function PageView() {
             </ErrorBoundary>
           )}
           {activePage === "favorites" && (
-            <ErrorBoundary name="Favorites">
+            <ErrorBoundary name="Favourites">
               <FavoritesPage />
             </ErrorBoundary>
           )}
@@ -360,10 +361,16 @@ export default function App() {
       setSyncState(state),
     );
 
+    // Global settings update listener
+    const unsubSettings = (window.clipAPI.onSettingsUpdated ?? noop)((settings: any) => {
+      useClipStore.setState({ settings });
+    });
+
     return () => {
       clearTimeout(timer);
       if (typeof unsubClips === "function") unsubClips();
       if (typeof unsubSync === "function") unsubSync();
+      if (typeof unsubSettings === "function") unsubSettings();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -79,6 +79,8 @@ export interface AppSettings {
   lastLocalSyncedAt: string | null;
   lastCloudSyncedAt: string | null;
   latestSyncedAt: string | null;
+  pauseCaptureOption?: "never" | "15mins" | "30mins" | "1hour" | "restart";
+  pauseUntil?: number | null;
 }
 
 // ─── Store State Types ────────────────────────────────────────────────────
@@ -155,7 +157,7 @@ export interface ClipAPI {
   getTags: () => Promise<Tag[]>;
   saveTags: (tags: Tag[]) => Promise<boolean>;
   getSettings: () => Promise<AppSettings>;
-  saveSettings: (s: Record<string, unknown>) => Promise<boolean>;
+  saveSettings: (s: Record<string, unknown>) => Promise<any>;
 
   // Sync
   getSyncState: () => Promise<SyncState>;
@@ -174,6 +176,7 @@ export interface ClipAPI {
   openExternal: (url: string) => void;
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;
   onSyncUpdate: (cb: (state: SyncState) => void) => () => void;
+  onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
 }
 
 declare global {

@@ -11,6 +11,18 @@ import type { ClipboardItem } from "../types";
 const Dashboard: React.FC = () => {
   const store = useClipStore();
   const { displayMode, isLoading, settings } = store;
+
+  if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
+    console.log(
+      "[Dashboard] Pause capture option:",
+      settings.pauseCaptureOption,
+      "pauseUntil:",
+      settings.pauseUntil,
+      "parsedDate:",
+      new Date(settings.pauseUntil || 0).toString()
+    );
+  }
+
   const filtered = selectFilteredClips(store);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,6 +53,32 @@ const Dashboard: React.FC = () => {
         </div>
         <ViewToggle />
       </div>
+
+      {/* Pause capturing warning banner */}
+      {settings.pauseCaptureOption && settings.pauseCaptureOption !== "never" && (
+        <div className="mx-6 mt-4 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-400/90 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-white/95">Clipboard Capture Paused</p>
+              <p className="text-[11px] text-gray-400">
+                {settings.pauseCaptureOption === "restart"
+                  ? "Clipboard monitoring is temporarily suspended until you restart the application."
+                  : `Clipboard monitoring is suspended. Resumes at ${new Date(settings.pauseUntil || 0).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => store.saveSettings({ pauseCaptureOption: "never", pauseUntil: null })}
+            className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-xs font-medium border border-amber-500/20 hover:border-amber-500/30 text-amber-400 transition-all shrink-0"
+          >
+            Resume Now
+          </button>
+        </div>
+      )}
 
       {/* Stats Bar */}
       <div className="flex items-center justify-between px-6 py-2 shrink-0 bg-surface-800/20">

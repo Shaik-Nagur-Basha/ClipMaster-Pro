@@ -37,6 +37,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   lastLocalSyncedAt: null,
   lastCloudSyncedAt: null,
   latestSyncedAt: null,
+  pauseCaptureOption: "never",
+  pauseUntil: null,
 };
 
 const DEFAULT_SYNC_STATE: SyncState = {
@@ -195,11 +197,26 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   },
 
   saveSettings: async (partial: Partial<AppSettings>) => {
-    const newSettings: AppSettings = { ...get().settings, ...partial };
-    await window.clipAPI.saveSettings(
-      newSettings as unknown as Record<string, unknown>,
+    if ("pauseCaptureOption" in partial) {
+      const option = partial.pauseCaptureOption;
+      if (option === "15mins") {
+        partial.pauseUntil = Date.now() + 15 * 60 * 1000;
+      } else if (option === "30mins") {
+        partial.pauseUntil = Date.now() + 30 * 60 * 1000;
+      } else if (option === "1hour") {
+        partial.pauseUntil = Date.now() + 60 * 60 * 1000;
+      } else {
+        partial.pauseUntil = null;
+      }
+    }
+
+    const res = await window.clipAPI.saveSettings(
+      partial as unknown as Record<string, unknown>,
     );
-    set({ settings: newSettings });
+    const nextSettings: AppSettings = (res && typeof res === "object")
+      ? (res as AppSettings)
+      : { ...get().settings, ...partial };
+    set({ settings: nextSettings });
     if (partial.viewMode) set({ viewMode: partial.viewMode });
     if (partial.displayMode) set({ displayMode: partial.displayMode });
   },

@@ -17,6 +17,7 @@ import {
   IconLayers,
   IconMinimize,
   IconTrash,
+  IconClock,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -315,7 +316,7 @@ const Settings: React.FC = () => {
 
               <SettingRow
                 label="Max stored clips"
-                desc="Oldest non-favorite clips are removed when limit is reached."
+                desc="Oldest non-favourite clips are removed when limit is reached."
               >
                 <CustomSelect
                   value={settings.maxEntries}
@@ -347,11 +348,48 @@ const Settings: React.FC = () => {
 
               <SettingRow
                 label="Enable pagination"
-                desc="Show clips page-by-page in dashboard, favorites, and recycle bin."
+                desc="Show clips page-by-page in dashboard, favourites, and recycle bin."
               >
                 <Toggle
                   checked={settings.paginationEnabled}
                   onChange={(v) => saveSettings({ paginationEnabled: v })}
+                />
+              </SettingRow>
+
+              <SettingRow
+                label="Pause capturing of clips"
+                desc="Temporarily disable clipboard capture monitoring."
+              >
+                <CustomSelect
+                  value={settings.pauseCaptureOption || "never"}
+                  onChange={(v) => saveSettings({ pauseCaptureOption: v })}
+                  options={[
+                    {
+                      label: "Never",
+                      value: "never",
+                      icon: <IconShield size={14} />,
+                    },
+                    {
+                      label: "Pause for 15 mins",
+                      value: "15mins",
+                      icon: <IconClock size={14} />,
+                    },
+                    {
+                      label: "Pause for 30 mins",
+                      value: "30mins",
+                      icon: <IconClock size={14} />,
+                    },
+                    {
+                      label: "Pause for 1 hour",
+                      value: "1hour",
+                      icon: <IconClock size={14} />,
+                    },
+                    {
+                      label: "Pause until restart",
+                      value: "restart",
+                      icon: <IconRefresh size={14} />,
+                    },
+                  ]}
                 />
               </SettingRow>
             </div>
@@ -738,7 +776,7 @@ const Settings: React.FC = () => {
               You are about to permanently delete:
             </p>
             <ul className="text-xs text-gray-500 space-y-1 ml-4 list-disc">
-              <li>All clipboard entries (including favorites)</li>
+              <li>All clipboard entries (including favourites)</li>
               <li>All custom tags and filters</li>
               <li>All application settings</li>
               <li>All sync connections (local MongoDB and Atlas)</li>

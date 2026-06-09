@@ -50,7 +50,7 @@ const FavoritesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <IconStar size={14} className="text-accent-500" />
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            {filtered.length} Favorite{" "}
+            {filtered.length} Favourite{" "}
             {filtered.length === 1 ? "Entry" : "Entries"}
           </p>
         </div>
@@ -101,7 +101,8 @@ const FavoritesPage: React.FC = () => {
       {paginated && !isEmpty && filtered.length > pageSize && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0 bg-surface-800/20 border-t border-white/5">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <span className="text-cyan-400/75">{pageEndCount}</span> of {filtered.length} favorites
+            <span className="text-cyan-400/75">{pageEndCount}</span> of{" "}
+            {filtered.length} favourites
           </p>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
             <button
@@ -165,7 +166,7 @@ const EmptyState: React.FC = () => (
     </div>
     <div className="text-center space-y-2">
       <h3 className="text-lg font-bold text-white tracking-tight">
-        No Favorites Yet
+        No Favourites Yet
       </h3>
       <p className="text-sm text-gray-500 max-w-[240px] leading-relaxed">
         Star your important clips to keep them separate and easy to find.

@@ -19,7 +19,7 @@ import {
 
 const NAV_ITEMS: { page: ActivePage; icon: any; label: string }[] = [
   { page: "dashboard", icon: IconGrid, label: "All Clips" },
-  { page: "favorites", icon: IconStar, label: "Favorites" },
+  { page: "favorites", icon: IconStar, label: "Favourites" },
   { page: "tags", icon: IconTag, label: "Manage Tags" },
   { page: "recycle", icon: IconTrash, label: "Recycle Bin" },
   { page: "settings", icon: IconSettings, label: "Settings" },

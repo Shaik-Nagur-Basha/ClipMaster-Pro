@@ -296,7 +296,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                 />
                 <ActionBtn
                   icon={item.isFavorite ? IconStarFilled : IconStar}
-                  label="Favorite"
+                  label="Favourite"
                   onClick={() => toggleFavorite(item.id)}
                   active={item.isFavorite}
                 />

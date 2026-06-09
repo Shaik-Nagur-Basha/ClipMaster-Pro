@@ -58,6 +58,11 @@ const clipAPI = {
     ipcRenderer.on("sync-update", h);
     return () => ipcRenderer.removeListener("sync-update", h);
   },
+  onSettingsUpdated: (cb: (settings: AppSettings) => void) => {
+    const h = (_: Electron.IpcRendererEvent, settings: AppSettings) => cb(settings);
+    ipcRenderer.on("settings-updated", h);
+    return () => ipcRenderer.removeListener("settings-updated", h);
+  },
 };
 
 contextBridge.exposeInMainWorld("clipAPI", clipAPI);

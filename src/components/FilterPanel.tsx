@@ -5,7 +5,8 @@ import { IconFilter, IconClock, IconChevronUp, IconChevronDown } from "./Icons";
 import RangeSlider from "./RangeSlider";
 
 const FilterPanel: React.FC = () => {
-  const { filters, setFilters, resetFilters, tags, clips, activePage } = useClipStore();
+  const { filters, setFilters, resetFilters, tags, clips, activePage } =
+    useClipStore();
   const [dateExpanded, setDateExpanded] = useState(true);
 
   const isRecycleBin = activePage === "recycle";
@@ -116,7 +117,7 @@ const FilterPanel: React.FC = () => {
           }`}
         >
           <IconStar size={14} className={filters.isFavorite === true ? 'fill-current' : ''} />
-          <span className="text-xs font-medium">Favorites Only</span>
+          <span className="text-xs font-medium">Favourites Only</span>
         </button>
       </div> */}
 
