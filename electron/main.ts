@@ -9,6 +9,10 @@ import {
   shell,
 } from "electron";
 import { join } from "path";
+import * as path from "path";
+import * as fs from "fs";
+import * as https from "https";
+import { IncomingMessage } from "http";
 import { spawn, ChildProcess } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import { syncManager } from "./syncManager";
@@ -371,6 +375,65 @@ function stopClipboardListener(): void {
   }
 }
 
+// Helper to download a file with progress tracking and redirection handling
+function downloadFile(url: string, destPath: string, onProgress: (progress: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = (targetUrl: string) => {
+      https.get(targetUrl, {
+        headers: {
+          "User-Agent": "ClipMaster-Pro-Updater",
+          "Accept": "application/octet-stream",
+        }
+      }, (res: IncomingMessage) => {
+        if ([301, 302, 307, 308].includes(res.statusCode || 0)) {
+          if (res.headers.location) {
+            request(res.headers.location);
+            return;
+          }
+        }
+
+        if (res.statusCode !== 200) {
+          reject(new Error(`Failed to download: HTTP ${res.statusCode} ${res.statusMessage}`));
+          return;
+        }
+
+        const totalBytes = parseInt(res.headers["content-length"] || "0", 10);
+        let receivedBytes = 0;
+        const fileStream = fs.createWriteStream(destPath);
+
+        res.on("data", (chunk) => {
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            const progress = Math.round((receivedBytes / totalBytes) * 100);
+            onProgress(progress);
+          }
+        });
+
+        res.pipe(fileStream);
+
+        fileStream.on("finish", () => {
+          fileStream.close();
+          resolve();
+        });
+
+        fileStream.on("error", (err) => {
+          fs.unlink(destPath, () => {});
+          reject(err);
+        });
+
+        res.on("error", (err) => {
+          fs.unlink(destPath, () => {});
+          reject(err);
+        });
+      }).on("error", (err) => {
+        reject(err);
+      });
+    };
+
+    request(url);
+  });
+}
+
 // ─── IPC Registration ───────────────────────────────────────────────────────
 function registerIPC(): void {
   // ── Window controls ─────────────────────────────────────────────────────
@@ -557,6 +620,133 @@ function registerIPC(): void {
     platform: process.platform,
     isPackaged: app.isPackaged,
   }));
+
+  // ── Application Updates ──────────────────────────────────────────────────
+  ipcMain.handle("get-releases", async () => {
+    try {
+      const response = await fetch("https://api.github.com/repos/Shaik-Nagur-Basha/ClipMaster-Pro/releases", {
+        headers: {
+          "Accept": "application/vnd.github.v3+json",
+          "User-Agent": "ClipMaster-Pro-Updater",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch releases: HTTP ${response.status} ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error("[Update] Fetch releases failed:", err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle("trigger-update", async (_e, release: any) => {
+    const platform = process.platform;
+    const assets = release.assets || [];
+    let selectedAsset = null;
+
+    if (platform === "win32") {
+      selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && !a.name.toLowerCase().includes("setup"));
+      if (!selectedAsset) {
+        selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
+      }
+    } else if (platform === "darwin") {
+      selectedAsset = assets.find((a: any) => a.name.endsWith(".dmg") || a.name.endsWith(".zip") || a.name.endsWith(".pkg"));
+    } else {
+      selectedAsset = assets.find((a: any) => a.name.endsWith(".AppImage") || a.name.endsWith(".deb") || a.name.endsWith(".tar.gz"));
+    }
+
+    if (!selectedAsset) {
+      const errMsg = `No suitable binary asset found for platform '${platform}' in release ${release.tag_name}`;
+      console.error("[Update] " + errMsg);
+      mainWindow?.webContents.send("update-error", errMsg);
+      return;
+    }
+
+    console.log(`[Update] Selected asset for download: ${selectedAsset.name} from URL: ${selectedAsset.browser_download_url}`);
+
+    const tempDir = app.getPath("temp");
+    const tempFilePath = path.join(tempDir, selectedAsset.name);
+
+    try {
+      mainWindow?.webContents.send("update-progress", 0);
+      
+      await downloadFile(selectedAsset.browser_download_url, tempFilePath, (progress) => {
+        mainWindow?.webContents.send("update-progress", progress);
+      });
+
+      console.log("[Update] Download completed to:", tempFilePath);
+
+      // Perform dev mode safety check
+      if (!app.isPackaged) {
+        console.log("[Update] Development Mode active: Overwrite and restart simulation successful.");
+        mainWindow?.webContents.send("update-progress", 100);
+        setTimeout(() => {
+          mainWindow?.webContents.send("update-success");
+        }, 500);
+        return;
+      }
+
+      const currentExe = app.getPath("exe");
+      const currentPid = process.pid;
+
+      if (platform === "win32") {
+        const scriptPath = path.join(tempDir, "install-update.bat");
+        const batContent = `@echo off
+:loop
+tasklist /FI "PID eq ${currentPid}" 2>NUL | find /I "${currentPid}" >NUL
+if "%ERRORLEVEL%"=="0" (
+  timeout /t 1 /nobreak >NUL
+  goto loop
+)
+copy /Y "${tempFilePath}" "${currentExe}"
+if errorlevel 1 (
+  timeout /t 1 /nobreak >NUL
+  goto loop
+)
+start "" "${currentExe}"
+del "%~f0"
+`;
+        fs.writeFileSync(scriptPath, batContent, "utf-8");
+
+        console.log("[Update] Spawning updater script:", scriptPath);
+        const child = spawn("cmd.exe", ["/c", scriptPath], {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        child.unref();
+        app.quit();
+
+      } else if (platform === "darwin") {
+        const scriptPath = path.join(tempDir, "install-update.sh");
+        const shContent = `#!/bin/bash
+while kill -0 ${currentPid} 2>/dev/null; do
+  sleep 1
+done
+cp -f "${tempFilePath}" "${currentExe}"
+chmod +x "${currentExe}"
+open "${currentExe}"
+rm "$0"
+`;
+        fs.writeFileSync(scriptPath, shContent, { encoding: "utf-8", mode: 0o755 });
+
+        console.log("[Update] Spawning updater script:", scriptPath);
+        const child = spawn("/bin/bash", [scriptPath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+        app.quit();
+      } else {
+        throw new Error(`Auto-updater file overwrite script not implemented for platform '${platform}'`);
+      }
+
+    } catch (err: any) {
+      console.error("[Update] Update process failed:", err);
+      mainWindow?.webContents.send("update-error", err.message || String(err));
+    }
+  });
 
   ipcMain.handle("reset-all", async () => {
     try {

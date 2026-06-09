@@ -66,6 +66,25 @@ const clipAPI = {
     ipcRenderer.on("settings-updated", h);
     return () => ipcRenderer.removeListener("settings-updated", h);
   },
+
+  // ── Application Updates ────────────────────────────────────────────────
+  getReleases: () => ipcRenderer.invoke("get-releases"),
+  triggerUpdate: (release: any) => ipcRenderer.invoke("trigger-update", release),
+  onUpdateProgress: (cb: (progress: number) => void) => {
+    const h = (_: Electron.IpcRendererEvent, p: number) => cb(p);
+    ipcRenderer.on("update-progress", h);
+    return () => ipcRenderer.removeListener("update-progress", h);
+  },
+  onUpdateError: (cb: (err: string) => void) => {
+    const h = (_: Electron.IpcRendererEvent, err: string) => cb(err);
+    ipcRenderer.on("update-error", h);
+    return () => ipcRenderer.removeListener("update-error", h);
+  },
+  onUpdateSuccess: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on("update-success", h);
+    return () => ipcRenderer.removeListener("update-success", h);
+  },
 };
 
 contextBridge.exposeInMainWorld("clipAPI", clipAPI);

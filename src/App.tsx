@@ -228,6 +228,20 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     onNewClip: () => noop,
     onSyncUpdate: () => noop,
     onSettingsUpdated: () => noop,
+    getAppInfo: async () => ({
+      name: "ClipMaster Pro",
+      version: "2.0.0",
+      electron: "29.0.0",
+      chrome: "122.0.0",
+      node: "20.9.0",
+      platform: process.platform || "win32",
+      isPackaged: false,
+    }),
+    getReleases: async () => [],
+    triggerUpdate: noop_p,
+    onUpdateProgress: () => noop,
+    onUpdateError: () => noop,
+    onUpdateSuccess: () => noop,
   } as any;
 }
 

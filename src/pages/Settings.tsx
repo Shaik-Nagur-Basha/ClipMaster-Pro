@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import logoIcon from "@/assets/icon.png";
 import { useClipStore } from "../store/useClipStore";
+import { UpdateSettings } from "../components/UpdateSettings";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
 import {
   IconSettings,
@@ -642,6 +643,9 @@ const Settings: React.FC = () => {
             </div>
           </div>
           {/* End Sync Status Overlay */}
+
+          {/* Application Updates */}
+          <UpdateSettings />
 
           {/* Data Management & Reset */}
           <Section

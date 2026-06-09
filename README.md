@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
@@ -23,25 +23,26 @@
 ---
 
 ## Core Features
-- ⚡ **Auto-Capture** — Instant clipboard monitoring and history preservation.
-- 🔍 **Smart Search** — High-performance search with real-time result highlighting.
-- 🏷️ **Advanced Tags** — Categorize clips with tag management and filtering.
-- 📦 **Data Integrity** — Hardened persistence with atomic writes and `.bak` recovery.
-- 🎨 **Modern UI** — Responsive `EntryCard` components with `FormattedContent` (Markdown).
-- 💾 **Cloud Sync** — Optional encrypted MongoDB backup.
+- ⚡ **Auto-Capture & Privacy** — Instant clipboard monitoring with quick-pause options (15 mins, 30 mins, 1 hour, or until restart) for private sessions.
+- 🔄 **Native Version Switcher** — Switch between historical versions and install updates directly from settings using native batch/shell script overwrites.
+- 🔍 **Smart Search & Pagination** — Fast search with real-time result highlighting and responsive page-by-page rendering.
+- 🏷️ **Advanced Tags & Favourites** — Color-coded tags, tag filters, and dedicated Favourites page to categorize and isolate clips.
+- 📦 **Hardened Persistence** — Crash-resilient atomic "write-then-rename" file operations with automatic `.bak` recovery to prevent settings reset on forced shutdown or system crash.
+- 🎨 **Premium UI & Shortcuts** — Modern interface featuring a quick-expand detail viewer dialog, system tray controls, and keyboard shortcuts (Ctrl + Delete to bypass recycle bin).
+- 💾 **Cloud Synchronization** — Secure, AES-256 encrypted live backup to local MongoDB or MongoDB Atlas.
 
 ## Technical Highlights
-- **Architecture**: Modular `Sidebar` and `EntryCard` pattern for efficient clip management.
-- **Display**: `FormattedContent` component supports code blocks and rich markdown rendering.
-- **Optimization**: Hardened persistence strategy for system resilience during power loss.
-- **Milestone**: Version 2.0.0 complete with full documentation and release templates.
+- **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).
+- **System Integration**: Startup hidden flag (`--hidden`) and a system tray manager with quick settings toggles.
+- **Keyboard Optimization**: Native shortcut detection (like `Ctrl` clicking Delete to permanently remove entries).
+- **Milestone**: Version 2.2.0 complete with custom version switcher, native updater, and crash-resilient storage engine.
 
 ## Download & Install
 - **[Setup Installer](https://github.com/your-user/ClipMaster-Pro/releases)** (85 MB) — Recommended for Windows users.
 - **[Portable Version](https://github.com/your-user/ClipMaster-Pro/releases)** (40 MB) — No installation required.
 
 ## Documentation
-- **[Release Notes](RELEASE_NOTES.md)** — Detailed v2.0.0 changelog.
+- **[Release Notes](RELEASE_NOTES.md)** — Detailed v2.2.0 changelog.
 - **[Quick Start](doc/QUICK_START.md)** — Setup in under 60 seconds.
 - **[Architecture](doc/ARCHITECTURE.md)** — Technical breakdown of the app.
 - **[Troubleshooting](doc/TROUBLESHOOTING.md)** — Common fixes and support.

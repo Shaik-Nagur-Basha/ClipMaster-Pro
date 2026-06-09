@@ -1,6 +1,27 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.0.0 - Hardened Persistence & UI Refinement (Latest)
+## 🚀 v2.2.0 - Custom Version Switcher & Native Updater (Latest)
+
+**"The Native Version Control Update"**
+
+This release introduces a fully custom, native version switcher and updater, letting you browse, toggle, and install historical and latest releases directly from within the application Settings.
+
+### 🔄 Native Version Switching & Updater
+- **GitHub Release Sync**: Integrates with the public GitHub repository API to pull available release history.
+- **Custom Dropdown Selector**: View historical version details (dates, names) and easily target specific versions to install or rollback.
+- **"Latest Version" Badge**: A visual system highlighting the absolute newest release with auto-selection support.
+- **Embedded Release Notes**: Render Markdown descriptions and changelogs directly in the Settings view before updating.
+- **Background Downloader**: Robust chunk-by-chunk download streaming with interactive progress tracking, utilizing native Node `https` and redirect handling.
+- **Safe Overwrite Routine**: Automatically writes detached temporary installer scripts (`.bat` / `.sh`) that wait for the app to close, overwrite the active binary with the new version, and safely relaunch.
+- **Dev-Mode Simulation**: Built-in safety guards that simulate updates when running in developer mode (`!app.isPackaged`) to prevent local project environment corruption.
+
+### 🛠️ Preload & Store Integration
+- **Zustand Updater State**: State machine managing target release versions, progress indicators, errors, and status tracking.
+- **Exposed Bridge IPC**: Isolated preload channels supporting download metrics, completion indicators, and error propagation.
+
+---
+
+## 🚀 v2.0.0 - Hardened Persistence & UI Refinement (Previous)
 
 **"The Data Integrity Update"**
 

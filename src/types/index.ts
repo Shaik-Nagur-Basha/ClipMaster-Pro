@@ -184,6 +184,37 @@ export interface ClipAPI {
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;
   onSyncUpdate: (cb: (state: SyncState) => void) => () => void;
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
+
+  // Application Updates
+  getAppInfo: () => Promise<{
+    name: string;
+    version: string;
+    electron: string;
+    chrome: string;
+    node: string;
+    platform: string;
+    isPackaged: boolean;
+  }>;
+  getReleases: () => Promise<GitHubRelease[]>;
+  triggerUpdate: (release: GitHubRelease) => Promise<void>;
+  onUpdateProgress: (cb: (progress: number) => void) => () => void;
+  onUpdateError: (cb: (error: string) => void) => () => void;
+  onUpdateSuccess: (cb: () => void) => () => void;
+}
+
+export interface GitHubReleaseAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+export interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  body: string;
+  prerelease: boolean;
+  published_at: string;
+  assets: GitHubReleaseAsset[];
 }
 
 declare global {
