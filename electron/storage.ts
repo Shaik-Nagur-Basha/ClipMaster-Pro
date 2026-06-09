@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "fs";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import type { ClipboardItem, Tag, AppSettings } from "../src/types";
@@ -82,19 +82,12 @@ class StorageManager {
     console.log("[Storage] Data directory:", dir);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-    this.ensureFile(getClipsPath(), "[]");
-    this.ensureFile(getTagsPath(), JSON.stringify(DEFAULT_TAGS, null, 2));
-    this.ensureFile(
-      getSettingsPath(),
-      JSON.stringify(DEFAULT_SETTINGS, null, 2),
-    );
-
-    this.clipsCache = this.readJSON<ClipboardItem[]>(getClipsPath(), []);
+    this.clipsCache = this.loadFileWithBackup<ClipboardItem[]>(getClipsPath(), []);
     console.log("[Storage] Loaded", this.clipsCache.length, "clips from", getClipsPath());
-    this.tagsCache = this.readJSON<Tag[]>(getTagsPath(), DEFAULT_TAGS);
+    this.tagsCache = this.loadFileWithBackup<Tag[]>(getTagsPath(), DEFAULT_TAGS);
 
     // Migration logic
-    const raw = this.readJSON<any>(getSettingsPath(), {});
+    const raw = this.loadFileWithBackup<any>(getSettingsPath(), DEFAULT_SETTINGS);
     const migratedSettings = { ...DEFAULT_SETTINGS, ...raw };
 
     // Migrate old field to both cloud tracking and latest pointer
@@ -108,27 +101,86 @@ class StorageManager {
     delete (migratedSettings as any).firstLaunch;
 
     this.settingsCache = migratedSettings as AppSettings;
+
+    // Save migrated settings back atomically
+    this.writeAtomic(getSettingsPath(), JSON.stringify(this.settingsCache, null, 2));
   }
 
   // ── Internal helpers ────────────────────────────────────────────────────
-  private ensureFile(path: string, content: string): void {
-    if (!existsSync(path)) writeFileSync(path, content, "utf-8");
+  private writeAtomic(path: string, content: string): void {
+    const tmpPath = path + ".tmp";
+    const bakPath = path + ".bak";
+    try {
+      // 1. Write to temporary file
+      writeFileSync(tmpPath, content, "utf-8");
+      // 2. Rename temporary file to target file (atomic replace)
+      renameSync(tmpPath, path);
+      // 3. Make a backup copy after a successful write
+      try {
+        writeFileSync(bakPath, content, "utf-8");
+      } catch (bakErr) {
+        console.error(`[Storage] Failed to write backup for ${path}:`, bakErr);
+      }
+    } catch (e) {
+      console.error(`[Storage] Atomic write failed for ${path}, falling back to direct write:`, e);
+      // Fallback: write directly to the target path if rename fails
+      try {
+        writeFileSync(path, content, "utf-8");
+        writeFileSync(bakPath, content, "utf-8");
+      } catch (fallbackError) {
+        console.error(`[Storage] Direct fallback write failed for ${path}:`, fallbackError);
+      }
+      // Clean up tmp file if it still exists
+      try {
+        if (existsSync(tmpPath)) {
+          unlinkSync(tmpPath);
+        }
+      } catch {}
+    }
   }
 
-  private readJSON<T>(path: string, fallback: T): T {
-    try {
-      return JSON.parse(readFileSync(path, "utf-8")) as T;
-    } catch {
-      return fallback;
+  private loadFileWithBackup<T>(path: string, fallback: T): T {
+    const bakPath = path + ".bak";
+
+    // Helper to check if file exists and is valid JSON
+    const tryParse = (filePath: string): T | null => {
+      if (!existsSync(filePath)) return null;
+      try {
+        const data = readFileSync(filePath, "utf-8").trim();
+        if (!data) return null; // empty file
+        return JSON.parse(data) as T;
+      } catch {
+        return null;
+      }
+    };
+
+    // 1. Try main file
+    const mainData = tryParse(path);
+    if (mainData !== null) {
+      return mainData;
     }
+
+    // 2. Try backup file
+    console.warn(`[Storage] Main file ${path} is missing or corrupted. Trying backup...`);
+    const bakData = tryParse(bakPath);
+    if (bakData !== null) {
+      console.log(`[Storage] Successfully restored ${path} from backup.`);
+      // Restore main file from backup
+      this.writeAtomic(path, JSON.stringify(bakData, null, 2));
+      return bakData;
+    }
+
+    // 3. Both failed, write fallback/defaults to both
+    console.warn(`[Storage] Both main and backup files for ${path} failed. Writing defaults.`);
+    this.writeAtomic(path, JSON.stringify(fallback, null, 2));
+    return fallback;
   }
 
   private flush(): void {
     try {
-      writeFileSync(
+      this.writeAtomic(
         getClipsPath(),
         JSON.stringify(this.clipsCache, null, 2),
-        "utf-8",
       );
       this.needsFlush = false;
     } catch (e) {
@@ -262,10 +314,9 @@ class StorageManager {
     this.clipsCache = merged;
     // Force immediate write (not debounced) since this is a sync operation
     try {
-      writeFileSync(
+      this.writeAtomic(
         getClipsPath(),
         JSON.stringify(this.clipsCache, null, 2),
-        "utf-8",
       );
       console.log(`[Storage] Flushed ${merged.length} merged items to JSON`);
     } catch (e) {
@@ -280,7 +331,7 @@ class StorageManager {
 
   async saveTags(tags: unknown[]): Promise<void> {
     this.tagsCache = tags as Tag[];
-    writeFileSync(getTagsPath(), JSON.stringify(tags, null, 2), "utf-8");
+    this.writeAtomic(getTagsPath(), JSON.stringify(tags, null, 2));
   }
 
   // ── SETTINGS ────────────────────────────────────────────────────────────
@@ -296,35 +347,26 @@ class StorageManager {
     // console.log('[Storage] Saving settings:', safe)
 
     this.settingsCache = { ...this.settingsCache, ...partial };
-    writeFileSync(
+    this.writeAtomic(
       getSettingsPath(),
       JSON.stringify(this.settingsCache, null, 2),
-      "utf-8",
     );
   }
 
   // ── RESET ───────────────────────────────────────────────────────────────
   async resetClips(): Promise<void> {
     this.clipsCache = [];
-    writeFileSync(getClipsPath(), JSON.stringify([], null, 2), "utf-8");
+    this.writeAtomic(getClipsPath(), JSON.stringify([], null, 2));
   }
 
   async resetTags(): Promise<void> {
     this.tagsCache = DEFAULT_TAGS;
-    writeFileSync(
-      getTagsPath(),
-      JSON.stringify(DEFAULT_TAGS, null, 2),
-      "utf-8",
-    );
+    this.writeAtomic(getTagsPath(), JSON.stringify(DEFAULT_TAGS, null, 2));
   }
 
   async resetSettings(): Promise<void> {
     this.settingsCache = { ...DEFAULT_SETTINGS };
-    writeFileSync(
-      getSettingsPath(),
-      JSON.stringify(DEFAULT_SETTINGS, null, 2),
-      "utf-8",
-    );
+    this.writeAtomic(getSettingsPath(), JSON.stringify(DEFAULT_SETTINGS, null, 2));
   }
 }
 
