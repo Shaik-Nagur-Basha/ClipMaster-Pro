@@ -16,6 +16,7 @@ import {
   IconX,
   IconLayers,
   IconMinimize,
+  IconTrash,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -91,6 +92,7 @@ const Settings: React.FC = () => {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [showShortcutDialog, setShowShortcutDialog] = useState(false);
 
   useEffect(() => {
     setSettingsLoading(true);
@@ -267,16 +269,29 @@ const Settings: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-surface-900 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-3 px-6 py-3.5 border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
-        <div className="p-1.5 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400">
-          <IconSettings size={18} />
+      <header className="flex items-center justify-between gap-3 px-6 py-3.5 border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400">
+            <IconSettings size={18} />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-semibold text-white/90">
+              Settings
+            </h2>
+            <p className="text-[11px] text-gray-500">
+              Application configuration and synchronization
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-[15px] font-semibold text-white/90">Settings</h2>
-          <p className="text-[11px] text-gray-500">
-            Application configuration and synchronization
-          </p>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowShortcutDialog(true)}
+          className="inline-flex items-center justify-center rounded-full border border-gray-700 bg-surface-800 p-2 text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10"
+          title="Show keyboard shortcuts"
+        >
+          <IconInfo size={16} />
+        </button>
       </header>
 
       {/* Main Content */}
@@ -660,6 +675,38 @@ const Settings: React.FC = () => {
           </p>
         </div>
       </footer>
+
+      {/* Shortcut Info Dialog */}
+      <Dialog
+        isOpen={showShortcutDialog}
+        onClose={() => setShowShortcutDialog(false)}
+        title="Keyboard shortcuts"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-gray-700 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">
+                  Clip Permanent Delete
+                </p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-gray-700 bg-gray-800 px-2 py-1 text-[11px] text-gray-300">
+                  <span className="font-semibold text-white">Ctrl</span>
+                  <span className="text-gray-500">+</span>
+                  <IconTrash size={14} className="text-rose-400" />
+                </div>
+              </div>
+              <p className="mt-2 text-[13px] leading-5 text-gray-400">
+                Hold <span className="font-semibold text-white">Ctrl</span>{" "}
+                while clicking the
+                <IconTrash size={14} className="inline mx-1 text-rose-400" />
+                delete icon on a clip to permanently delete it instead of moving
+                it to the recycle bin.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Reset Confirmation Dialog */}
       <Dialog

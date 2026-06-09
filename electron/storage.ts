@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, copyFileSync, fsyncSync, openSync, writeSync, closeSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import type { ClipboardItem, Tag, AppSettings } from "../src/types";
@@ -109,89 +109,23 @@ class StorageManager {
 
   // ── Internal helpers ────────────────────────────────────────────────────
   private ensureFile(path: string, content: string): void {
-    if (!existsSync(path)) {
-      this.writeAtomicSync(path, content);
-    }
+    if (!existsSync(path)) writeFileSync(path, content, "utf-8");
   }
 
   private readJSON<T>(path: string, fallback: T): T {
     try {
-      if (!existsSync(path)) return fallback;
-      const content = readFileSync(path, "utf-8").trim();
-      if (!content) throw new Error("File is empty");
-      return JSON.parse(content) as T;
-    } catch (e) {
-      console.error(`[Storage] CRITICAL: Corrupt file detected at ${path}.`, e);
-      
-      // Attempt recovery from backup
-      const bakPath = path + ".bak";
-      if (existsSync(bakPath)) {
-        console.warn(`[Storage] Recovery: Found backup for ${path}. Attempting restore...`);
-        try {
-          const bakContent = readFileSync(bakPath, "utf-8").trim();
-          if (bakContent) {
-            const data = JSON.parse(bakContent) as T;
-            console.log(`[Storage] Recovery: Successfully restored ${path} from backup.`);
-            // Immediately fix the main file using the backup
-            this.writeAtomicSync(path, bakContent);
-            return data;
-          }
-        } catch (bakErr) {
-          console.error(`[Storage] Recovery: Backup for ${path} was also unreadable.`, bakErr);
-        }
-      }
-
-      // If we reach here, the file is unreadable AND there is no valid backup.
-      // To be safe, we rename the corrupt file instead of just letting it be overwritten,
-      // allowing for manual data forensics if the user needs it.
-      try {
-        const corruptPath = `${path}.corrupt-${Date.now()}`;
-        renameSync(path, corruptPath);
-        console.error(`[Storage] Recovery: Renamed corrupt file to ${corruptPath} to prevent total loss.`);
-      } catch (renameErr) {
-        console.error(`[Storage] Recovery: Could not rename corrupt file.`, renameErr);
-      }
-      
+      return JSON.parse(readFileSync(path, "utf-8")) as T;
+    } catch {
       return fallback;
-    }
-  }
-
-  private writeAtomicSync(path: string, content: string): void {
-    const tempPath = path + ".tmp";
-    const bakPath = path + ".bak";
-    
-    try {
-      // 1. Write to temporary file with low-level fsync to ensure disk persistence
-      const fd = openSync(tempPath, "w");
-      writeSync(fd, content, 0, "utf-8");
-      fsyncSync(fd);
-      closeSync(fd);
-      
-      // 2. If original exists, create/update backup
-      if (existsSync(path)) {
-        try { copyFileSync(path, bakPath); } catch (e) { /* ignore backup errors */ }
-      }
-      
-      // 3. Rename temp to original (Atomic operation on Windows for local files)
-      renameSync(tempPath, path);
-    } catch (e) {
-      console.error(`[Storage] Atomic write failed for ${path}:`, e);
-      // Cleanup temp if it exists
-      try { if (existsSync(tempPath)) unlinkSync(tempPath); } catch {}
-    }
-  }
-
-  public forceFlush(): void {
-    if (this.needsFlush) {
-      this.flush();
     }
   }
 
   private flush(): void {
     try {
-      this.writeAtomicSync(
+      writeFileSync(
         getClipsPath(),
-        JSON.stringify(this.clipsCache, null, 2)
+        JSON.stringify(this.clipsCache, null, 2),
+        "utf-8",
       );
       this.needsFlush = false;
     } catch (e) {
@@ -343,7 +277,7 @@ class StorageManager {
 
   async saveTags(tags: unknown[]): Promise<void> {
     this.tagsCache = tags as Tag[];
-    this.writeAtomicSync(getTagsPath(), JSON.stringify(tags, null, 2));
+    writeFileSync(getTagsPath(), JSON.stringify(tags, null, 2), "utf-8");
   }
 
   // ── SETTINGS ────────────────────────────────────────────────────────────
@@ -356,33 +290,37 @@ class StorageManager {
     const safe = { ...partial };
     if ("atlasUri" in safe)
       delete (safe as Record<string, unknown>)["atlasUri"];
+    // console.log('[Storage] Saving settings:', safe)
 
     this.settingsCache = { ...this.settingsCache, ...partial };
-    this.writeAtomicSync(
+    writeFileSync(
       getSettingsPath(),
-      JSON.stringify(this.settingsCache, null, 2)
+      JSON.stringify(this.settingsCache, null, 2),
+      "utf-8",
     );
   }
 
   // ── RESET ───────────────────────────────────────────────────────────────
   async resetClips(): Promise<void> {
     this.clipsCache = [];
-    this.writeAtomicSync(getClipsPath(), JSON.stringify([], null, 2));
+    writeFileSync(getClipsPath(), JSON.stringify([], null, 2), "utf-8");
   }
 
   async resetTags(): Promise<void> {
     this.tagsCache = DEFAULT_TAGS;
-    this.writeAtomicSync(
+    writeFileSync(
       getTagsPath(),
-      JSON.stringify(DEFAULT_TAGS, null, 2)
+      JSON.stringify(DEFAULT_TAGS, null, 2),
+      "utf-8",
     );
   }
 
   async resetSettings(): Promise<void> {
     this.settingsCache = { ...DEFAULT_SETTINGS };
-    this.writeAtomicSync(
+    writeFileSync(
       getSettingsPath(),
-      JSON.stringify(DEFAULT_SETTINGS, null, 2)
+      JSON.stringify(DEFAULT_SETTINGS, null, 2),
+      "utf-8",
     );
   }
 }

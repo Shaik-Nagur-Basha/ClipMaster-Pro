@@ -131,6 +131,16 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       setShowTagPicker(false);
     };
 
+    const handleDeleteClick = async (
+      e: React.MouseEvent<HTMLButtonElement>,
+    ) => {
+      if (e.ctrlKey || e.metaKey) {
+        await permanentDelete(item.id);
+      } else {
+        await deleteClip(item.id);
+      }
+    };
+
     return (
       <motion.div
         ref={ref}
@@ -139,14 +149,14 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className={`group flex flex-col pb-2 px-4 border-b transition-colors ${
+        className={`group flex flex-col pb-2 pl-4 border-b transition-colors ${
           item.isFavorite
             ? "border-accent-500/20 bg-surface-900/30"
             : "border-gray-700/20 hover:bg-surface-900/20"
         }`}
       >
         {/* Main row - content and controls */}
-        <div className="flex items-start gap-3 min-h-[40px]">
+        <div className="relative flex items-start gap-3 min-h-[40px]">
           {/* Favorite indicator star */}
           {item.isFavorite && (
             <IconStarFilled
@@ -224,7 +234,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
           </div>
 
           {/* Quick actions */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <div className="absolute right-0 bg-black/95 rounded-lg px-1.5 py-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <ActionBtn
               icon={copied ? IconCheck : IconCopy}
               label="Copy"
@@ -267,7 +277,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                 <ActionBtn
                   icon={IconTrash}
                   label="Delete"
-                  onClick={() => deleteClip(item.id)}
+                  onClick={handleDeleteClick}
                   danger
                 />
               </>
@@ -437,7 +447,7 @@ EntryCard.displayName = "EntryCard";
 interface ActionBtnProps {
   icon: React.FC<{ size?: number; className?: string }>;
   label: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   active?: boolean;
   danger?: boolean;
 }
@@ -453,7 +463,7 @@ const ActionBtn: React.FC<ActionBtnProps> = ({
     title={label}
     onClick={(e) => {
       e.stopPropagation();
-      onClick();
+      onClick(e);
     }}
     className={`size-7 rounded-md flex items-center justify-center transition-all duration-150 active:scale-75 ${
       danger
