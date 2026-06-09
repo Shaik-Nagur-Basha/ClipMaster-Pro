@@ -68,20 +68,14 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   isLoading: false,
 
   // ── Data Actions ───────────────────────────────────────────────────────
-  loadClips: async () => {
+  loadClips: async (limit?: number) => {
     set({ isLoading: true });
     try {
-      console.log("[Store] Fetching clips from window.clipAPI...");
-      const clips = await window.clipAPI.getClips();
+      console.log(`[Store] Fetching clips (limit=${limit}) from window.clipAPI...`);
+      const clips = await window.clipAPI.getClips(limit);
       console.log(
         `[Store] loadClips success: received ${clips?.length ?? 0} clips`,
       );
-      if (clips && clips.length > 0) {
-        console.log(
-          "[Store] First clip sample:",
-          clips[0].text.substring(0, 50),
-        );
-      }
       set({ clips: clips || [], isLoading: false });
     } catch (err) {
       console.error("[Store] loadClips failed:", err);
@@ -118,6 +112,22 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       }));
     } catch (err) {
       console.error("[Store] loadSettings failed:", err);
+    }
+  },
+
+  loadUIState: async () => {
+    try {
+      const state = await window.clipAPI.getUIState();
+      if (state) {
+        set({
+          activePage: state.activePage ?? "dashboard",
+          selectedClipId: state.selectedClipId ?? null,
+          sortMode: state.sortMode ?? "newest",
+          filters: state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS }
+        });
+      }
+    } catch (err) {
+      console.error("[Store] loadUIState failed:", err);
     }
   },
 
@@ -224,12 +234,28 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   // ── UI Actions ─────────────────────────────────────────────────────────
   setViewMode: (mode: ViewMode) => set({ viewMode: mode }),
   setDisplayMode: (mode: DisplayMode) => set({ displayMode: mode }),
-  setSortMode: (mode: SortMode) => set({ sortMode: mode }),
+  setSortMode: (mode: SortMode) => {
+    set({ sortMode: mode });
+    window.clipAPI.updateUIState?.({ sortMode: mode });
+  },
   setFilters: (partial: Partial<FilterState>) =>
-    set((state) => ({ filters: { ...state.filters, ...partial } })),
-  resetFilters: () => set({ filters: { ...DEFAULT_FILTERS } }),
-  setActivePage: (page: ActivePage) => set({ activePage: page }),
-  setSelectedClip: (id: string | null) => set({ selectedClipId: id }),
+    set((state) => {
+      const next = { ...state.filters, ...partial };
+      window.clipAPI.updateUIState?.({ filters: next });
+      return { filters: next };
+    }),
+  resetFilters: () => {
+    set({ filters: { ...DEFAULT_FILTERS } });
+    window.clipAPI.updateUIState?.({ filters: { ...DEFAULT_FILTERS } });
+  },
+  setActivePage: (page: ActivePage) => {
+    set({ activePage: page });
+    window.clipAPI.updateUIState?.({ activePage: page });
+  },
+  setSelectedClip: (id: string | null) => {
+    set({ selectedClipId: id });
+    window.clipAPI.updateUIState?.({ selectedClipId: id });
+  },
   setEditingClip: (id: string | null) => set({ editingClipId: id }),
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) =>
     set({ searchInputRef: ref }),

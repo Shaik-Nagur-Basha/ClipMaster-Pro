@@ -8,7 +8,7 @@ const clipAPI = {
   close: () => ipcRenderer.send("window-close"),
 
   // ── Clipboard CRUD ─────────────────────────────────────────────────────
-  getClips: (): Promise<ClipboardItem[]> => ipcRenderer.invoke("get-clips"),
+  getClips: (limit?: number): Promise<ClipboardItem[]> => ipcRenderer.invoke("get-clips", limit),
   addClip: (text: string) => ipcRenderer.invoke("add-clip", text),
   updateClip: (item: ClipboardItem) => ipcRenderer.invoke("update-clip", item),
   deleteClip: (id: string) => ipcRenderer.invoke("delete-clip", id),
@@ -30,6 +30,9 @@ const clipAPI = {
   getSyncState: (): Promise<SyncState> => ipcRenderer.invoke("get-sync-state"),
   triggerSync: (target?: "local" | "atlas" | "all"): Promise<SyncState> =>
     ipcRenderer.invoke("trigger-sync", target),
+  getSyncLogs: (limit?: number) => ipcRenderer.invoke("get-sync-logs", limit),
+  updateUIState: (state: any) => ipcRenderer.send("update-ui-state", state),
+  getUIState: () => ipcRenderer.invoke("get-ui-state"),
   mongoConnect: (uri: string): Promise<boolean> =>
     ipcRenderer.invoke("mongo-connect", uri),
   atlasConnect: (uri: string): Promise<boolean> =>

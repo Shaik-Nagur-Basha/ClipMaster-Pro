@@ -3,12 +3,43 @@ import { motion, AnimatePresence } from "framer-motion";
 import { APP_NAME } from "./constants";
 import { useClipStore } from "./store/useClipStore";
 import Sidebar from "./components/Sidebar";
-import Dashboard from "./pages/Dashboard";
-import FavoritesPage from "./pages/FavoritesPage";
-import RecycleBinPage from "./pages/RecycleBinPage";
-import Settings from "./pages/Settings";
-import TagsPage from "./pages/TagsPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const FavoritesPage = React.lazy(() => import("./pages/FavoritesPage"));
+const RecycleBinPage = React.lazy(() => import("./pages/RecycleBinPage"));
+const Settings = React.lazy(() => import("./pages/Settings"));
+const TagsPage = React.lazy(() => import("./pages/TagsPage"));
+
+function PageFallback() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#0d0d1a",
+      }}
+    >
+      <div
+        style={{
+          height: 32,
+          width: 32,
+          borderRadius: "50%",
+          border: "4px solid rgba(99, 102, 241, 0.2)",
+          borderTopColor: "#6366f1",
+          animation: "spin 1s linear infinite",
+        }}
+      />
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    WINDOW CONTROLS — called at click-time only, never cached at module-eval
@@ -230,31 +261,33 @@ function PageView() {
             minHeight: 0,
           }}
         >
-          {activePage === "dashboard" && (
-            <ErrorBoundary name="Dashboard">
-              <Dashboard />
-            </ErrorBoundary>
-          )}
-          {activePage === "favorites" && (
-            <ErrorBoundary name="Favourites">
-              <FavoritesPage />
-            </ErrorBoundary>
-          )}
-          {activePage === "recycle" && (
-            <ErrorBoundary name="Recycle Bin">
-              <RecycleBinPage />
-            </ErrorBoundary>
-          )}
-          {activePage === "settings" && (
-            <ErrorBoundary name="Settings">
-              <Settings />
-            </ErrorBoundary>
-          )}
-          {activePage === "tags" && (
-            <ErrorBoundary name="Tags">
-              <TagsPage />
-            </ErrorBoundary>
-          )}
+          <React.Suspense fallback={<PageFallback />}>
+            {activePage === "dashboard" && (
+              <ErrorBoundary name="Dashboard">
+                <Dashboard />
+              </ErrorBoundary>
+            )}
+            {activePage === "favorites" && (
+              <ErrorBoundary name="Favourites">
+                <FavoritesPage />
+              </ErrorBoundary>
+            )}
+            {activePage === "recycle" && (
+              <ErrorBoundary name="Recycle Bin">
+                <RecycleBinPage />
+              </ErrorBoundary>
+            )}
+            {activePage === "settings" && (
+              <ErrorBoundary name="Settings">
+                <Settings />
+              </ErrorBoundary>
+            )}
+            {activePage === "tags" && (
+              <ErrorBoundary name="Tags">
+                <TagsPage />
+              </ErrorBoundary>
+            )}
+          </React.Suspense>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -269,11 +302,14 @@ export default function App() {
     loadClips,
     loadTags,
     loadSettings,
+    loadUIState,
     addClipFromMain,
     setMongoConnected,
     setAtlasConnected,
     setSyncState,
     searchInputRef,
+    filters,
+    activePage,
   } = useClipStore();
 
   useEffect(() => {
@@ -316,40 +352,41 @@ export default function App() {
   }, [searchInputRef]);
 
   useEffect(() => {
-    // Load all data on mount
-    loadClips();
-    loadTags();
-    loadSettings();
+    const initApp = async () => {
+      // 1. Load settings & UI state first
+      await loadSettings();
+      await loadUIState();
+      await loadTags();
 
-    // Check mongo connection status (safe — mongoStatus always defined)
-    const checkMongo = async () => {
-      try {
-        const ok = await window.clipAPI.mongoStatus();
-        setMongoConnected(ok);
-      } catch {
-        /* ignore */
-      }
-    };
-    checkMongo();
+      // 2. Load on-demand clips: fetch first 200 clips for fast start
+      await loadClips(200);
 
-    const checkAtlas = async () => {
-      try {
-        const s = await (window as any).clipAPI.getSettings();
-        if (s.atlasUri) {
-          const ok = await (window as any).clipAPI.atlasConnect(s.atlasUri);
-          setAtlasConnected(ok);
+      // Check mongo connection status (safe — mongoStatus always defined)
+      const checkMongo = async () => {
+        try {
+          const ok = await window.clipAPI.mongoStatus();
+          setMongoConnected(ok);
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
-    };
-    checkAtlas();
+      };
+      await checkMongo();
 
-    // Secondary load after a short delay (in case main process is still booting)
-    const timer = setTimeout(() => {
-      console.log("[App] Performing secondary clip load...");
-      loadClips();
-    }, 800);
+      const checkAtlas = async () => {
+        try {
+          const s = await window.clipAPI.getSettings();
+          if (s.atlasUri) {
+            const ok = await window.clipAPI.atlasConnect(s.atlasUri);
+            setAtlasConnected(ok);
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+      await checkAtlas();
+    };
+
+    initApp();
 
     // Subscribe to new clips pushed from the main process
     const unsubClips = (window.clipAPI.onNewClip ?? noop)((item: any) =>
@@ -367,12 +404,26 @@ export default function App() {
     });
 
     return () => {
-      clearTimeout(timer);
       if (typeof unsubClips === "function") unsubClips();
       if (typeof unsubSync === "function") unsubSync();
       if (typeof unsubSettings === "function") unsubSettings();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On-demand loading of full history when filter is active or on specialized pages
+  useEffect(() => {
+    const hasFiltersActive =
+      filters.search.trim().length > 0 ||
+      filters.tags.length > 0 ||
+      filters.isFavorite !== null ||
+      filters.dateFrom !== null ||
+      filters.dateTo !== null;
+
+    if (hasFiltersActive || activePage === "favorites" || activePage === "recycle") {
+      console.log("[App] Active filters or page change detected. Loading full clipboard history...");
+      loadClips(); // Load full history (no limit)
+    }
+  }, [filters, activePage, loadClips]);
 
   return (
     <div

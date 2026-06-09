@@ -9,12 +9,12 @@ import {
   shell,
 } from "electron";
 import { join } from "path";
+import { spawn, ChildProcess } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import { syncManager } from "./syncManager";
 import type { ClipboardItem, SyncState } from "../src/types";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
-// Ensure userData path matches our storage logic early in the lifecycle
 app.setPath("userData", getDataDir());
 
 // ─── Singleton guard ────────────────────────────────────────────────────────
@@ -24,6 +24,8 @@ if (!gotLock) {
   process.exit(0);
 }
 
+const isStartupHidden = process.argv.includes("--hidden");
+
 // ─── State ──────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -31,9 +33,37 @@ let pollTimer: NodeJS.Timeout | null = null;
 let lastClipboardText = "";
 let isQuitting = false;
 let pauseTimeout: NodeJS.Timeout | null = null;
+let clipboardListenerProc: ChildProcess | null = null;
+
+// UI State Caching to preserve page/selection across window recreate
+let uiState = {
+  activePage: "dashboard",
+  selectedClipId: null,
+  sortMode: "newest",
+  filters: {
+    search: "",
+    tags: [],
+    isFavorite: null,
+    lengthFilter: "all",
+    dateFrom: null,
+    dateTo: null,
+    minWordCount: null,
+    maxWordCount: null,
+  },
+};
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    // Force window to foreground on Windows
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.setAlwaysOnTop(false);
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -45,7 +75,7 @@ function createWindow(): void {
     title: "ClipMaster Pro",
     icon: join(
       __dirname,
-      app.isPackaged ? "../renderer/icon.png" : "../../public/icon.png",
+      app.isPackaged ? "../renderer/icon.ico" : "../../public/icon.ico",
     ),
     webPreferences: {
       preload: join(__dirname, "../preload/preload.js"),
@@ -66,12 +96,10 @@ function createWindow(): void {
     mainWindow?.show();
     mainWindow?.focus();
   });
-  mainWindow.on("close", (e) => {
-    if (!isQuitting) {
-      e.preventDefault();
-      mainWindow?.hide();
-    }
-  });
+
+  // Window Close Behavior:
+  // Let it close and destroy the window completely if isQuitting is false.
+  // This frees renderer process memory when backgrounded.
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -81,14 +109,13 @@ function createWindow(): void {
 function createTray(): void {
   const iconPath = join(
     __dirname,
-    app.isPackaged ? "../renderer/icon.png" : "../../public/icon.png",
+    app.isPackaged ? "../renderer/icon.ico" : "../../public/icon.ico",
   );
   const icon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  tray = new Tray(icon);
   tray.setToolTip("ClipMaster Pro");
   tray.on("double-click", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
+    createWindow();
   });
   updateTrayMenu();
 }
@@ -102,8 +129,7 @@ function updateTrayMenu(): void {
     {
       label: "Open ClipMaster Pro",
       click: () => {
-        mainWindow?.show();
-        mainWindow?.focus();
+        createWindow();
       },
     },
     { type: "separator" },
@@ -167,13 +193,7 @@ async function handleClipboardCapture(text: string): Promise<void> {
     if (!newItem) return;
 
     mainWindow?.webContents.send("new-clip", newItem);
-    syncManager.enqueue(newItem, "upsert");
-    syncManager
-      .runSync()
-      .then((state) => {
-        mainWindow?.webContents.send("sync-update", state);
-      })
-      .catch(() => {});
+    await syncManager.enqueue(newItem, "upsert");
   } catch (err) {
     console.error("[Clipboard] Capture error:", err);
   }
@@ -191,7 +211,6 @@ function startPoller(): void {
     try {
       const current = clipboard.readText() ?? "";
       pollTick++;
-      // Log every 10 ticks (5 seconds) so we can see readText() is working
       if (pollTick % 10 === 0) {
         console.log(`[Clipboard] tick=${pollTick} current[0..40]=${JSON.stringify(current.substring(0, 40))} same=${current === lastClipboardText}`);
       }
@@ -200,18 +219,15 @@ function startPoller(): void {
       const settings = storageManager.getSettings();
       if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
         if (settings.pauseCaptureOption === "restart") {
-          // Paused until restart, skip capturing
           lastClipboardText = current;
           return;
         }
 
         if (settings.pauseUntil) {
           if (Date.now() < settings.pauseUntil) {
-            // Still paused
             lastClipboardText = current;
             return;
           } else {
-            // Expired! Reset settings in background
             storageManager.saveSettings({
               pauseCaptureOption: "never",
               pauseUntil: null,
@@ -240,6 +256,121 @@ function stopPoller(): void {
   }
 }
 
+function startClipboardListener(): void {
+  if (clipboardListenerProc) return;
+
+  const script = `
+    Add-Type -AssemblyName System.Windows.Forms
+    $code = @"
+    using System;
+    using System.Runtime.InteropServices;
+    using System.Windows.Forms;
+
+    public class ClipboardListener : Form {
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool AddClipboardFormatListener(IntPtr hwnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+        private const int WM_CLIPBOARDUPDATE = 0x031D;
+
+        public ClipboardListener() {
+            this.CreateHandle();
+            AddClipboardFormatListener(this.Handle);
+        }
+
+        protected override void WndProc(ref Message m) {
+            if (m.Msg == WM_CLIPBOARDUPDATE) {
+                Console.WriteLine("CLIPBOARD_CHANGED");
+            }
+            base.WndProc(ref m);
+        }
+
+        protected override void Dispose(bool disposing) {
+            RemoveClipboardFormatListener(this.Handle);
+            base.Dispose(disposing);
+        }
+    }
+"@
+    Add-Type -TypeDefinition $code -ReferencedAssemblies System.Windows.Forms
+    [Application]::Run(New-Object ClipboardListener)
+  `;
+
+  try {
+    clipboardListenerProc = spawn("powershell", ["-NoProfile", "-Command", script], {
+      windowsHide: true,
+    });
+
+    clipboardListenerProc.stdout?.on("data", (data) => {
+      const msg = data.toString().trim();
+      if (msg.includes("CLIPBOARD_CHANGED")) {
+        const current = clipboard.readText() ?? "";
+
+        // Check if capturing is paused
+        const settings = storageManager.getSettings();
+        if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
+          if (settings.pauseCaptureOption === "restart") {
+            lastClipboardText = current;
+            return;
+          }
+
+          if (settings.pauseUntil) {
+            if (Date.now() < settings.pauseUntil) {
+              lastClipboardText = current;
+              return;
+            } else {
+              storageManager.saveSettings({
+                pauseCaptureOption: "never",
+                pauseUntil: null,
+              });
+              mainWindow?.webContents.send("settings-updated", storageManager.getSettings());
+              updateTrayMenu();
+            }
+          }
+        }
+
+        if (!current.trim() || current === lastClipboardText) return;
+        console.log("[Clipboard] Native change detected! length:", current.length);
+        lastClipboardText = current;
+        handleClipboardCapture(current);
+      }
+    });
+
+    clipboardListenerProc.on("error", (err) => {
+      console.error("[Clipboard] Native listener error, falling back:", err);
+      startPollerFallback();
+    });
+
+    clipboardListenerProc.on("exit", (code) => {
+      if (code !== 0 && !isQuitting) {
+        console.warn(`[Clipboard] Native listener exited with code ${code}. Restarting poller fallback.`);
+        clipboardListenerProc = null;
+        startPollerFallback();
+      }
+    });
+
+    console.log("[Clipboard] Native Windows clipboard listener started successfully.");
+  } catch (err) {
+    console.error("[Clipboard] Failed to start native listener:", err);
+    startPollerFallback();
+  }
+}
+
+function startPollerFallback(): void {
+  console.log("[Clipboard] Falling back to polling mode...");
+  startPoller();
+}
+
+function stopClipboardListener(): void {
+  stopPoller();
+  if (clipboardListenerProc) {
+    clipboardListenerProc.kill();
+    clipboardListenerProc = null;
+    console.log("[Clipboard] Native Windows clipboard listener stopped.");
+  }
+}
+
 // ─── IPC Registration ───────────────────────────────────────────────────────
 function registerIPC(): void {
   // ── Window controls ─────────────────────────────────────────────────────
@@ -253,80 +384,56 @@ function registerIPC(): void {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
   });
   ipcMain.on("window-close", () => {
-    console.log("[IPC] close");
-    mainWindow?.hide();
+    console.log("[IPC] close - closing to tray");
+    mainWindow?.close(); // Triggers standard window close and destruction
   });
 
   // ── Clipboard CRUD ───────────────────────────────────────────────────────
-  ipcMain.handle("get-clips", () => storageManager.readAll());
+  ipcMain.handle("get-clips", async (_e, limit?: number) => await storageManager.readAll(limit));
 
   ipcMain.handle("add-clip", async (_e, text: string) => {
     const item = await storageManager.addEntry(text);
     if (item) {
-      syncManager.enqueue(item, "upsert");
-      syncManager
-        .runSync()
-        .then((s) => mainWindow?.webContents.send("sync-update", s))
-        .catch(() => {});
+      await syncManager.enqueue(item, "upsert");
     }
     return item;
   });
 
   ipcMain.handle("update-clip", async (_e, item: ClipboardItem) => {
     await storageManager.updateEntry(item);
-    syncManager.enqueue(item, "upsert");
-    syncManager
-      .runSync()
-      .then((s) => mainWindow?.webContents.send("sync-update", s))
-      .catch(() => {});
+    await syncManager.enqueue(item, "upsert");
     return true;
   });
 
   ipcMain.handle("delete-clip", async (_e, id: string) => {
     await storageManager.softDelete(id);
-    const item = storageManager.readAll().find((c) => c.id === id);
+    const item = (await storageManager.readAll()).find((c) => c.id === id);
     if (item) {
-      syncManager.enqueue(item, "soft-delete");
-      syncManager
-        .runSync()
-        .then((s) => mainWindow?.webContents.send("sync-update", s))
-        .catch(() => {});
+      await syncManager.enqueue(item, "soft-delete");
     }
     return true;
   });
 
   ipcMain.handle("permanent-delete", async (_e, id: string) => {
     await storageManager.permanentDelete(id);
-    syncManager.enqueue({ id } as ClipboardItem, "permanent-delete");
-    syncManager
-      .runSync()
-      .then((s) => mainWindow?.webContents.send("sync-update", s))
-      .catch(() => {});
+    await syncManager.enqueue({ id } as ClipboardItem, "permanent-delete");
     return true;
   });
 
   ipcMain.handle("permanent-delete-bulk", async (_e, ids: string[]) => {
     await storageManager.permanentDeleteBulk(ids);
-    syncManager.enqueueBulk(
+    await syncManager.enqueueBulk(
       ids.map((id) => ({ id }) as ClipboardItem),
       "permanent-delete",
     );
-    syncManager
-      .runSync()
-      .then((s) => mainWindow?.webContents.send("sync-update", s))
-      .catch(() => {});
     return true;
   });
 
   ipcMain.handle("restore-clip", async (_e, id: string) => {
     await storageManager.restoreEntry(id);
-    const item = storageManager.readAll().find((c) => c.id === id);
+    const item = (await storageManager.readAll()).find((c) => c.id === id);
     if (item) {
-      syncManager.enqueue(item, "upsert");
-      syncManager
-        .runSync()
-        .then((s) => mainWindow?.webContents.send("sync-update", s))
-        .catch(() => {});
+      await syncManager.enqueue(item, "upsert");
     }
     return true;
   });
@@ -338,21 +445,16 @@ function registerIPC(): void {
   });
 
   // ── Tags & Settings ──────────────────────────────────────────────────────
-  ipcMain.handle("get-tags", () => storageManager.getTags());
+  ipcMain.handle("get-tags", async () => await storageManager.getTags());
   ipcMain.handle("save-tags", async (_e, tags) => {
     await storageManager.saveTags(tags);
     syncManager.enqueueTagSync();
-    syncManager
-      .runSync(true)
-      .then((s) => mainWindow?.webContents.send("sync-update", s))
-      .catch(() => {});
     return true;
   });
   ipcMain.handle("get-settings", () => storageManager.getSettings());
   ipcMain.handle(
     "save-settings",
     async (_e, partial: Record<string, unknown>) => {
-      // Calculate pauseUntil and setup timer if pauseCaptureOption is updated
       if ("pauseCaptureOption" in partial) {
         const option = partial.pauseCaptureOption as string;
         if (option === "15mins") {
@@ -375,6 +477,8 @@ function registerIPC(): void {
         app.setLoginItemSettings({
           openAtLogin: Boolean(partial.autoLaunch),
           name: "ClipMaster Pro",
+          path: app.getPath("exe"),
+          args: ["--hidden"],
         });
       }
       updateTrayMenu();
@@ -382,8 +486,12 @@ function registerIPC(): void {
     },
   );
 
-  // ── Sync Control ─────────────────────────────────────────────────────────
+  // ── Sync Control & Logs ──────────────────────────────────────────────────
   ipcMain.handle("get-sync-state", () => syncManager.getState());
+
+  ipcMain.handle("get-sync-logs", async (_e, limit?: number) => {
+    return await storageManager.getSyncLogs(limit);
+  });
 
   ipcMain.handle(
     "trigger-sync",
@@ -393,11 +501,20 @@ function registerIPC(): void {
     },
   );
 
+  // ── UI State Channel ─────────────────────────────────────────────────────
+  ipcMain.on("update-ui-state", (_e, state) => {
+    uiState = { ...uiState, ...state };
+    storageManager.saveUiState(uiState).catch(() => {});
+  });
+
+  ipcMain.handle("get-ui-state", () => {
+    return uiState;
+  });
+
   ipcMain.handle("mongo-connect", async (_e, uri: string) => {
     const ok = await syncManager.connectLocal(uri);
     if (ok) {
       await storageManager.saveSettings({ mongoEnabled: true, mongoUri: uri });
-      // Bootstrap sync from local Mongo
       await syncManager.bootstrapSync(() => storageManager.readAll());
     }
     return ok;
@@ -407,7 +524,6 @@ function registerIPC(): void {
     const ok = await syncManager.connectAtlas(uri);
     if (ok) {
       await storageManager.saveSettings({ atlasEnabled: true, atlasUri: uri });
-      // Bootstrap sync from Atlas
       await syncManager
         .bootstrapSync(() => storageManager.readAll())
         .catch(() => {});
@@ -445,13 +561,9 @@ function registerIPC(): void {
   ipcMain.handle("reset-all", async () => {
     try {
       clearPauseTimeout();
-      // Clear all clips
       await storageManager.resetClips();
-      // Reset tags to defaults
       await storageManager.resetTags();
-      // Reset settings to defaults
       await storageManager.resetSettings();
-      // Disconnect sync services
       await syncManager.disconnectLocal().catch(() => {});
       await syncManager.disconnectAtlas().catch(() => {});
       updateTrayMenu();
@@ -465,29 +577,30 @@ function registerIPC(): void {
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
-  // ════ 1. Init JSON storage first — source of truth ════
+  // ════ 1. Init NeDB storage first — source of truth ════
   await storageManager.init();
+  try {
+    uiState = storageManager.getUiState(uiState);
+  } catch (err) {
+    console.error("[Storage] Failed to restore UI State:", err);
+  }
 
-  // ════ 2. Register IPC (must be before window creation) ════
+  // ════ 2. Register IPC ════
   registerIPC();
 
-  // ════ 3. Create UI ════
-  createWindow();
+  // ════ 3. Create Tray (Do NOT call createWindow here, starts Headless) ════
   createTray();
 
   // ════ 4. Auto-connect & Auto-detect MongoDB layers ════
   const settings = storageManager.getSettings();
 
-  // Hydrate initial sync state from disk before connecting
   syncManager.initSyncState({
     lastLocalSyncedAt: settings.lastLocalSyncedAt || null,
     lastCloudSyncedAt: settings.lastCloudSyncedAt || null,
   });
 
-  // 1. First Launch Auto-detection
   await syncManager.autoDetectLocalMongo(() => storageManager.readAll());
 
-  // 2. Connect Local Mongo if enabled OR URI exists
   if (settings.mongoEnabled || settings.mongoUri) {
     syncManager
       .connectLocal(settings.mongoUri)
@@ -501,7 +614,6 @@ app.whenReady().then(async () => {
       .catch(() => {});
   }
 
-  // 3. Connect Atlas Cloud if URI exists (Trigger full connect action)
   if (settings.atlasUri) {
     syncManager
       .connectAtlas(settings.atlasUri)
@@ -519,7 +631,6 @@ app.whenReady().then(async () => {
   syncManager.onStateChange((state: SyncState) => {
     mainWindow?.webContents.send("sync-update", state);
 
-    // Authoritative persistence of sync timestamps (including null)
     storageManager
       .saveSettings({
         lastLocalSyncedAt: state.lastLocalSyncedAt,
@@ -532,10 +643,8 @@ app.whenReady().then(async () => {
   // ════ 6. Start background sync + clipboard polling ════
   syncManager.startBackgroundSync();
 
-  // Initialize/recover pause state on startup
   const initSettings = storageManager.getSettings();
   if (initSettings.pauseCaptureOption === "restart") {
-    // Reset pause until restart
     storageManager.saveSettings({
       pauseCaptureOption: "never",
       pauseUntil: null,
@@ -552,25 +661,44 @@ app.whenReady().then(async () => {
     }
   }
 
-  startPoller();
+  startClipboardListener();
+
+  if (!isStartupHidden) {
+    createWindow();
+  }
 
   app.on("activate", () => {
+    // Only open the window if explicitly activated (standard macOS behavior, or similar)
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on("second-instance", () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  }
+  createWindow();
 });
 
-app.on("before-quit", () => {
+// Perform best-effort 1.5s shutdown synchronization pass on app termination
+app.on("before-quit", async (e) => {
+  if (isQuitting) return;
+  e.preventDefault();
   isQuitting = true;
-  stopPoller();
+  stopClipboardListener();
   syncManager.stopBackgroundSync();
+
+  console.log("[App] Saving final UI State...");
+  await storageManager.saveUiState(uiState).catch(() => {});
+
+  console.log("[App] Initiating best-effort shutdown sync...");
+  try {
+    await Promise.race([
+      syncManager.runSync(),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+  } catch (err) {
+    console.error("[App] Shutdown sync error:", err);
+  } finally {
+    app.quit();
+  }
 });
 
 app.on("window-all-closed", () => {

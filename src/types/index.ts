@@ -11,6 +11,9 @@ export type ClipboardItem = {
   deletedAt?: string;
   wordCount?: number;
   charCount?: number;
+  version?: number;
+  localMongoVersion?: number;
+  atlasVersion?: number;
 };
 
 export type Tag = {
@@ -106,9 +109,10 @@ export interface ClipStore {
   isLoading: boolean;
 
   // Actions - Data
-  loadClips: () => Promise<void>;
+  loadClips: (limit?: number) => Promise<void>;
   loadTags: () => Promise<void>;
   loadSettings: () => Promise<void>;
+  loadUIState: () => Promise<void>;
   addClipFromMain: (item: ClipboardItem) => void;
   updateClip: (item: ClipboardItem) => Promise<void>;
   deleteClip: (id: string) => Promise<void>;
@@ -144,7 +148,7 @@ export interface ClipAPI {
   close: () => void;
 
   // Clipboard CRUD
-  getClips: () => Promise<ClipboardItem[]>;
+  getClips: (limit?: number) => Promise<ClipboardItem[]>;
   addClip: (text: string) => Promise<ClipboardItem | null>;
   updateClip: (item: ClipboardItem) => Promise<boolean>;
   deleteClip: (id: string) => Promise<boolean>;
@@ -162,6 +166,9 @@ export interface ClipAPI {
   // Sync
   getSyncState: () => Promise<SyncState>;
   triggerSync: (target?: "local" | "atlas" | "all") => Promise<SyncState>;
+  getSyncLogs: (limit?: number) => Promise<any[]>;
+  updateUIState: (state: any) => void;
+  getUIState: () => Promise<any>;
   mongoConnect: (uri: string) => Promise<boolean>;
   atlasConnect: (uri: string) => Promise<boolean>;
   mongoStatus: () => Promise<boolean>;
