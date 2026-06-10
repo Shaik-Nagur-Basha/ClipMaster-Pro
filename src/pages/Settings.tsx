@@ -386,7 +386,7 @@ const Settings: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowUpdatesDialog(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-400 font-semibold transition hover:border-brand-500/50 hover:bg-brand-500/20 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400 font-semibold transition hover:border-amber-500/50 hover:bg-amber-500/20 cursor-pointer"
               title="Downloading update"
             >
               <IconRefresh size={14} className="animate-spin" />
@@ -411,7 +411,7 @@ const Settings: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowUpdatesDialog(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-400 font-semibold transition hover:border-brand-500/50 hover:bg-brand-500/20 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400 font-semibold transition hover:border-amber-500/50 hover:bg-amber-500/20 cursor-pointer"
               title="Checking for updates"
             >
               <IconRefresh size={14} className="animate-spin" />
@@ -960,7 +960,7 @@ const Settings: React.FC = () => {
         headerAction={
           <div className="flex items-center gap-2">
             {updateStatus === "downloading" ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-400 font-semibold animate-pulse">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400 font-semibold animate-pulse">
                 <IconRefresh size={10} className="animate-spin" />
                 <span className="tabular-nums">
                   Downloading {downloadProgress}%
@@ -980,7 +980,7 @@ const Settings: React.FC = () => {
                 <span>Update Error</span>
               </span>
             ) : updateStatus === "checking" ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-400 font-semibold animate-pulse">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400 font-semibold animate-pulse">
                 <IconRefresh size={10} className="animate-spin" />
                 <span>Checking...</span>
               </span>

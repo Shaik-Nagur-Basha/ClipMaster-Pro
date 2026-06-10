@@ -662,21 +662,36 @@ function registerIPC(): void {
     }
   });
 
+  function selectAssetForPlatform(assets: any[]): any {
+    const platform = process.platform;
+    if (platform === "win32") {
+      const currentExe = app.getPath("exe").toLowerCase();
+      const isInstalled = !currentExe.includes("\\temp\\") && !currentExe.includes("\\appdata\\local\\temp\\");
+
+      if (isInstalled) {
+        let selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && (a.name.toLowerCase().includes("setup") || a.name.toLowerCase().includes("installer")));
+        if (!selectedAsset) {
+          selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
+        }
+        return selectedAsset;
+      } else {
+        let selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && !a.name.toLowerCase().includes("setup") && !a.name.toLowerCase().includes("installer"));
+        if (!selectedAsset) {
+          selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
+        }
+        return selectedAsset;
+      }
+    } else if (platform === "darwin") {
+      return assets.find((a: any) => a.name.endsWith(".dmg") || a.name.endsWith(".zip") || a.name.endsWith(".pkg"));
+    } else {
+      return assets.find((a: any) => a.name.endsWith(".AppImage") || a.name.endsWith(".deb") || a.name.endsWith(".tar.gz"));
+    }
+  }
+
   ipcMain.handle("trigger-update", async (_e, release: any) => {
     const platform = process.platform;
     const assets = release.assets || [];
-    let selectedAsset = null;
-
-    if (platform === "win32") {
-      selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && !a.name.toLowerCase().includes("setup"));
-      if (!selectedAsset) {
-        selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
-      }
-    } else if (platform === "darwin") {
-      selectedAsset = assets.find((a: any) => a.name.endsWith(".dmg") || a.name.endsWith(".zip") || a.name.endsWith(".pkg"));
-    } else {
-      selectedAsset = assets.find((a: any) => a.name.endsWith(".AppImage") || a.name.endsWith(".deb") || a.name.endsWith(".tar.gz"));
-    }
+    const selectedAsset = selectAssetForPlatform(assets);
 
     if (!selectedAsset) {
       const errMsg = `No suitable binary asset found for platform '${platform}' in release ${release.tag_name}`;
@@ -714,6 +729,11 @@ function registerIPC(): void {
         });
 
         console.log("[Update] Download completed to:", tempFilePath);
+
+        activeDownloadStatus = "ready";
+        activeDownloadProgress = 100;
+        mainWindow?.webContents.send("update-success");
+        return; // Early return: do not install automatically. Wait for user to click apply.
       } else {
         console.log("[Update] File already fully downloaded. Skipping download step and proceeding to installation.");
         mainWindow?.webContents.send("update-progress", 100);
@@ -736,32 +756,51 @@ function registerIPC(): void {
       const currentPid = process.pid;
 
       if (platform === "win32") {
-        const scriptPath = path.join(tempDir, "install-update.bat");
-        const batContent = `@echo off
+        const isSetup = selectedAsset.name.toLowerCase().includes("setup") || selectedAsset.name.toLowerCase().includes("installer");
+        if (isSetup) {
+          console.log("[Update] Spawning Setup installer directly:", tempFilePath);
+          const child = spawn(tempFilePath, [], {
+            detached: true,
+            stdio: "ignore",
+          });
+          child.unref();
+          app.quit();
+        } else {
+          const scriptPath = path.join(tempDir, "install-update.bat");
+          const batContent = `@echo off
+set /a retry=0
 :loop
 tasklist /FI "PID eq ${currentPid}" 2>NUL | find /I "${currentPid}" >NUL
 if "%ERRORLEVEL%"=="0" (
   timeout /t 1 /nobreak >NUL
   goto loop
 )
+:copy_attempt
+set /a retry+=1
 copy /Y "${tempFilePath}" "${currentExe}"
 if errorlevel 1 (
-  timeout /t 1 /nobreak >NUL
-  goto loop
+  if %retry% LSS 10 (
+    timeout /t 1 /nobreak >NUL
+    goto copy_attempt
+  )
+  echo Failed to copy updated executable. Permissions or a file lock might be preventing this.
+  pause
+  exit /b 1
 )
 start "" "${currentExe}"
 del "%~f0"
 `;
-        fs.writeFileSync(scriptPath, batContent, "utf-8");
+          fs.writeFileSync(scriptPath, batContent, "utf-8");
 
-        console.log("[Update] Spawning updater script:", scriptPath);
-        const child = spawn("cmd.exe", ["/c", scriptPath], {
-          detached: true,
-          stdio: "ignore",
-          windowsHide: true,
-        });
-        child.unref();
-        app.quit();
+          console.log("[Update] Spawning updater script:", scriptPath);
+          const child = spawn("cmd.exe", ["/c", scriptPath], {
+            detached: true,
+            stdio: "ignore",
+            windowsHide: true,
+          });
+          child.unref();
+          app.quit();
+        }
 
       } else if (platform === "darwin") {
         const scriptPath = path.join(tempDir, "install-update.sh");
@@ -813,21 +852,7 @@ rm "$0"
 
   ipcMain.handle("check-update-downloaded", async (_e, release: any) => {
     try {
-      const platform = process.platform;
-      const assets = release.assets || [];
-      let selectedAsset = null;
-
-      if (platform === "win32") {
-        selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && !a.name.toLowerCase().includes("setup"));
-        if (!selectedAsset) {
-          selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
-        }
-      } else if (platform === "darwin") {
-        selectedAsset = assets.find((a: any) => a.name.endsWith(".dmg") || a.name.endsWith(".zip") || a.name.endsWith(".pkg"));
-      } else {
-        selectedAsset = assets.find((a: any) => a.name.endsWith(".AppImage") || a.name.endsWith(".deb") || a.name.endsWith(".tar.gz"));
-      }
-
+      const selectedAsset = selectAssetForPlatform(release.assets || []);
       if (!selectedAsset) return false;
 
       const tempDir = app.getPath("temp");

@@ -302,17 +302,17 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
 
         {/* Update progress or notifications */}
         {updateStatus === "downloading" && (
-          <div className="space-y-3 p-4 bg-brand-500/5 border border-brand-500/10 rounded-lg">
+          <div className="space-y-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-lg">
             <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-brand-400 animate-pulse flex items-center gap-1.5">
+              <span className="text-amber-400 animate-pulse flex items-center gap-1.5">
                 <IconRefresh size={12} className="animate-spin" />
                 Downloading update package...
               </span>
-              <span className="text-brand-400 tabular-nums">{downloadProgress}%</span>
+              <span className="text-amber-400 tabular-nums">{downloadProgress}%</span>
             </div>
             <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-brand-500 transition-all duration-300 ease-out rounded-full shadow-[0_0_8px_rgba(var(--brand-primary),0.5)]"
+                className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300 ease-out rounded-full shadow-[0_0_8px_rgba(245,158,11,0.5)]"
                 style={{ width: `${downloadProgress}%` }}
               />
             </div>
@@ -401,11 +401,7 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
               className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${
                 updateStatus === "downloading"
                   ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : versionComparison > 0
-                  ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md shadow-brand-500/10"
-                  : versionComparison < 0
-                  ? "bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/10"
-                  : "bg-surface-700 hover:bg-surface-600 text-gray-300"
+                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/10"
               }`}
             >
               {updateStatus === "downloading" ? (
