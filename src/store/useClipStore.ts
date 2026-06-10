@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   atlasUri: null,
   maxEntries: 5000,
   pollingInterval: 600,
-  paginationEnabled: false,
+  paginationEnabled: true,
   pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
