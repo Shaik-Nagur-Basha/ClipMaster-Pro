@@ -9,9 +9,18 @@
 
 import { net } from "electron";
 import { storageManager } from "./storage";
-import mongoose, { Schema, Document, Model } from "mongoose";
+import type mongooseType from "mongoose";
+import type { Document, Model } from "mongoose";
 import type { ClipboardItem, SyncState, SyncQueueEntry } from "../src/types";
 import { encrypt, decrypt } from "./crypto";
+
+let mongooseInstance: typeof mongooseType | null = null;
+async function getMongoose(): Promise<typeof mongooseType> {
+  if (!mongooseInstance) {
+    mongooseInstance = await import("mongoose");
+  }
+  return mongooseInstance;
+}
 
 function maskUri(uri: string): string {
   return uri
@@ -64,7 +73,7 @@ const tagSchemaDefinition = {
 
 // ─── Mongoose Connection Factory ───────────────────────────────────────────
 class MongoConnection {
-  private conn: mongoose.Connection | null = null;
+  private conn: mongooseType.Connection | null = null;
   private ClipModel: Model<ClipDoc> | null = null;
   private TagModel: Model<any> | null = null;
   private _connected = false;
@@ -75,6 +84,8 @@ class MongoConnection {
   }
 
   async connect(uri: string, isAtlas: boolean): Promise<boolean> {
+    const mongoose = await getMongoose();
+
     if (this.conn) {
       try {
         await this.conn.close();
@@ -122,12 +133,12 @@ class MongoConnection {
 
       this.conn = await connection.asPromise();
 
-      const clipSchema = new Schema<ClipDoc>(clipSchemaDefinition, {
+      const clipSchema = new mongoose.Schema<ClipDoc>(clipSchemaDefinition, {
         collection: "clips",
       });
       this.ClipModel = this.conn.model<ClipDoc>("Clip", clipSchema);
 
-      const tagSchema = new Schema(tagSchemaDefinition, { collection: "tags" });
+      const tagSchema = new mongoose.Schema(tagSchemaDefinition, { collection: "tags" });
       this.TagModel = this.conn.model("Tag", tagSchema);
 
       this._connected = true;
