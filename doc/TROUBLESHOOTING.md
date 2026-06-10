@@ -18,12 +18,6 @@
 2. Check: Do you have free disk space (500MB+)?
 3. Restart Windows
 
-## MongoDB Won't Connect
-
-1. Check your connection string in Settings
-2. Verify MongoDB is running
-3. Restart the app and try again
-
 ## Need More Help?
 
 Check QUICK_START.md or DEPLOYMENT.md for setup details.

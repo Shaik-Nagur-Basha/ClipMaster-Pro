@@ -5,7 +5,6 @@ import * as path from "path";
 import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import { storageManager } from "./storage";
-import { syncManager } from "./syncManager";
 import type { ClipboardItem, Tag, AppSettings } from "../src/types";
 
 export interface ImportSummary {
@@ -289,9 +288,7 @@ class ImportManager {
           isDeleted: Boolean(rawClip.isDeleted),
           wordCount,
           charCount,
-          version: typeof rawClip.version === "number" ? rawClip.version : 1,
-          localMongoVersion: typeof rawClip.localMongoVersion === "number" ? rawClip.localMongoVersion : 0,
-          atlasVersion: typeof rawClip.atlasVersion === "number" ? rawClip.atlasVersion : 0
+          version: typeof rawClip.version === "number" ? rawClip.version : 1
         };
 
         if (rawClip.deletedAt) {
@@ -300,8 +297,6 @@ class ImportManager {
 
         await storageManager.clipsDb.insertAsync(clipItem);
         
-        // Enqueue clip in synchronization manager
-        await syncManager.enqueue(clipItem, "upsert");
 
         existingClipIds.add(id);
         existingClipTexts.add(text);
@@ -340,18 +335,7 @@ class ImportManager {
         };
 
         assignBool("autoLaunch");
-        assignBool("mongoEnabled");
-        if ("mongoUri" in settingsToImport && (typeof settingsToImport.mongoUri === "string" || settingsToImport.mongoUri === null)) {
-          if (settingsToImport.mongoUri !== "") {
-            partialSettings.mongoUri = settingsToImport.mongoUri;
-          }
-        }
-        assignBool("atlasEnabled");
-        if ("atlasUri" in settingsToImport && (typeof settingsToImport.atlasUri === "string" || settingsToImport.atlasUri === null)) {
-          if (settingsToImport.atlasUri !== "") {
-            partialSettings.atlasUri = settingsToImport.atlasUri;
-          }
-        }
+
         assignNumber("maxEntries", 10);
         assignNumber("pollingInterval", 100);
         assignBool("paginationEnabled");
@@ -375,10 +359,6 @@ class ImportManager {
         }
       }
 
-      // Enqueue tag sync if tags were added
-      if (importedTags > 0) {
-        syncManager.enqueueTagSync();
-      }
 
       onProgress("complete", 100);
 

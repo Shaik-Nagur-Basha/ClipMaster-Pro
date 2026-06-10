@@ -17,7 +17,6 @@
   <img src="screenshots/04_recycle_bin.png" alt="Recycle Bin">
   <img src="screenshots/05_empty_recycle_bin.png" alt="Empty Recycle Bin">
   <img src="screenshots/06_settings_general.png" alt="General Settings">
-  <img src="screenshots/07_settings_sync.png" alt="Cloud Sync Settings">
 </p>
 
 ---
@@ -27,9 +26,8 @@
 - 🔄 **Native Version Switcher** — Switch between historical versions and install updates directly from settings using native batch/shell script overwrites.
 - 🔍 **Smart Search & Pagination** — Fast search with real-time result highlighting and responsive page-by-page rendering.
 - 🏷️ **Advanced Tags & Favourites** — Color-coded tags, tag filters, and dedicated Favourites page to categorize and isolate clips.
-- 📦 **Hardened Persistence** — Crash-resilient atomic "write-then-rename" file operations with automatic `.bak` recovery to prevent settings reset on forced shutdown or system crash.
 - 🎨 **Premium UI & Shortcuts** — Modern interface featuring a quick-expand detail viewer dialog, system tray controls, and keyboard shortcuts (Ctrl + Delete to bypass recycle bin).
-- 💾 **Cloud Synchronization** — Secure, AES-256 encrypted live backup to local MongoDB or MongoDB Atlas.
+- 📦 **Hardened Persistence** — Crash-resilient atomic "write-then-rename" file operations with automatic `.bak` recovery to prevent settings reset on forced shutdown or system crash.
 
 ## Technical Highlights
 - **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).

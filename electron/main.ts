@@ -16,8 +16,7 @@ import * as https from "https";
 import { IncomingMessage } from "http";
 import { spawn, ChildProcess, exec } from "child_process";
 import { getDataDir, storageManager } from "./storage";
-import { syncManager } from "./syncManager";
-import type { ClipboardItem, SyncState, AppSettings } from "../src/types";
+import type { ClipboardItem, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
 import { importManager } from "./importManager";
 
@@ -68,7 +67,6 @@ let uiStateSaveTimeout: NodeJS.Timeout | null = null;
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
-  syncManager.setWindowOpen(true);
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
@@ -123,7 +121,6 @@ function createWindow(): void {
   // This frees renderer process memory when backgrounded.
   mainWindow.on("closed", () => {
     mainWindow = null;
-    syncManager.setWindowOpen(false);
   });
 }
 
@@ -215,7 +212,6 @@ async function handleClipboardCapture(text: string): Promise<void> {
     if (!newItem) return;
 
     mainWindow?.webContents.send("new-clip", newItem);
-    await syncManager.enqueue(newItem, "upsert");
   } catch (err) {
     console.error("[Clipboard] Capture error:", err);
   }
@@ -574,48 +570,31 @@ function registerIPC(): void {
 
   ipcMain.handle("add-clip", async (_e, text: string) => {
     const item = await storageManager.addEntry(text);
-    if (item) {
-      await syncManager.enqueue(item, "upsert");
-    }
     return item;
   });
 
   ipcMain.handle("update-clip", async (_e, item: ClipboardItem) => {
     await storageManager.updateEntry(item);
-    await syncManager.enqueue(item, "upsert");
     return true;
   });
 
   ipcMain.handle("delete-clip", async (_e, id: string) => {
     await storageManager.softDelete(id);
-    const item = (await storageManager.readAll()).find((c) => c.id === id);
-    if (item) {
-      await syncManager.enqueue(item, "soft-delete");
-    }
     return true;
   });
 
   ipcMain.handle("permanent-delete", async (_e, id: string) => {
     await storageManager.permanentDelete(id);
-    await syncManager.enqueue({ id } as ClipboardItem, "permanent-delete");
     return true;
   });
 
   ipcMain.handle("permanent-delete-bulk", async (_e, ids: string[]) => {
     await storageManager.permanentDeleteBulk(ids);
-    await syncManager.enqueueBulk(
-      ids.map((id) => ({ id }) as ClipboardItem),
-      "permanent-delete",
-    );
     return true;
   });
 
   ipcMain.handle("restore-clip", async (_e, id: string) => {
     await storageManager.restoreEntry(id);
-    const item = (await storageManager.readAll()).find((c) => c.id === id);
-    if (item) {
-      await syncManager.enqueue(item, "upsert");
-    }
     return true;
   });
 
@@ -629,7 +608,6 @@ function registerIPC(): void {
   ipcMain.handle("get-tags", async () => await storageManager.getTags());
   ipcMain.handle("save-tags", async (_e, tags) => {
     await storageManager.saveTags(tags);
-    syncManager.enqueueTagSync();
     return true;
   });
   ipcMain.handle("get-settings", async () => storageManager.getSettings());
@@ -667,20 +645,6 @@ function registerIPC(): void {
     },
   );
 
-  // ── Sync Control & Logs ──────────────────────────────────────────────────
-  ipcMain.handle("get-sync-state", async () => syncManager.getState());
-
-  ipcMain.handle("get-sync-logs", async (_e, limit?: number) => {
-    return await storageManager.getSyncLogs(limit);
-  });
-
-  ipcMain.handle(
-    "trigger-sync",
-    async (_e, target: "local" | "atlas" | "all" = "all") => {
-      const state = await syncManager.runSync(true, target);
-      return state;
-    },
-  );
 
   // ── UI State Channel ─────────────────────────────────────────────────────
   ipcMain.on("update-ui-state", (_e, state) => {
@@ -698,38 +662,7 @@ function registerIPC(): void {
     return uiState;
   });
 
-  ipcMain.handle("mongo-connect", async (_e, uri: string) => {
-    const ok = await syncManager.connectLocal(uri);
-    if (ok) {
-      await storageManager.saveSettings({ mongoEnabled: true, mongoUri: uri });
-      await syncManager.bootstrapSync(() => storageManager.readAll());
-    }
-    return ok;
-  });
 
-  ipcMain.handle("atlas-connect", async (_, uri) => {
-    const ok = await syncManager.connectAtlas(uri);
-    if (ok) {
-      await storageManager.saveSettings({ atlasEnabled: true, atlasUri: uri });
-      await syncManager
-        .bootstrapSync(() => storageManager.readAll())
-        .catch(() => {});
-    }
-    return ok;
-  });
-
-  ipcMain.handle("atlas-disconnect", async () => {
-    await syncManager.disconnectAtlas();
-    return true;
-  });
-
-  ipcMain.handle("mongo-disconnect", async () => {
-    await syncManager.disconnectLocal();
-    return true;
-  });
-
-  ipcMain.handle("mongo-status", async () => syncManager.isLocalConnected());
-  ipcMain.handle("atlas-status", async () => syncManager.isAtlasConnected());
 
   ipcMain.handle("open-external", async (_e, url: string) => {
     shell.openExternal(url);
@@ -1144,19 +1077,9 @@ rm "$0"
       await storageManager.resetTags();
       await storageManager.resetSettings();
       const sm = storageManager as any;
-      if (typeof sm.resetSyncQueue === "function") {
-        await sm.resetSyncQueue();
-      }
-      if (typeof sm.resetSyncLogs === "function") {
-        await sm.resetSyncLogs();
-      }
       if (typeof sm.resetUiState === "function") {
         await sm.resetUiState();
       }
-
-      // 3. Disconnect sync clients
-      await syncManager.disconnectLocal().catch(() => {});
-      await syncManager.disconnectAtlas().catch(() => {});
 
       updateTrayMenu();
       return true;
@@ -1215,59 +1138,7 @@ app.whenReady().then(async () => {
   // ════ 3. Create Tray (Do NOT call createWindow here, starts Headless) ════
   createTray();
 
-  // ════ 4. Auto-connect & Auto-detect MongoDB layers ════
-  const settings = storageManager.getSettings();
-
-  syncManager.initSyncState({
-    lastLocalSyncedAt: settings.lastLocalSyncedAt || null,
-    lastCloudSyncedAt: settings.lastCloudSyncedAt || null,
-  });
-
-  await syncManager.autoDetectLocalMongo(() => storageManager.readAll());
-
-  if (settings.mongoEnabled || settings.mongoUri) {
-    syncManager
-      .connectLocal(settings.mongoUri)
-      .then((ok) => {
-        if (ok) {
-          syncManager
-            .bootstrapSync(() => storageManager.readAll())
-            .then(() => syncManager.runSync(true))
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }
-
-  if (settings.atlasEnabled && settings.atlasUri) {
-    syncManager
-      .connectAtlas(settings.atlasUri)
-      .then(async (ok) => {
-        if (ok) {
-          syncManager
-            .bootstrapSync(() => storageManager.readAll())
-            .then(() => syncManager.runSync(true))
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }
-
-  // ════ 5. Subscribe sync state updates → renderer ════
-  syncManager.onStateChange((state: SyncState) => {
-    mainWindow?.webContents.send("sync-update", state);
-
-    storageManager
-      .saveSettings({
-        lastLocalSyncedAt: state.lastLocalSyncedAt,
-        lastCloudSyncedAt: state.lastCloudSyncedAt,
-        latestSyncedAt: state.latestSyncedAt,
-      })
-      .catch(() => {});
-  });
-
-  // ════ 6. Start background sync + clipboard polling ════
-  syncManager.setWindowOpen(!isStartupHidden);
+  // ════ 4. Start clipboard polling ════
 
   const initSettings = storageManager.getSettings();
   if (initSettings.pauseCaptureOption === "restart") {
@@ -1303,13 +1174,12 @@ app.on("second-instance", () => {
   createWindow();
 });
 
-// Perform best-effort 1.5s shutdown synchronization pass on app termination
+// Perform UI state saving on app termination
 app.on("before-quit", async (e) => {
   if (isQuitting) return;
   e.preventDefault();
   isQuitting = true;
   stopClipboardListener();
-  syncManager.stopBackgroundSync();
 
   if (uiStateSaveTimeout) {
     clearTimeout(uiStateSaveTimeout);
@@ -1318,18 +1188,7 @@ app.on("before-quit", async (e) => {
 
   console.log("[App] Saving final UI State...");
   await storageManager.saveUiState(uiState).catch(() => {});
-
-  console.log("[App] Initiating best-effort shutdown sync...");
-  try {
-    await Promise.race([
-      syncManager.runSync(),
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-    ]);
-  } catch (err) {
-    console.error("[App] Shutdown sync error:", err);
-  } finally {
-    app.quit();
-  }
+  app.quit();
 });
 
 app.on("window-all-closed", () => {

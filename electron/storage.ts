@@ -28,19 +28,12 @@ const getSettingsPath = () => join(getDataDir(), "settings.json");
 // ─── Defaults ──────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS: AppSettings = {
   autoLaunch: false,
-  mongoEnabled: false,
-  mongoUri: null,
-  atlasEnabled: false,
-  atlasUri: null,
   maxEntries: 5000,
   pollingInterval: 600,
   paginationEnabled: false,
   pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
-  lastLocalSyncedAt: null,
-  lastCloudSyncedAt: null,
-  latestSyncedAt: null,
   pauseCaptureOption: "never",
   pauseUntil: null,
 };
@@ -109,8 +102,6 @@ class StorageManager {
   public clipsDb!: Datastore<ClipboardItem>;
   public tagsDb!: Datastore<Tag>;
   public settingsDb!: Datastore<AppSettings>;
-  public syncLogsDb!: Datastore<any>;
-  public queueDb!: Datastore<any>;
 
   private settingsCache: AppSettings = { ...DEFAULT_SETTINGS };
 
@@ -123,22 +114,16 @@ class StorageManager {
     const clipsDbPath = join(dir, "clips.db");
     const tagsDbPath = join(dir, "tags.db");
     const settingsDbPath = join(dir, "settings.db");
-    const queueDbPath = join(dir, "sync_queue.db");
-    const logsDbPath = join(dir, "sync_logs.db");
 
     // 1. Verify integrity of all database files
     verifyAndRestoreDb(clipsDbPath);
     verifyAndRestoreDb(tagsDbPath);
     verifyAndRestoreDb(settingsDbPath);
-    verifyAndRestoreDb(queueDbPath);
-    verifyAndRestoreDb(logsDbPath);
 
     // 2. Load datastores
     this.clipsDb = new Datastore<ClipboardItem>({ filename: clipsDbPath, autoload: true });
     this.tagsDb = new Datastore<Tag>({ filename: tagsDbPath, autoload: true });
     this.settingsDb = new Datastore<AppSettings>({ filename: settingsDbPath, autoload: true });
-    this.queueDb = new Datastore<any>({ filename: queueDbPath, autoload: true });
-    this.syncLogsDb = new Datastore<any>({ filename: logsDbPath, autoload: true });
 
     // Set auto-compaction intervals
     this.clipsDb.setAutocompactionInterval(60 * 60 * 1000); // 1 hour
@@ -162,8 +147,6 @@ class StorageManager {
           const oldClips = this.loadFileWithBackup<ClipboardItem[]>(oldClipsPath, []);
           for (const clip of oldClips) {
             clip.version = clip.version ?? 1;
-            clip.localMongoVersion = clip.localMongoVersion ?? 0;
-            clip.atlasVersion = clip.atlasVersion ?? 0;
             await this.clipsDb.insertAsync(clip);
           }
           renameSync(oldClipsPath, oldClipsPath + ".migrated");
@@ -284,7 +267,6 @@ class StorageManager {
         version: nextVersion
       };
       await this.clipsDb.updateAsync({ id: existing.id }, updated);
-      await this.logSyncEvent("local-update", existing.id, undefined, "success", `Resurfaced existing clip. Version: ${nextVersion}`);
       createDbBackup(join(getDataDir(), "clips.db"));
       return updated;
     }
@@ -311,13 +293,10 @@ class StorageManager {
       isDeleted: false,
       wordCount: trimmed.split(/\s+/).filter(Boolean).length,
       charCount: trimmed.length,
-      version: 1,
-      localMongoVersion: 0,
-      atlasVersion: 0
+      version: 1
     };
 
     await this.clipsDb.insertAsync(item);
-    await this.logSyncEvent("local-save", item.id, undefined, "success", "Saved new clip locally. Version: 1");
     createDbBackup(join(getDataDir(), "clips.db"));
     return item;
   }
@@ -331,13 +310,10 @@ class StorageManager {
       updatedAt: new Date().toISOString(),
       wordCount: item.text.split(/\s+/).filter(Boolean).length,
       charCount: item.text.length,
-      version: nextVersion,
-      localMongoVersion: existing?.localMongoVersion ?? item.localMongoVersion ?? 0,
-      atlasVersion: existing?.atlasVersion ?? item.atlasVersion ?? 0
+      version: nextVersion
     };
 
     await this.clipsDb.updateAsync({ id: item.id }, updated);
-    await this.logSyncEvent("local-update", item.id, undefined, "success", `Updated clip properties. Version: ${nextVersion}`);
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
@@ -359,7 +335,6 @@ class StorageManager {
         },
       }
     );
-    await this.logSyncEvent("local-delete", id, undefined, "success", `Soft deleted clip. Version: ${nextVersion}`);
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
@@ -381,21 +356,16 @@ class StorageManager {
         $unset: { deletedAt: true },
       }
     );
-    await this.logSyncEvent("local-update", id, undefined, "success", `Restored clip. Version: ${nextVersion}`);
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
   async permanentDelete(id: string): Promise<void> {
     await this.clipsDb.removeAsync({ id }, {});
-    await this.logSyncEvent("local-delete", id, undefined, "success", "Permanently deleted clip.");
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
   async permanentDeleteBulk(ids: string[]): Promise<void> {
     await this.clipsDb.removeAsync({ id: { $in: ids } }, { multi: true });
-    for (const id of ids) {
-      await this.logSyncEvent("local-delete", id, undefined, "success", "Permanently deleted clip in bulk.");
-    }
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
@@ -438,7 +408,6 @@ class StorageManager {
 
   async resetClips(): Promise<void> {
     await this.clipsDb.removeAsync({}, { multi: true });
-    await this.logSyncEvent("local-delete", undefined, undefined, "success", "Reset all clips.");
     createDbBackup(join(getDataDir(), "clips.db"));
   }
 
@@ -455,16 +424,6 @@ class StorageManager {
     await this.settingsDb.removeAsync({}, { multi: true });
     await this.settingsDb.insertAsync(DEFAULT_SETTINGS);
     createDbBackup(join(getDataDir(), "settings.db"));
-  }
-
-  async resetSyncQueue(): Promise<void> {
-    await this.queueDb.removeAsync({}, { multi: true });
-    createDbBackup(join(getDataDir(), "sync_queue.db"));
-  }
-
-  async resetSyncLogs(): Promise<void> {
-    await this.syncLogsDb.removeAsync({}, { multi: true });
-    createDbBackup(join(getDataDir(), "sync_logs.db"));
   }
 
   async resetUiState(): Promise<void> {
@@ -506,83 +465,6 @@ class StorageManager {
     }
   }
 
-  // ── SYNC LOGS & VERSION TRACKING HELPERS ─────────────────────────────────
-
-  async logSyncEvent(
-    eventType: "local-save" | "local-update" | "local-delete" | "sync-start" | "sync-success" | "sync-failure" | "sync-retry",
-    clipId?: string,
-    layer?: "local-mongo" | "atlas" | "all",
-    status: "success" | "failure" | "pending" = "success",
-    details: string = "",
-    durationMs?: number,
-    queueSizeBefore?: number,
-    queueSizeAfter?: number,
-    errorCategory?: string
-  ): Promise<void> {
-    const os = require("os");
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      eventType,
-      clipId,
-      layer,
-      status,
-      details,
-      deviceName: os.hostname(),
-      appVersion: app.getVersion(),
-      durationMs,
-      queueSizeBefore,
-      queueSizeAfter,
-      errorCategory,
-    };
-    await this.syncLogsDb.insertAsync(logEntry);
-
-    // Caps logs at 2000 items to conserve space
-    const logsCount = await this.syncLogsDb.countAsync({});
-    if (logsCount > 2000) {
-      const oldest = await this.syncLogsDb.findAsync({}).sort({ timestamp: 1 }).limit(1);
-      if (oldest[0]) {
-        await this.syncLogsDb.removeAsync({ _id: oldest[0]._id }, {});
-      }
-    }
-  }
-
-  async getSyncLogs(limit = 100): Promise<any[]> {
-    return await this.syncLogsDb.findAsync({}).sort({ timestamp: -1 }).limit(limit);
-  }
-
-  async markAsSyncedToLocalMongo(items: ClipboardItem[]): Promise<void> {
-    for (const item of items) {
-      await this.clipsDb.updateAsync(
-        { id: item.id },
-        { $set: { localMongoVersion: item.version ?? 1 } }
-      );
-      await this.logSyncEvent(
-        "sync-success",
-        item.id,
-        "local-mongo",
-        "success",
-        `Synced clip to Local MongoDB. Version: ${item.version ?? 1}`
-      );
-    }
-    createDbBackup(join(getDataDir(), "clips.db"));
-  }
-
-  async markAsSyncedToAtlas(items: ClipboardItem[]): Promise<void> {
-    for (const item of items) {
-      await this.clipsDb.updateAsync(
-        { id: item.id },
-        { $set: { atlasVersion: item.version ?? 1 } }
-      );
-      await this.logSyncEvent(
-        "sync-success",
-        item.id,
-        "atlas",
-        "success",
-        `Synced clip to MongoDB Atlas. Version: ${item.version ?? 1}`
-      );
-    }
-    createDbBackup(join(getDataDir(), "clips.db"));
-  }
 }
 
 export const storageManager = new StorageManager();

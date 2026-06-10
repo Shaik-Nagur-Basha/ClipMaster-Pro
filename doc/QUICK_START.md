@@ -24,7 +24,6 @@ Clipboard manager that captures everything you copy.
 - **Tag** — Organize by category
 - **Favorite** — Mark important clips with ⭐
 - **Delete** — Soft delete with restore
-- **Sync** — Backup to MongoDB (optional)
 
 ## Common Tasks
 

@@ -371,10 +371,7 @@ class ExportManager {
       const s = data as AppSettings;
       return [
         { "Setting Key": "Launch at Windows startup", "Value": s.autoLaunch ? "Enabled" : "Disabled" },
-        { "Setting Key": "MongoDB Sync Enabled", "Value": s.mongoEnabled ? "Yes" : "No" },
-        { "Setting Key": "MongoDB Connection URI", "Value": s.mongoUri || "N/A" },
-        { "Setting Key": "MongoDB Atlas Sync Enabled", "Value": s.atlasEnabled ? "Yes" : "No" },
-        { "Setting Key": "MongoDB Atlas Connection URI", "Value": s.atlasUri ? "********" : "N/A" },
+
         { "Setting Key": "Max Stored Clips", "Value": s.maxEntries },
         { "Setting Key": "Clipboard Monitoring Polling Interval (ms)", "Value": s.pollingInterval },
         { "Setting Key": "Enable Pagination", "Value": s.paginationEnabled ? "Yes" : "No" },
@@ -579,10 +576,7 @@ class ExportManager {
           </thead>
           <tbody>
             <tr><td>Launch at Windows startup</td><td><strong>${s.autoLaunch ? "Enabled" : "Disabled"}</strong></td></tr>
-            <tr><td>MongoDB Local Sync</td><td><strong>${s.mongoEnabled ? "Enabled" : "Disabled"}</strong></td></tr>
-            <tr><td>MongoDB URI</td><td><code style="word-break: break-all;">${s.mongoUri || "N/A"}</code></td></tr>
-            <tr><td>MongoDB Atlas Sync</td><td><strong>${s.atlasEnabled ? "Enabled" : "Disabled"}</strong></td></tr>
-            <tr><td>MongoDB Atlas URI</td><td><code>${s.atlasUri ? "●●●●●●●●●● (Hidden for Safety)" : "N/A"}</code></td></tr>
+
             <tr><td>Max Clip Capacity</td><td><strong>${s.maxEntries} clips</strong></td></tr>
             <tr><td>Polling Capture Interval</td><td><strong>${s.pollingInterval} ms</strong></td></tr>
             <tr><td>Pagination status</td><td><strong>${s.paginationEnabled ? "Enabled" : "Disabled"}</strong></td></tr>

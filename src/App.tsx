@@ -180,33 +180,14 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     saveTags: noop_p,
     getSettings: async () => ({
       autoLaunch: false,
-      mongoEnabled: false,
-      mongoUri: "mongodb://127.0.0.1:27017/clipmaster",
-      atlasEnabled: false,
-      atlasUri: "",
       maxEntries: 5000,
       pollingInterval: 600,
       viewMode: "list" as const,
       displayMode: "preview" as const,
     }),
     saveSettings: noop_p,
-    // Sync
-    getSyncState: async () => ({
-      localMongo: "idle" as const,
-      atlas: "idle" as const,
-      lastLocalSyncedAt: null,
-      lastCloudSyncedAt: null,
-      latestSyncedAt: null,
-    }),
-    triggerSync: noop_p,
-    mongoConnect: noop_p,
-    atlasConnect: noop_p,
-    mongoStatus: noop_p,
-    atlasStatus: noop_p,
-    mongoSyncAll: noop_p,
     openExternal: noop,
     onNewClip: () => noop,
-    onSyncUpdate: () => noop,
     onSettingsUpdated: () => noop,
     getAppInfo: async () => ({
       name: "ClipMaster Pro",
@@ -357,9 +338,6 @@ export default function App() {
     loadSettings,
     loadUIState,
     addClipFromMain,
-    setMongoConnected,
-    setAtlasConnected,
-    setSyncState,
     searchInputRef,
     filters,
     activePage,
@@ -432,29 +410,7 @@ export default function App() {
       //    without requiring navigation to trigger the full fetch.
       loadClips(); // no limit — runs async, updates store when complete
 
-      // Check mongo connection status (safe — mongoStatus always defined)
-      const checkMongo = async () => {
-        try {
-          const ok = await window.clipAPI.mongoStatus();
-          setMongoConnected(ok);
-        } catch {
-          /* ignore */
-        }
-      };
-      await checkMongo();
 
-      const checkAtlas = async () => {
-        try {
-          const s = await window.clipAPI.getSettings();
-          if (s.atlasEnabled && s.atlasUri) {
-            const ok = await window.clipAPI.atlasConnect(s.atlasUri);
-            setAtlasConnected(ok);
-          }
-        } catch {
-          /* ignore */
-        }
-      };
-      await checkAtlas();
     };
 
     initApp();
@@ -462,11 +418,6 @@ export default function App() {
     // Subscribe to new clips pushed from the main process
     const unsubClips = (window.clipAPI.onNewClip ?? noop)((item: any) =>
       addClipFromMain(item),
-    );
-
-    // Global sync update listener
-    const unsubSync = (window.clipAPI.onSyncUpdate ?? noop)((state: any) =>
-      setSyncState(state),
     );
 
     // Global settings update listener
@@ -478,7 +429,6 @@ export default function App() {
 
     return () => {
       if (typeof unsubClips === "function") unsubClips();
-      if (typeof unsubSync === "function") unsubSync();
       if (typeof unsubSettings === "function") unsubSettings();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

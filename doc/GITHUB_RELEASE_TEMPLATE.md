@@ -56,7 +56,6 @@ organizes, and syncs everything you copy.
 - ⭐ **Favorites** - Mark important clips
 - 🗑️ **Safe Delete** - Recycle bin with restore
 - 📊 **Sort & Filter** - By date, length, tags
-- 💾 **Cloud Sync** - Optional MongoDB backup
 - 🚀 **Auto-Launch** - Start with Windows
 - 🪟 **System Tray** - Minimize/resume instantly
 - 🎨 **Markdown & Code** - Format-aware display
@@ -89,7 +88,7 @@ organizes, and syncs everything you copy.
 - **OS**: Windows 10 or newer (64-bit)
 - **RAM**: 512 MB minimum
 - **Disk**: 150 MB for application and data
-- **Internet**: Optional (for MongoDB sync only)
+- **Internet**: None required (100% offline local app)
 
 ---
 
@@ -100,11 +99,6 @@ After installation, you can optionally configure:
 ### Auto-Launch
 - Settings → "Launch on Windows startup" toggle
 - App will start automatically when Windows boots
-
-### Cloud Sync
-- Settings → MongoDB section
-- Paste your MongoDB connection string
-- Click "Connect" to enable cloud backup
 
 ### Polling Interval
 - Default: 600ms (checks clipboard 1.6x per second)
@@ -126,7 +120,6 @@ Essential guides for users:
 ## 🔐 Privacy & Security
 
 ✅ **Local first** - All data stays on your PC by default  
-✅ **Encrypted sync** - AES-256 encryption for MongoDB  
 ✅ **No tracking** - Zero telemetry or analytics  
 ✅ **Open source** - Code is public and auditable  
 
@@ -139,7 +132,7 @@ Essential guides for users:
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion
-- **Database**: JSON (local) + MongoDB (optional)
+- **Database**: NeDB (local)
 - **Build**: Vite 5 + electron-builders
 
 ---
@@ -161,8 +154,7 @@ This is the **first production release** of ClipMaster Pro.
 ### What's Complete
 - ✅ Clipboard monitoring and capture
 - ✅ Search, tags, and filtering
-- ✅ Local storage with JSON
-- ✅ MongoDB cloud sync
+- ✅ Local storage with NeDB
 - ✅ UI/UX polished
 - ✅ Performance optimized
 - ✅ Size optimized (52% reduction)

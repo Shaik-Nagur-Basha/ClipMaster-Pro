@@ -88,7 +88,6 @@ ClipMaster Pro is a fast, lightweight clipboard manager that automatically captu
 - ⭐ **Favorites** — Mark important clips
 - 🗑️ **Safe Delete** — Recycle bin with restore
 - 📊 **Sort & Filter** — By date, length, tags
-- 💾 **Cloud Sync** — Optional MongoDB backup
 - 🚀 **Auto-Launch** — Start with Windows (configurable)
 - 🪟 **System Tray** — Minimize and resume instantly
 - 🎨 **Markdown & Code** — Format-aware display
@@ -127,7 +126,7 @@ ClipMaster Pro is a fast, lightweight clipboard manager that automatically captu
 - **OS**: Windows 10 or newer (64-bit)
 - **RAM**: 512 MB minimum
 - **Disk**: 150 MB for app data
-- **Internet**: Optional (for MongoDB sync only)
+- **Internet**: None required (100% offline local app)
 
 ---
 
@@ -138,13 +137,7 @@ ClipMaster Pro is a fast, lightweight clipboard manager that automatically captu
 1. **Auto-Launch**
    - Settings → Toggle "Launch on Windows startup"
    - App will start automatically when Windows boots
-
-2. **MongoDB Cloud Sync** (Optional)
-   - Settings → MongoDB section
-   - Paste MongoDB connection string
-   - Click Connect to backup clips online
-
-3. **Polling Interval**
+2. **Polling Interval**
    - Default: 600ms (checks clipboard 1.6 times per second)
    - Adjust if needed based on your usage
 
@@ -208,9 +201,6 @@ C:\Users\[YourName]\AppData\Local\ClipMaster Pro\
 **No clips appearing?**
 → See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#no-clips-appearing)
 
-**MongoDB won't connect?**
-→ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#mongodb-wont-connect)
-
 ---
 
 ## 📚 Documentation
@@ -226,7 +216,6 @@ C:\Users\[YourName]\AppData\Local\ClipMaster Pro\
 ## 🔐 Privacy & Security
 
 ✅ **Local by default** — All data stays on your PC  
-✅ **Encrypted sync** — AES-256 for MongoDB backup  
 ✅ **No tracking** — Zero telemetry  
 ✅ **Open source** — Code is public and auditable  
 
@@ -282,8 +271,7 @@ This release was built with:
 **For Advanced Users**:
 1. Download Portable version (40 MB)
 2. Run and verify
-3. Configure MongoDB if desired
-4. Check ARCHITECTURE.md for technical details
+3. Check ARCHITECTURE.md for technical details
 
 **For Testing/Evaluation**:
 1. Download Portable version (40 MB)
@@ -311,7 +299,7 @@ MIT License - Use freely, modify, and redistribute
 ## ✅ Version 1.0.0 Status
 
 - ✅ Core features complete
-- ✅ Database integration (local + MongoDB)
+- ✅ Database integration (local NeDB datastores)
 - ✅ UI/UX polished
 - ✅ Performance optimized
 - ✅ Size optimized (52% reduction from baseline)

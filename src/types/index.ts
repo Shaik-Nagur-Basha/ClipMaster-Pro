@@ -12,8 +12,6 @@ export type ClipboardItem = {
   wordCount?: number;
   charCount?: number;
   version?: number;
-  localMongoVersion?: number;
-  atlasVersion?: number;
 };
 
 export type Tag = {
@@ -23,26 +21,6 @@ export type Tag = {
   updatedAt?: string;
 };
 
-// ─── Sync-specific Types ──────────────────────────────────────────────────
-
-export type SyncLayer = "json" | "local-mongo" | "atlas";
-
-export type SyncStatus = "idle" | "syncing" | "error" | "offline";
-
-export interface SyncState {
-  localMongo: SyncStatus;
-  atlas: SyncStatus;
-  lastLocalSyncedAt: string | null;
-  lastCloudSyncedAt: string | null;
-  latestSyncedAt: string | null;
-}
-
-export interface SyncQueueEntry {
-  item: ClipboardItem;
-  operation: "upsert" | "soft-delete" | "permanent-delete";
-  enqueuedAt: string;
-  retries: number;
-}
 
 // ─── UI State Types ───────────────────────────────────────────────────────
 
@@ -72,19 +50,12 @@ export interface FilterState {
 
 export interface AppSettings {
   autoLaunch: boolean;
-  mongoEnabled: boolean;
-  mongoUri: string | null;
-  atlasEnabled: boolean;
-  atlasUri: string | null;
   maxEntries: number;
   pollingInterval: number;
   paginationEnabled: boolean;
   pageSize?: number;
   viewMode: ViewMode;
   displayMode: DisplayMode;
-  lastLocalSyncedAt: string | null;
-  lastCloudSyncedAt: string | null;
-  latestSyncedAt: string | null;
   pauseCaptureOption?: "never" | "15mins" | "30mins" | "1hour" | "restart";
   pauseUntil?: number | null;
 }
@@ -106,9 +77,6 @@ export interface ClipStore {
   activePage: ActivePage;
   selectedClipId: string | null;
   editingClipId: string | null;
-  mongoConnected: boolean;
-  atlasConnected: boolean;
-  syncState: SyncState;
   isLoading: boolean;
 
   // Actions - Data
@@ -138,9 +106,6 @@ export interface ClipStore {
   setSelectedClip: (id: string | null) => void;
   setEditingClip: (id: string | null) => void;
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) => void;
-  setMongoConnected: (v: boolean) => void;
-  setAtlasConnected: (v: boolean) => void;
-  setSyncState: (s: Partial<SyncState>) => void;
 }
 
 // ─── Window bridge type ───────────────────────────────────────────────────
@@ -166,19 +131,8 @@ export interface ClipAPI {
   getSettings: () => Promise<AppSettings>;
   saveSettings: (s: Record<string, unknown>) => Promise<any>;
 
-  // Sync
-  getSyncState: () => Promise<SyncState>;
-  triggerSync: (target?: "local" | "atlas" | "all") => Promise<SyncState>;
-  getSyncLogs: (limit?: number) => Promise<any[]>;
   updateUIState: (state: any) => void;
   getUIState: () => Promise<any>;
-  mongoConnect: (uri: string) => Promise<boolean>;
-  atlasConnect: (uri: string) => Promise<boolean>;
-  mongoStatus: () => Promise<boolean>;
-  atlasStatus: () => Promise<boolean>;
-  mongoSyncAll: () => Promise<boolean>;
-  atlasDisconnect: () => Promise<boolean>;
-  mongoDisconnect: () => Promise<boolean>;
 
   // Data Management
   resetAll: () => Promise<boolean>;
@@ -186,7 +140,6 @@ export interface ClipAPI {
 
   openExternal: (url: string) => void;
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;
-  onSyncUpdate: (cb: (state: SyncState) => void) => () => void;
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
 
   // Application Updates

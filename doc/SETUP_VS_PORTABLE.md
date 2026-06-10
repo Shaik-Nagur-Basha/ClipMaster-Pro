@@ -300,7 +300,6 @@ Self-extracting executable:
 
 - Complete clipboard management system
 - Real-time search and tagging
-- MongoDB cloud sync support
 - Windows system tray integration
 
 📊 **Files Available**
@@ -327,8 +326,7 @@ Self-extracting executable:
 ⚙️ **First Time Setup**
 
 1. Settings → Enable "Launch on Windows startup" (optional)
-2. Settings → MongoDB to enable cloud sync (optional)
-3. Copy some text to verify it works
+2. Copy some text to verify it works
 
 ✅ **What Works**
 
@@ -337,7 +335,6 @@ Self-extracting executable:
 - Tags: Organize by category
 - Favorites: Mark important clips with ⭐
 - Recycle Bin: Soft-delete with restore
-- Cloud Sync: Optional MongoDB backup
 
 🐛 **Known Issues**
 
@@ -378,11 +375,6 @@ Self-extracting executable:
 1. **Optional - Auto-Launch**
    - Settings → Toggle "Launch on Windows startup"
    - Restarts Windows to verify
-
-2. **Optional - Cloud Sync**
-   - Settings → MongoDB section
-   - Enter MongoDB connection string
-   - Click Connect
 
 3. **Optional - Optimize**
    - Settings → Polling interval (default 600ms is fine)

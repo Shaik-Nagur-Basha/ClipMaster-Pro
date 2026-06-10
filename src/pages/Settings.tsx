@@ -39,12 +39,6 @@ const Settings: React.FC = () => {
     saveSettings,
     loadSettings,
     clips,
-    mongoConnected,
-    setMongoConnected,
-    atlasConnected,
-    setAtlasConnected,
-    syncState,
-    setSyncState,
   } = useClipStore();
 
   const { updateStatus, downloadProgress } = useUpdateStore();
@@ -60,61 +54,9 @@ const Settings: React.FC = () => {
   >("idle");
   const [clearCacheError, setClearCacheError] = useState("");
 
-  const latestClipTimestamp = React.useMemo(() => {
-    if (clips.length === 0) return 0;
-    const validClips = clips.filter((c) => !c.isDeleted);
-    if (validClips.length === 0) return 0;
-    return Math.max(
-      ...validClips.map((c) => new Date(c.updatedAt || c.timestamp).getTime()),
-    );
-  }, [clips]);
 
-  const localHealth = React.useMemo(() => {
-    if (!settings.mongoEnabled || !mongoConnected) return "error";
-    if (!syncState.lastLocalSyncedAt || !latestClipTimestamp) return "ok";
-    return new Date(syncState.lastLocalSyncedAt).getTime() >=
-      latestClipTimestamp
-      ? "ok"
-      : "stale";
-  }, [
-    settings.mongoEnabled,
-    mongoConnected,
-    syncState.lastLocalSyncedAt,
-    latestClipTimestamp,
-  ]);
-
-  const cloudHealth = React.useMemo(() => {
-    if (!settings.atlasEnabled || !atlasConnected) return "error";
-    if (!syncState.lastCloudSyncedAt || !latestClipTimestamp) return "ok";
-    return new Date(syncState.lastCloudSyncedAt).getTime() >=
-      latestClipTimestamp
-      ? "ok"
-      : "stale";
-  }, [
-    settings.atlasEnabled,
-    atlasConnected,
-    syncState.lastCloudSyncedAt,
-    latestClipTimestamp,
-  ]);
 
   const [settingsLoading, setSettingsLoading] = useState(true);
-  const [localUri, setLocalUri] = useState(
-    settings.mongoUri ?? "mongodb://127.0.0.1:27017/clipmaster",
-  );
-  const [atlasUri, setAtlasUri] = useState(settings.atlasUri ?? "");
-  const [localConnecting, setLocalConnecting] = useState(false);
-  const [atlasConnecting, setAtlasConnecting] = useState(false);
-  const [localSyncing, setLocalSyncing] = useState(false);
-  const [atlasSyncing, setAtlasSyncing] = useState(false);
-  const [localStatus, setLocalStatus] = useState<
-    "idle" | "ok" | "fail" | "connecting"
-  >("idle");
-  const [localError, setLocalError] = useState("");
-  const [atlasStatus, setAtlasStatus] = useState<
-    "idle" | "ok" | "fail" | "connecting"
-  >("idle");
-  const [atlasError, setAtlasError] = useState("");
-  const [atlasUriVisible, setAtlasUriVisible] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -127,121 +69,6 @@ const Settings: React.FC = () => {
       useUpdateStore.getState().fetchReleases();
     });
   }, []); // eslint-disable-line
-
-  useEffect(() => {
-    setLocalUri(settings.mongoUri ?? "mongodb://127.0.0.1:27017/clipmaster");
-  }, [settings.mongoUri]);
-  useEffect(() => {
-    setAtlasUri(settings.atlasUri ?? "");
-  }, [settings.atlasUri]);
-
-  // Auto-connect to Atlas if URI is present and enabled
-  const hasAutoConnected = useRef(false);
-  useEffect(() => {
-    if (
-      !settingsLoading &&
-      settings.atlasEnabled &&
-      atlasUri &&
-      !atlasConnected &&
-      !hasAutoConnected.current
-    ) {
-      hasAutoConnected.current = true;
-      handleConnectAtlas(true);
-    }
-  }, [settingsLoading, settings.atlasEnabled, atlasUri, atlasConnected]);
-
-  const handleConnectLocal = async () => {
-    if (!localUri.trim()) {
-      setLocalStatus("fail");
-      setLocalError("Enter a MongoDB URI");
-      return;
-    }
-    setLocalConnecting(true);
-    setLocalStatus("connecting");
-    setLocalError("");
-    try {
-      const ok = await window.clipAPI.mongoConnect(localUri.trim());
-      setMongoConnected(ok);
-      setLocalStatus(ok ? "ok" : "fail");
-      if (!ok)
-        setLocalError("Connection failed. Make sure MongoDB is running.");
-      else
-        await saveSettings({ mongoEnabled: true, mongoUri: localUri.trim() });
-    } catch (e) {
-      setLocalStatus("fail");
-      setLocalError(String(e));
-    } finally {
-      setLocalConnecting(false);
-    }
-  };
-
-  const handleConnectAtlas = async (isAuto = false) => {
-    if (!atlasUri.trim()) {
-      setAtlasStatus("fail");
-      setAtlasError("Enter an Atlas connection string");
-      return;
-    }
-    setAtlasConnecting(true);
-    setAtlasStatus("connecting");
-    setAtlasError("");
-    try {
-      const ok = await window.clipAPI.atlasConnect(atlasUri.trim());
-      setAtlasConnected(ok);
-      setAtlasStatus(ok ? "ok" : "fail");
-      if (!ok) {
-        setAtlasError(
-          "Atlas connection failed. Check credentials and IP whitelist.",
-        );
-      } else if (!isAuto) {
-        // Only force enable and save if it's a manual connection attempt
-        await saveSettings({ atlasEnabled: true, atlasUri: atlasUri.trim() });
-      }
-    } catch (e) {
-      setAtlasStatus("fail");
-      setAtlasError(String(e));
-    } finally {
-      setAtlasConnecting(false);
-    }
-  };
-
-  const handleSync = async (target: "local" | "atlas") => {
-    if (target === "local") setLocalSyncing(true);
-    else setAtlasSyncing(true);
-
-    await window.clipAPI.triggerSync?.(target);
-
-    // Refresh UI state after bidirectional sync completes
-    await useClipStore.getState().loadClips();
-    await useClipStore.getState().loadTags();
-
-    if (target === "local") setLocalSyncing(false);
-    else setAtlasSyncing(false);
-  };
-
-  const handleDisconnectLocal = async () => {
-    try {
-      await window.clipAPI.mongoDisconnect();
-      setMongoConnected(false);
-      setLocalStatus("idle");
-      setSyncState({ lastLocalSyncedAt: null });
-      await saveSettings({ mongoEnabled: false });
-    } catch (err) {
-      console.error("Failed to disconnect local:", err);
-    }
-  };
-
-  const handleDisconnectAtlas = async () => {
-    try {
-      await window.clipAPI.atlasDisconnect();
-      setAtlasConnected(false);
-      setAtlasStatus("idle");
-      setAtlasUri("");
-      setSyncState({ lastCloudSyncedAt: null });
-      await saveSettings({ atlasEnabled: false, atlasUri: "" });
-    } catch (e) {
-      console.error("Failed to disconnect atlas:", e);
-    }
-  };
 
   const handleResetAll = async () => {
     if (resetConfirmText !== "RESET ALL") {
@@ -266,8 +93,7 @@ const Settings: React.FC = () => {
           // Reset UI state
           store.resetFilters();
           store.setActivePage("dashboard");
-          store.setMongoConnected(false);
-          store.setAtlasConnected(false);
+
         }, 500);
       }
     } catch (e) {
@@ -563,276 +389,7 @@ const Settings: React.FC = () => {
             </div>
           </Section>
 
-          {/* Local Database */}
-          <Section
-            title="Local Mongo sync"
-            badge={<ConnectionStatus connected={mongoConnected} />}
-            icon={<IconDatabase size={14} className="text-gray-500" />}
-            contentClassName="bg-brand-500/10"
-          >
-            <div className="space-y-4">
-              <SettingRow
-                label="Enable MongoDB Sync"
-                desc="Sync clipboard data from local JSON to local MongoDB."
-              >
-                <Toggle
-                  checked={settings.mongoEnabled}
-                  onChange={(v) => saveSettings({ mongoEnabled: v })}
-                />
-              </SettingRow>
 
-              {settings.mongoEnabled && (
-                <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-medium text-gray-400">
-                      Connection URI
-                    </label>
-                    <div className="relative group w-full">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
-                        <IconDatabase size={16} />
-                      </div>
-                      <input
-                        type="text"
-                        value={localUri}
-                        onChange={(e) => {
-                          setLocalUri(e.target.value);
-                          setLocalStatus("idle");
-                        }}
-                        onBlur={() => saveSettings({ mongoUri: localUri })}
-                        placeholder="mongodb://localhost:27017/clipmaster"
-                        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 transition-colors duration-150"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleConnectLocal}
-                      disabled={localConnecting}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {localConnecting ? (
-                        <IconRefresh size={14} className="animate-spin" />
-                      ) : (
-                        <IconRefresh size={14} />
-                      )}
-                      {mongoConnected
-                        ? "Reconnect Database"
-                        : "Connect Database"}
-                    </button>
-                    {mongoConnected && (
-                      <>
-                        <button
-                          onClick={() => handleSync("local")}
-                          disabled={localSyncing}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {localSyncing ? (
-                            <IconRefresh size={14} className="animate-spin" />
-                          ) : (
-                            <IconRefresh size={14} />
-                          )}
-                          Sync Data
-                        </button>
-                        <button
-                          onClick={handleDisconnectLocal}
-                          className="p-2 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400 hover:text-white transition-colors"
-                          title="Disconnect"
-                        >
-                          <IconX size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <InlineStatus
-                    status={localStatus}
-                    message={localError}
-                    label="Local Database"
-                  />
-                </div>
-              )}
-            </div>
-          </Section>
-
-          {/* Atlas Cloud */}
-          <Section
-            title="Cloud synchronization"
-            badge={<ConnectionStatus connected={atlasConnected} />}
-            icon={<IconCloud size={14} className="text-gray-500" />}
-            contentClassName="bg-brand-500/10"
-          >
-            <div className="space-y-4">
-              <SettingRow
-                label="Enable MongoDB Atlas"
-                desc="Sync your clipboard across multiple machines using the cloud."
-              >
-                <Toggle
-                  checked={settings.atlasEnabled ?? false}
-                  onChange={(v) => saveSettings({ atlasEnabled: v })}
-                />
-              </SettingRow>
-
-              {settings.atlasEnabled && (
-                <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="space-y-2">
-                    <label className="text-[13px] font-medium text-gray-400">
-                      Atlas Connection String
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
-                        <IconShield size={16} />
-                      </div>
-                      <input
-                        type={atlasUriVisible ? "text" : "password"}
-                        value={atlasUri}
-                        onChange={(e) => {
-                          setAtlasUri(e.target.value);
-                          setAtlasStatus("idle");
-                        }}
-                        onBlur={() => saveSettings({ atlasUri: atlasUri })}
-                        placeholder="mongodb+srv://..."
-                        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-10 pr-10 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 transition-colors duration-150"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setAtlasUriVisible((prev) => !prev)}
-                        onMouseDown={(e) => e.preventDefault()}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors duration-150"
-                        aria-label={
-                          atlasUriVisible
-                            ? "Hide Atlas connection string"
-                            : "Show Atlas connection string"
-                        }
-                      >
-                        <IconEye size={16} />
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-gray-600 leading-relaxed px-1">
-                      Encryption: Data is AES-256 encrypted before upload.
-                      Ensure your IP is whitelisted in Atlas.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleConnectAtlas(false)}
-                      disabled={atlasConnecting}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {atlasConnecting ? (
-                        <IconRefresh size={14} className="animate-spin" />
-                      ) : (
-                        <IconCloud size={14} />
-                      )}
-                      {atlasConnected ? "Reconnect Cloud" : "Connect Cloud"}
-                    </button>
-                    {atlasConnected && (
-                      <>
-                        <button
-                          onClick={() => handleSync("atlas")}
-                          disabled={atlasSyncing}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border-emerald-500/30 text-[13px] text-emerald-400 font-medium hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {atlasSyncing ? (
-                            <IconRefresh size={14} className="animate-spin" />
-                          ) : (
-                            <IconRefresh size={14} />
-                          )}
-                          Sync Data
-                        </button>
-                        <button
-                          onClick={handleDisconnectAtlas}
-                          className="p-2 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400 hover:text-white transition-colors"
-                          title="Disconnect"
-                        >
-                          <IconX size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <InlineStatus
-                    status={atlasStatus}
-                    message={atlasError}
-                    label="Cloud Atlas"
-                  />
-                </div>
-              )}
-            </div>
-          </Section>
-
-          {/* Sync Status Overlay */}
-          <div className="p-4 rounded-xl border-gray-700 shadow-sm">
-            <header className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <IconRefresh size={14} className="text-brand-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Live Sync Status
-                </span>
-              </div>
-            </header>
-            <div className="grid grid-cols-3 gap-3">
-              <StatusCard
-                label="LocalStorage"
-                status="ok"
-                detail="Primary"
-                icon={<IconShield size={14} />}
-              />
-              <StatusCard
-                label="Local Mongo"
-                status={
-                  mongoConnected
-                    ? localHealth === "stale"
-                      ? "stale"
-                      : syncState.localMongo === "syncing"
-                        ? "syncing"
-                        : "ok"
-                    : "offline"
-                }
-                detail={
-                  mongoConnected
-                    ? syncState.localMongo === "syncing"
-                      ? "Syncing…"
-                      : syncState.lastLocalSyncedAt
-                        ? fmtTime(syncState.lastLocalSyncedAt) || "Linked"
-                        : "Linked"
-                    : "Inactive"
-                }
-                icon={<IconDatabase size={14} />}
-                isStale={localHealth === "stale"}
-              />
-              <StatusCard
-                label="Atlas Cloud"
-                status={
-                  atlasConnected
-                    ? cloudHealth === "stale"
-                      ? "stale"
-                      : syncState.atlas === "syncing"
-                        ? "syncing"
-                        : "ok"
-                    : settings.atlasEnabled
-                      ? atlasConnecting
-                        ? "connecting"
-                        : "offline"
-                      : "offline"
-                }
-                detail={
-                  atlasConnected
-                    ? syncState.atlas === "syncing"
-                      ? "Syncing…"
-                      : syncState.lastCloudSyncedAt
-                        ? fmtTime(syncState.lastCloudSyncedAt) || "Linked"
-                        : "Linked"
-                    : settings.atlasEnabled
-                      ? atlasConnecting
-                        ? "Connecting…"
-                        : "Offline"
-                      : "Inactive"
-                }
-                icon={<IconCloud size={14} />}
-                isStale={cloudHealth === "stale"}
-              />
-            </div>
-          </div>
           {/* End Sync Status Overlay */}
 
           {/* Data Management & Reset */}
@@ -950,7 +507,7 @@ const Settings: React.FC = () => {
                     </span>
                     <div className="w-1 h-1 rounded-full bg-gray-700" />
                     <span className="text-[11px] text-gray-600">
-                      Storage: Local + MongoDB
+                      Storage: Local
                     </span>
                   </div>
                 </div>
@@ -1217,8 +774,7 @@ const Settings: React.FC = () => {
               </li>
               <li>
                 <span className="font-semibold text-gray-200">Data Safety</span>
-                : Your clipboard history, local MongoDB databases, and
-                personalized configurations are fully preserved during updates.
+                : Your clipboard history and personalized configurations are fully preserved during updates.
               </li>
               <li>
                 <span className="font-semibold text-gray-200">
@@ -1296,7 +852,6 @@ const Settings: React.FC = () => {
               <li>All clipboard entries (including favourites)</li>
               <li>All custom tags and filters</li>
               <li>All application settings</li>
-              <li>All sync connections (local MongoDB and Atlas)</li>
             </ul>
           </div>
 

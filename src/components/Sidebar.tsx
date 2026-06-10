@@ -31,9 +31,6 @@ const Sidebar: React.FC = () => {
     setActivePage,
     clips,
     tags,
-    mongoConnected,
-    atlasConnected,
-    syncState,
     loadClips,
     settings,
   } = useClipStore();
@@ -69,59 +66,7 @@ const Sidebar: React.FC = () => {
     return () => clearTimeout(timer);
   }, [tags, clips, updateScrollState]);
 
-  const latestClipTimestamp = React.useMemo(() => {
-    if (clips.length === 0) return 0;
-    // Include all non-deleted clips for sync reference
-    const validClips = clips.filter((c) => !c.isDeleted);
-    if (validClips.length === 0) return 0;
-    return Math.max(
-      ...validClips.map((c) => new Date(c.updatedAt || c.timestamp).getTime()),
-    );
-  }, [clips]);
 
-  const localHealth = React.useMemo(() => {
-    if (!settings.mongoEnabled || !mongoConnected) return "error";
-    if (!syncState.lastLocalSyncedAt || !latestClipTimestamp) return "ok";
-    return new Date(syncState.lastLocalSyncedAt).getTime() >=
-      latestClipTimestamp
-      ? "ok"
-      : "stale";
-  }, [
-    settings.mongoEnabled,
-    mongoConnected,
-    syncState.lastLocalSyncedAt,
-    latestClipTimestamp,
-  ]);
-
-  const cloudHealth = React.useMemo(() => {
-    if (!settings.atlasEnabled || !atlasConnected) return "error";
-    if (!syncState.lastCloudSyncedAt || !latestClipTimestamp) return "ok";
-    return new Date(syncState.lastCloudSyncedAt).getTime() >=
-      latestClipTimestamp
-      ? "ok"
-      : "stale";
-  }, [
-    settings.atlasEnabled,
-    atlasConnected,
-    syncState.lastCloudSyncedAt,
-    latestClipTimestamp,
-  ]);
-
-  const getStatusColor = (health: "error" | "stale" | "ok") => {
-    if (health === "error")
-      return "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
-    if (health === "stale")
-      return "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]";
-    return "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
-  };
-
-  const fmtTime = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "-";
 
   const activeCount = clips.filter((c) => !c.isDeleted).length;
   const favoritesCount = clips.filter(
@@ -326,62 +271,7 @@ const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="mx-4 border-t border-gray-700/50 my-1" />
 
-      {/* Bottom status */}
-      <div className="px-4 py-3 border-gray-700 space-y-2.5">
-        <div className="flex items-center gap-2 px-1 mb-1">
-          <IconZap size={10} className="text-brand-500" />
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em]">
-            Sync Health
-          </span>
-        </div>
-
-        {/* Local Status */}
-        <div className="flex items-center justify-between group/local cursor-default">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <span
-                className={`block w-1.5 h-1.5 rounded-full transition-all duration-500 ${getStatusColor(localHealth)}`}
-              />
-              {localHealth === "ok" && (
-                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />
-              )}
-            </div>
-            <span className="text-[10px] font-bold text-gray-400 group-hover/local:text-gray-300 transition-colors uppercase tracking-tight">
-              Local
-            </span>
-          </div>
-          <span className="text-[10px] font-semibold tabular-nums text-gray-500 group-hover/local:text-brand-400 transition-colors">
-            {syncState.lastLocalSyncedAt
-              ? fmtTime(syncState.lastLocalSyncedAt)
-              : "OFF"}
-          </span>
-        </div>
-
-        {/* Cloud Status */}
-        <div className="flex items-center justify-between group/cloud cursor-default">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <span
-                className={`block w-1.5 h-1.5 rounded-full transition-all duration-500 ${getStatusColor(cloudHealth)}`}
-              />
-              {cloudHealth === "ok" && (
-                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />
-              )}
-            </div>
-            <span className="text-[10px] font-bold text-gray-400 group-hover/cloud:text-gray-300 transition-colors uppercase tracking-tight">
-              Cloud
-            </span>
-          </div>
-          <span className="text-[10px] font-semibold tabular-nums text-gray-500 group-hover/cloud:text-brand-400 transition-colors">
-            {syncState.lastCloudSyncedAt
-              ? fmtTime(syncState.lastCloudSyncedAt)
-              : "OFF"}
-          </span>
-        </div>
-      </div>
     </aside>
   );
 };

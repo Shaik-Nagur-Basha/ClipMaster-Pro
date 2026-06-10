@@ -7,7 +7,6 @@ import type {
   DisplayMode,
   SortMode,
   ActivePage,
-  SyncState,
   Tag,
   AppSettings,
 } from "../types";
@@ -27,30 +26,16 @@ const DEFAULT_FILTERS: FilterState = {
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoLaunch: false,
-  mongoEnabled: false,
-  mongoUri: null,
-  atlasEnabled: false,
-  atlasUri: null,
   maxEntries: 5000,
   pollingInterval: 600,
   paginationEnabled: false,
   pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
-  lastLocalSyncedAt: null,
-  lastCloudSyncedAt: null,
-  latestSyncedAt: null,
   pauseCaptureOption: "never",
   pauseUntil: null,
 };
 
-const DEFAULT_SYNC_STATE: SyncState = {
-  localMongo: "idle",
-  atlas: "idle",
-  lastLocalSyncedAt: null,
-  lastCloudSyncedAt: null,
-  latestSyncedAt: null,
-};
 
 export const useClipStore = create<ClipStore>((set, get) => ({
   // ── Initial State ──────────────────────────────────────────────────────
@@ -65,9 +50,6 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   activePage: "dashboard",
   selectedClipId: null,
   editingClipId: null,
-  mongoConnected: false,
-  atlasConnected: false,
-  syncState: { ...DEFAULT_SYNC_STATE },
   isLoading: false,
 
   // ── Data Actions ───────────────────────────────────────────────────────
@@ -106,19 +88,11 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       const raw = await window.clipAPI.getSettings();
       const settings: AppSettings = { ...DEFAULT_SETTINGS, ...raw };
       console.log("[Store] loadSettings →", Object.keys(settings).join(", "));
-      const ss = await window.clipAPI.getSyncState();
-      set((state) => ({
+      set({
         settings,
         viewMode: settings.viewMode ?? "list",
         displayMode: settings.displayMode ?? "preview",
-        syncState: {
-          ...state.syncState,
-          ...ss,
-          lastLocalSyncedAt: settings.lastLocalSyncedAt || ss.lastLocalSyncedAt,
-          lastCloudSyncedAt: settings.lastCloudSyncedAt || ss.lastCloudSyncedAt,
-          latestSyncedAt: settings.latestSyncedAt || ss.latestSyncedAt,
-        },
-      }));
+      });
     } catch (err) {
       console.error("[Store] loadSettings failed:", err);
     }
@@ -268,29 +242,6 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setEditingClip: (id: string | null) => set({ editingClipId: id }),
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) =>
     set({ searchInputRef: ref }),
-  setMongoConnected: (v: boolean) => set({ mongoConnected: v }),
-  setAtlasConnected: (v: boolean) => {
-    if (get().atlasConnected !== v) {
-      set({ atlasConnected: v });
-    }
-  },
-  setSyncState: (patch: Partial<SyncState>) => {
-    const state = get();
-    const next = { ...state.syncState, ...patch };
-    const toPersist: Partial<AppSettings> = {};
-
-    if (patch.lastLocalSyncedAt !== undefined)
-      toPersist.lastLocalSyncedAt = patch.lastLocalSyncedAt;
-    if (patch.lastCloudSyncedAt !== undefined)
-      toPersist.lastCloudSyncedAt = patch.lastCloudSyncedAt;
-    if (patch.latestSyncedAt !== undefined)
-      toPersist.latestSyncedAt = patch.latestSyncedAt;
-
-    if (Object.keys(toPersist).length > 0) {
-      state.saveSettings(toPersist);
-    }
-    set({ syncState: next });
-  },
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId);

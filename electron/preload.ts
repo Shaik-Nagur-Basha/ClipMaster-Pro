@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ClipboardItem, Tag, AppSettings, SyncState } from "../src/types";
+import type { ClipboardItem, Tag, AppSettings } from "../src/types";
 
 // Registry to ensure at most one active listener exists on ipcRenderer per channel
 const activeListeners = new Map<string, (...args: any[]) => void>();
@@ -46,24 +46,9 @@ const clipAPI = {
   saveSettings: (s: Record<string, unknown>) =>
     ipcRenderer.invoke("save-settings", s),
 
-  // ── Sync ──────────────────────────────────────────────────────────────
-  getSyncState: (): Promise<SyncState> => ipcRenderer.invoke("get-sync-state"),
-  triggerSync: (target?: "local" | "atlas" | "all"): Promise<SyncState> =>
-    ipcRenderer.invoke("trigger-sync", target),
-  getSyncLogs: (limit?: number) => ipcRenderer.invoke("get-sync-logs", limit),
+  // ── UI State Cache ────────────────────────────────────────────────────
   updateUIState: (state: any) => ipcRenderer.send("update-ui-state", state),
   getUIState: () => ipcRenderer.invoke("get-ui-state"),
-  mongoConnect: (uri: string): Promise<boolean> =>
-    ipcRenderer.invoke("mongo-connect", uri),
-  atlasConnect: (uri: string): Promise<boolean> =>
-    ipcRenderer.invoke("atlas-connect", uri),
-  mongoStatus: (): Promise<boolean> => ipcRenderer.invoke("mongo-status"),
-  atlasStatus: (): Promise<boolean> => ipcRenderer.invoke("atlas-status"),
-  mongoSyncAll: (): Promise<boolean> => ipcRenderer.invoke("mongo-sync-all"),
-  mongoDisconnect: (): Promise<boolean> =>
-    ipcRenderer.invoke("mongo-disconnect"),
-  atlasDisconnect: (): Promise<boolean> =>
-    ipcRenderer.invoke("atlas-disconnect"),
 
   // ── External ──────────────────────────────────────────────────────────
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
@@ -76,10 +61,7 @@ const clipAPI = {
     const h = (_: Electron.IpcRendererEvent, item: ClipboardItem) => cb(item);
     return registerSingleListener("new-clip", h);
   },
-  onSyncUpdate: (cb: (state: SyncState) => void) => {
-    const h = (_: Electron.IpcRendererEvent, state: SyncState) => cb(state);
-    return registerSingleListener("sync-update", h);
-  },
+
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => {
     const h = (_: Electron.IpcRendererEvent, settings: AppSettings) => cb(settings);
     return registerSingleListener("settings-updated", h);

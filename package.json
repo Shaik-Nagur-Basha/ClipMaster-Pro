@@ -21,7 +21,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "adm-zip": "^0.5.17",
     "framer-motion": "^11.0.0",
-    "mongoose": "8.23.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",

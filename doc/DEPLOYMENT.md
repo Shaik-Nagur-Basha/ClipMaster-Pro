@@ -19,7 +19,6 @@ Open Settings to configure:
 - **Polling** — How often to check clipboard
 - **Max Entries** — History size limit
 - **Display** — Preview or full text
-- **MongoDB** — Optional cloud backup
 
 ## Keyboard Shortcuts
 
@@ -28,10 +27,3 @@ Open Settings to configure:
 | Ctrl+Enter | Save edit |
 | Escape | Cancel edit |
 | Right-click tray | Menu |
-
-## MongoDB Sync (Optional)
-
-Enable in Settings to backup clips online.
-- Use **Local MongoDB** or **MongoDB Atlas** (cloud)
-- Paste connection string in Settings
-- Click Connect

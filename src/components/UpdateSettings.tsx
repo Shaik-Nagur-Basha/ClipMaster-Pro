@@ -449,7 +449,7 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
                 <span className="font-semibold text-gray-200">Release Notes</span> are displayed below the selector to help you inspect new features, bug fixes, or performance enhancements.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Data Safety</span>: Your clipboard history, local MongoDB databases, and personalized configurations are fully preserved during updates.
+                <span className="font-semibold text-gray-200">Data Safety</span>: Your clipboard history and personalized configurations are fully preserved during updates.
               </li>
               <li>
                 <span className="font-semibold text-gray-200">Cancellation</span>: You can cancel the download at any time using the cancel button.

@@ -196,7 +196,6 @@ b) **Use lighter alternative**: Tauri instead of Electron
 
 - Idle (polling): <1% CPU
 - Search: <5% CPU
-- Sync to MongoDB: 2-10% CPU
 
 **Disk I/O**:
 
