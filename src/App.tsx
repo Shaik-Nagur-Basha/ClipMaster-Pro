@@ -58,12 +58,12 @@ function TitleBar() {
         }}
       >
         <span
+          className="rotating-gradient-dot"
           style={{
             width: 10,
             height: 10,
             borderRadius: "50%",
             flexShrink: 0,
-            background: "linear-gradient(135deg,#6366f1,#22c55e)",
           }}
         />
         <span

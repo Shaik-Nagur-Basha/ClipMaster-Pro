@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconX } from './Icons'
 
@@ -25,7 +26,9 @@ const Dialog: React.FC<DialogProps> = ({
   paddingClassName = 'px-6 py-6',
   overflowVisible = false
 }) => {
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -70,7 +73,8 @@ const Dialog: React.FC<DialogProps> = ({
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

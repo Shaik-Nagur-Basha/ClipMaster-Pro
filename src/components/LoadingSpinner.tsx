@@ -59,7 +59,7 @@ export const FullPageSpinner: React.FC<FullPageSpinnerProps> = ({
     {/* App watermark */}
     <div className="absolute bottom-8 flex flex-col items-center gap-1">
       <div className="flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
+        <span className="w-1.5 h-1.5 rounded-full rotating-gradient-dot" />
         <p className="text-[8px] font-bold text-slate-700 uppercase tracking-[0.5em]">
           ClipMaster Pro
         </p>

@@ -34,7 +34,7 @@ const TagsPage: React.FC = () => {
       </div>
 
       {/* Management Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
         <div className="max-w-4xl mx-auto px-8 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
