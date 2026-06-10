@@ -1,6 +1,6 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.2.2 - Custom Version Switcher & Native Updater (Latest)
+## 🚀 v2.2.4 - Custom Version Switcher & Native Updater (Latest)
 
 **"The Native Version Control Update"**
 
