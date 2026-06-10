@@ -18,6 +18,7 @@ import { getDataDir, storageManager } from "./storage";
 import { syncManager } from "./syncManager";
 import type { ClipboardItem, SyncState } from "../src/types";
 import { exportManager } from "./exportManager";
+import { importManager } from "./importManager";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
@@ -888,6 +889,36 @@ rm "$0"
   ipcMain.handle("cleanup-export", () => {
     exportManager.cleanupExport();
     return true;
+  });
+
+  // ── Import System IPC ──────────────────────────────────────────────────
+  ipcMain.removeHandler("select-and-import-file");
+  ipcMain.handle("select-and-import-file", async (event) => {
+    try {
+      if (!mainWindow) throw new Error("Main window not available.");
+      
+      // Pause clipboard listener monitoring temporarily during database import
+      stopClipboardListener();
+      
+      const summary = await importManager.selectAndImportFile(mainWindow, (step, percent) => {
+        event.sender.send("import-progress", { step, percent });
+      });
+
+      // Resume clipboard listener after import completes
+      startClipboardListener();
+      
+      // Notify the renderer process to refresh settings from disk if updated
+      if (summary.success && summary.importedSettings) {
+        mainWindow.webContents.send("settings-updated", storageManager.getSettings());
+      }
+      
+      return summary;
+    } catch (err: any) {
+      console.error("[IPC] select-and-import-file failed:", err);
+      // Ensure we resume monitoring if it failed
+      startClipboardListener();
+      throw err;
+    }
   });
 
   ipcMain.handle("reset-all", async () => {

@@ -218,6 +218,10 @@ export interface ClipAPI {
   saveExportFile: (tempFilePath: string, defaultName: string) => Promise<boolean>;
   cleanupExport: () => Promise<void>;
   onExportProgress: (cb: (progress: { step: string; percent: number }) => void) => () => void;
+
+  // Import System
+  selectAndImportFile: () => Promise<any>;
+  onImportProgress: (cb: (progress: { step: string; percent: number }) => void) => () => void;
 }
 
 export interface ExportOptions {

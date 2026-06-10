@@ -4,6 +4,7 @@ import { useClipStore } from "../store/useClipStore";
 import { useUpdateStore } from "../store/useUpdateStore";
 import { UpdateSettings } from "../components/UpdateSettings";
 import { ExportWizard } from "../components/ExportWizard";
+import { ImportWizard } from "../components/ImportWizard";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
 import { FullPageSpinner } from "../components/LoadingSpinner";
 import {
@@ -24,6 +25,10 @@ import {
   IconClock,
   IconZap,
   IconEye,
+  IconSave,
+  IconRestore,
+  IconArrowUp,
+  IconArrowDown,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -47,6 +52,7 @@ const Settings: React.FC = () => {
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const [showExportWizard, setShowExportWizard] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearCacheStep, setClearCacheStep] = useState(0);
   const [clearCacheStatus, setClearCacheStatus] = useState<
@@ -810,37 +816,72 @@ const Settings: React.FC = () => {
             title="Data Management"
             icon={<IconAlertCircle size={14} className="text-rose-500/60" />}
           >
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
               {/* Export System */}
-              <div className="p-4 rounded-xl bg-brand-500/5 border-brand-500/20 space-y-3">
-                <div className="space-y-1">
-                  <h4 className="text-[13px] font-semibold text-brand-400">
-                    Export Application Data
-                  </h4>
+              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                    </div>
+                    <h4 className="text-sm font-semibold text-white group-hover:text-brand-300 transition-colors">
+                      Export Data
+                    </h4>
+                  </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Export your clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files for backups.
+                    Export clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowExportWizard(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all cursor-pointer"
+                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Open Export System
+                  <IconArrowUp size={14} />
+                  <span>Start Export</span>
+                </button>
+              </div>
+
+              {/* Import System */}
+              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </div>
+                    <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                      Import Data
+                    </h4>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Restore clips, tags, and settings from a JSON or ZIP backup package.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowImportWizard(true)}
+                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer"
+                >
+                  <IconArrowDown size={14} />
+                  <span>Start Import</span>
                 </button>
               </div>
 
               {/* Clear All Data */}
-              <div className="p-4 rounded-xl bg-rose-500/5 border-rose-500/20 space-y-3">
-                <div className="space-y-1">
-                  <h4 className="text-[13px] font-semibold text-rose-400">
-                    Clear All Data & Reset
-                  </h4>
+              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                      <IconAlertCircle size={20} />
+                    </div>
+                    <h4 className="text-sm font-semibold text-white group-hover:text-rose-300 transition-colors">
+                      Reset System
+                    </h4>
+                  </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Permanently delete all clipboard entries, tags, and
-                    settings. This action cannot be undone.
+                    Permanently delete all clipboard history, tags, and settings. This cannot be undone.
                   </p>
                 </div>
                 <button
@@ -848,10 +889,10 @@ const Settings: React.FC = () => {
                     setShowResetDialog(true);
                     setResetConfirmText("");
                   }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 border-rose-500/30 text-[13px] text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer"
+                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
                 >
-                  <IconAlertCircle size={14} />
-                  Clear All Data
+                  <IconTrash size={14} />
+                  <span>Reset Database</span>
                 </button>
               </div>
             </div>
@@ -1277,6 +1318,12 @@ const Settings: React.FC = () => {
       <ExportWizard
         isOpen={showExportWizard}
         onClose={() => setShowExportWizard(false)}
+      />
+
+      {/* Import System Dialog */}
+      <ImportWizard
+        isOpen={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
       />
     </div>
   );

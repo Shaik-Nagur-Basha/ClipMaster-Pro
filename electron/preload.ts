@@ -106,6 +106,14 @@ const clipAPI = {
     ipcRenderer.on("export-progress", h);
     return () => ipcRenderer.removeListener("export-progress", h);
   },
+
+  // ── Import System ──────────────────────────────────────────────────────
+  selectAndImportFile: (): Promise<any> => ipcRenderer.invoke("select-and-import-file"),
+  onImportProgress: (cb: (progress: { step: string; percent: number }) => void) => {
+    const h = (_e: any, p: { step: string; percent: number }) => cb(p);
+    ipcRenderer.on("import-progress", h);
+    return () => ipcRenderer.removeListener("import-progress", h);
+  },
 };
 
 contextBridge.exposeInMainWorld("clipAPI", clipAPI);
