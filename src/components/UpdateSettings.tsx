@@ -401,7 +401,9 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
               className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${
                 updateStatus === "downloading"
                   ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/10"
+                  : versionComparison === 0
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-500/10"
+                    : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/10"
               }`}
             >
               {updateStatus === "downloading" ? (

@@ -405,7 +405,7 @@ const Settings: React.FC = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
-              <span>Ready to Restart</span>
+              <span>Install Update</span>
             </button>
           ) : updateStatus === "checking" ? (
             <button
@@ -972,7 +972,7 @@ const Settings: React.FC = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                 </span>
-                <span>Ready to Restart</span>
+                <span>Install Update</span>
               </span>
             ) : updateStatus === "error" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400 font-semibold">

@@ -7,6 +7,7 @@ import {
   nativeImage,
   Tray,
   shell,
+  session,
 } from "electron";
 import { join } from "path";
 import * as path from "path";
@@ -60,6 +61,7 @@ let uiState = {
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
+  syncManager.setWindowOpen(true);
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
@@ -108,6 +110,7 @@ function createWindow(): void {
   // This frees renderer process memory when backgrounded.
   mainWindow.on("closed", () => {
     mainWindow = null;
+    syncManager.setWindowOpen(false);
   });
 }
 
@@ -974,8 +977,8 @@ rm "$0"
       exportManager.cleanupExport();
 
       // 1. Clear session cache and storage data (only valid Electron storage types)
-      if (mainWindow && mainWindow.webContents && mainWindow.webContents.session) {
-        const ses = mainWindow.webContents.session;
+      const ses = (mainWindow && mainWindow.webContents && mainWindow.webContents.session) || session.defaultSession;
+      if (ses) {
         try {
           await ses.clearCache();
         } catch (cacheErr) {
@@ -990,7 +993,7 @@ rm "$0"
         }
       }
 
-      // 2. Clear downloaded update executable versions in temp folder (case-insensitive)
+      // 2. Clear downloaded update executable versions and export folders in temp folder (case-insensitive)
       const tempDir = app.getPath("temp");
       if (fs.existsSync(tempDir)) {
         const files = fs.readdirSync(tempDir);
@@ -1002,23 +1005,35 @@ rm "$0"
             lowerFile.startsWith("install-update")
           ) {
             try {
-              if (fs.statSync(filePath).isFile()) {
+              const stat = fs.statSync(filePath);
+              if (stat.isFile()) {
                 fs.unlinkSync(filePath);
                 console.log("[IPC] Deleted temp update file:", file);
+              } else if (stat.isDirectory()) {
+                fs.rmSync(filePath, { recursive: true, force: true });
+                console.log("[IPC] Deleted temp directory:", file);
               }
             } catch (unlinkErr) {
-              console.error(`[IPC] Failed to delete temp file ${file}:`, unlinkErr);
+              console.error(`[IPC] Failed to delete temp file/dir ${file}:`, unlinkErr);
             }
           }
         }
       }
 
       // 3. Reset active download status variables in main process memory
+      if (activeDownloadRequest) {
+        try {
+          activeDownloadRequest.destroy();
+          console.log("[IPC] Aborted active update download during clear cache.");
+        } catch (destroyErr) {
+          console.warn("[IPC] Failed to destroy active download request:", destroyErr);
+        }
+        activeDownloadRequest = null;
+      }
       activeDownloadRelease = null;
       activeDownloadProgress = 0;
       activeDownloadStatus = "idle";
       activeDownloadErrorMessage = null;
-      activeDownloadRequest = null;
       wasDownloadCancelled = false;
 
       // 4. Notify renderer to reset update status to idle
@@ -1119,7 +1134,7 @@ app.whenReady().then(async () => {
   });
 
   // ════ 6. Start background sync + clipboard polling ════
-  syncManager.startBackgroundSync();
+  syncManager.setWindowOpen(!isStartupHidden);
 
   const initSettings = storageManager.getSettings();
   if (initSettings.pauseCaptureOption === "restart") {

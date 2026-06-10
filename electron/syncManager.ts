@@ -371,8 +371,24 @@ class SyncManager {
   private debounceTimeout: NodeJS.Timeout | null = null;
   private isLocalSyncing = false;
   private isAtlasSyncing = false;
+  private isWindowOpen = false;
+
+  setWindowOpen(open: boolean): void {
+    this.isWindowOpen = open;
+    if (open) {
+      console.log("[Sync] Application window opened. Resuming background sync...");
+      this.startBackgroundSync();
+    } else {
+      console.log("[Sync] Application window closed. Suspending background sync...");
+      this.stopBackgroundSync();
+    }
+  }
 
   private scheduleDebouncedSync(delayMs = 3000): void {
+    if (!this.isWindowOpen) {
+      console.log("[Sync] App window is closed. Sync deferred to window reopen.");
+      return;
+    }
     if (this.debounceTimeout) {
       clearTimeout(this.debounceTimeout);
     }
@@ -502,7 +518,7 @@ class SyncManager {
 
     // Threshold Check: Auto trigger sync if queue has >= 50 items, otherwise schedule debounced sync
     const count = await storageManager.queueDb.countAsync({});
-    if (count >= 50) {
+    if (count >= 50 && this.isWindowOpen) {
       console.log(`[Sync] Queue size (${count}) reached threshold. Syncing...`);
       if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.runSync().catch(() => {});
@@ -531,7 +547,7 @@ class SyncManager {
     }
 
     const count = await storageManager.queueDb.countAsync({});
-    if (count >= 50) {
+    if (count >= 50 && this.isWindowOpen) {
       console.log(`[Sync] Queue size (${count}) reached threshold. Syncing...`);
       if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.runSync().catch(() => {});
