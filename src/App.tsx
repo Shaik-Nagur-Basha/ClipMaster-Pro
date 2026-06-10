@@ -12,7 +12,6 @@ const RecycleBinPage = React.lazy(() => import("./pages/RecycleBinPage"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const TagsPage = React.lazy(() => import("./pages/TagsPage"));
 
-
 /* ─────────────────────────────────────────────────────────────────────────────
    WINDOW CONTROLS — called at click-time only, never cached at module-eval
 ───────────────────────────────────────────────────────────────────────────── */
@@ -26,10 +25,15 @@ function winClose() {
   (window as any).clipAPI?.close();
 }
 
+const isElectron = typeof window !== "undefined" && !!(window as any).clipAPI;
+const isWindows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
+
 /* ─────────────────────────────────────────────────────────────────────────────
    TITLE BAR — drag-region SIBLING to buttons (never ancestor)
 ───────────────────────────────────────────────────────────────────────────── */
 function TitleBar() {
+  const showCustomButtons = !isElectron || !isWindows;
+
   return (
     <div
       style={{
@@ -80,19 +84,23 @@ function TitleBar() {
       </div>
 
       {/* Window control buttons — must be siblings, NOT children of drag zone */}
-      <WinBtn
-        label="&#x2500;"
-        title="Minimize"
-        onClick={winMinimize}
-        danger={false}
-      />
-      <WinBtn
-        label="&#x2610;"
-        title="Maximize / Restore"
-        onClick={winMaximize}
-        danger={false}
-      />
-      <WinBtn label="&#x2715;" title="Close" onClick={winClose} danger={true} />
+      {showCustomButtons && (
+        <>
+          <WinBtn
+            label="&#x2500;"
+            title="Minimize"
+            onClick={winMinimize}
+            danger={false}
+          />
+          <WinBtn
+            label="&#x2610;"
+            title="Maximize / Restore"
+            onClick={winMaximize}
+            danger={false}
+          />
+          <WinBtn label="&#x2715;" title="Close" onClick={winClose} danger={true} />
+        </>
+      )}
     </div>
   );
 }
@@ -213,7 +221,11 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     triggerUpdate: noop_p,
     cancelUpdateDownload: noop_p,
     checkUpdateDownloaded: noop_p,
-    getActiveDownloadStatus: async () => ({ status: "idle", progress: 0, targetRelease: null }),
+    getActiveDownloadStatus: async () => ({
+      status: "idle",
+      progress: 0,
+      targetRelease: null,
+    }),
     onUpdateProgress: () => noop,
     onUpdateError: () => noop,
     onUpdateSuccess: () => noop,
@@ -255,7 +267,14 @@ function PageView() {
             minHeight: 0,
           }}
         >
-          <React.Suspense fallback={<FullPageSpinner label="All Clips" subtitle="Loading your clipboard history" />}>
+          <React.Suspense
+            fallback={
+              <FullPageSpinner
+                label="All Clips"
+                subtitle="Loading your clipboard history"
+              />
+            }
+          >
             {activePage === "dashboard" && (
               <ErrorBoundary name="Dashboard">
                 <Dashboard />
@@ -263,7 +282,14 @@ function PageView() {
             )}
           </React.Suspense>
 
-          <React.Suspense fallback={<FullPageSpinner label="Favourites" subtitle="Fetching your starred clips" />}>
+          <React.Suspense
+            fallback={
+              <FullPageSpinner
+                label="Favourites"
+                subtitle="Fetching your starred clips"
+              />
+            }
+          >
             {activePage === "favorites" && (
               <ErrorBoundary name="Favourites">
                 <FavoritesPage />
@@ -271,7 +297,14 @@ function PageView() {
             )}
           </React.Suspense>
 
-          <React.Suspense fallback={<FullPageSpinner label="Recycle Bin" subtitle="Loading recently deleted items" />}>
+          <React.Suspense
+            fallback={
+              <FullPageSpinner
+                label="Recycle Bin"
+                subtitle="Loading recently deleted items"
+              />
+            }
+          >
             {activePage === "recycle" && (
               <ErrorBoundary name="Recycle Bin">
                 <RecycleBinPage />
@@ -279,7 +312,14 @@ function PageView() {
             )}
           </React.Suspense>
 
-          <React.Suspense fallback={<FullPageSpinner label="Settings" subtitle="Configuring your workspace" />}>
+          <React.Suspense
+            fallback={
+              <FullPageSpinner
+                label="Settings"
+                subtitle="Configuring your workspace"
+              />
+            }
+          >
             {activePage === "settings" && (
               <ErrorBoundary name="Settings">
                 <Settings />
@@ -287,7 +327,14 @@ function PageView() {
             )}
           </React.Suspense>
 
-          <React.Suspense fallback={<FullPageSpinner label="Manage Tags" subtitle="Loading your tag library" />}>
+          <React.Suspense
+            fallback={
+              <FullPageSpinner
+                label="Manage Tags"
+                subtitle="Loading your tag library"
+              />
+            }
+          >
             {activePage === "tags" && (
               <ErrorBoundary name="Tags">
                 <TagsPage />
@@ -423,9 +470,11 @@ export default function App() {
     );
 
     // Global settings update listener
-    const unsubSettings = (window.clipAPI.onSettingsUpdated ?? noop)((settings: any) => {
-      useClipStore.setState({ settings });
-    });
+    const unsubSettings = (window.clipAPI.onSettingsUpdated ?? noop)(
+      (settings: any) => {
+        useClipStore.setState({ settings });
+      },
+    );
 
     return () => {
       if (typeof unsubClips === "function") unsubClips();
@@ -444,7 +493,9 @@ export default function App() {
       filters.dateTo !== null;
 
     if (hasFiltersActive) {
-      console.log("[App] Active filters detected. Loading full clipboard history...");
+      console.log(
+        "[App] Active filters detected. Loading full clipboard history...",
+      );
       loadClips(); // Load full history (no limit)
     }
   }, [filters, loadClips]);

@@ -66,6 +66,8 @@ export interface FilterState {
   dateTo: string | null;
   minWordCount: number | null;
   maxWordCount: number | null;
+  tagMatchingMode?: "and" | "or";
+  sortTagsByUsage?: boolean;
 }
 
 export interface AppSettings {

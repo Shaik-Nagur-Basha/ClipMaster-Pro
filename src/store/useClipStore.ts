@@ -21,6 +21,8 @@ const DEFAULT_FILTERS: FilterState = {
   dateTo: null,
   minWordCount: null,
   maxWordCount: null,
+  tagMatchingMode: "or",
+  sortTagsByUsage: false,
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -336,8 +338,14 @@ export function selectFilteredClips(
     result = result.filter((c) => c.text.toLowerCase().includes(q));
   }
 
-  if (tags.length > 0)
-    result = result.filter((c) => tags.every((t) => c.tags.includes(t)));
+  if (tags.length > 0) {
+    const matchMode = filters.tagMatchingMode ?? "or";
+    if (matchMode === "and") {
+      result = result.filter((c) => tags.every((t) => c.tags.includes(t)));
+    } else {
+      result = result.filter((c) => tags.some((t) => c.tags.includes(t)));
+    }
+  }
 
   if (isFavorite === true) result = result.filter((c) => c.isFavorite);
 

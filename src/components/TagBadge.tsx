@@ -8,6 +8,7 @@ interface Props {
   onRemove?: () => void;
   onClick?: () => void;
   active?: boolean;
+  count?: number;
 }
 
 const TagBadge: React.FC<Props> = ({
@@ -16,6 +17,7 @@ const TagBadge: React.FC<Props> = ({
   onRemove,
   onClick,
   active,
+  count,
 }) => {
   return (
     <span
@@ -37,7 +39,14 @@ const TagBadge: React.FC<Props> = ({
         className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
         style={{ backgroundColor: tag.color }}
       />
-      <span className="truncate max-w-[100px]">{tag.name}</span>
+      <span className="truncate max-w-[80px]" title={tag.name}>
+        {tag.name}
+      </span>
+      {count !== undefined && (
+        <span className="ml-0.5 opacity-70 font-mono text-[9px] shrink-0">
+          ({count})
+        </span>
+      )}
       {active && (
         <span
           className={`${size === "sm" ? "ml-0.5 text-[8px]" : "ml-1 text-[9px]"} font-bold`}

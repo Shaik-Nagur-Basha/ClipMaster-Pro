@@ -9,7 +9,10 @@ import {
   IconSettings,
   IconLayers,
   IconAlertCircle,
-  IconRefresh
+  IconRefresh,
+  IconShield,
+  IconZap,
+  IconX
 } from "./Icons";
 
 interface ImportWizardProps {
@@ -124,7 +127,14 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     <Dialog
       isOpen={isOpen}
       onClose={status === "progress" ? () => {} : handleClose}
-      title="Data Import System"
+      title={
+        <span className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Data Import System
+        </span>
+      }
       maxWidth="max-w-xl"
     >
       <div className="space-y-6">
@@ -153,14 +163,14 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               {/* Informative instructions */}
               <div className="bg-surface-900/40 border border-gray-700/50 rounded-xl p-4 space-y-3.5 text-xs text-gray-400">
                 <div className="flex gap-3">
-                  <IconCheck size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <IconShield size={16} className="text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-gray-200 block">Conflict Resolution (Keep Existing)</span>
                     If a clip or tag name already exists in your local database, the import system will skip it to prevent duplication. Your existing data remains fully untouched.
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <IconCheck size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <IconZap size={16} className="text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-gray-200 block">Data Sanitization</span>
                     Corrupted properties, null values, or empty strings are automatically repaired, cleaned, or safely filtered out.
@@ -173,8 +183,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <IconX size={14} />
                   Close
                 </button>
                 <button
@@ -182,8 +193,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                   onClick={handleStartImport}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-500/20 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                   Select File
                 </button>
@@ -289,15 +300,17 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 <button
                   type="button"
                   onClick={() => setStatus("config")}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-semibold tracking-wide transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-semibold tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <IconRefresh size={14} className="text-gray-400" />
                   Import Another
                 </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <IconCheck size={14} />
                   Finish
                 </button>
               </div>
@@ -327,15 +340,17 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 <button
                   type="button"
                   onClick={() => setStatus("config")}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <IconRefresh size={14} />
                   Try Again
                 </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-semibold tracking-wide transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-800 text-gray-300 hover:bg-surface-700 text-xs font-semibold tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <IconX size={14} />
                   Close Dialog
                 </button>
               </div>

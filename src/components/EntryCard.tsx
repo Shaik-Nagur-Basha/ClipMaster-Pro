@@ -245,7 +245,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
               </div>
               {tagObjects.length > 0 &&
                 tagObjects.map((t) => (
-                  <div key={t.id} className="mr-1">
+                  <div key={t.id} className="-mr-3">
                     <TagBadge tag={t} size="sm" />
                   </div>
                 ))}
@@ -421,7 +421,14 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         <Dialog
           isOpen={isExpandDialogOpen}
           onClose={closeExpandDialog}
-          title="Expanded Clipboard View"
+          title={
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
+                <IconEye size={14} />
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">Expanded View</h3>
+            </div>
+          }
           maxWidth="max-w-4xl"
         >
           <div
@@ -443,7 +450,14 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         <Dialog
           isOpen={isEditDialogOpen}
           onClose={handleCancelEdit}
-          title="Edit Clipboard Entry"
+          title={
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
+                <IconEdit size={14} />
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">Edit Clipboard Entry</h3>
+            </div>
+          }
           maxWidth="max-w-2xl"
         >
           <div className="space-y-4">
@@ -451,7 +465,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
               autoFocus
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
-              className="w-full min-h-[200px] max-h-[400px] bg-surface-900 text-gray-100 text-[13px] rounded-lg p-3 resize-y outline-none border border-gray-700 focus:border-brand-500 font-mono leading-relaxed transition-colors"
+              className="w-full min-h-[200px] max-h-[400px] bg-transparent text-gray-100 text-[13px] p-3 resize-y border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none font-mono leading-relaxed transition-colors"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
                   handleSaveEdit();

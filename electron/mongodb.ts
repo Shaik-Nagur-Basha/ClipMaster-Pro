@@ -1,35 +1,6 @@
 import mongoose, { Schema, model, Document } from 'mongoose'
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto'
 import type { ClipboardItem } from '../src/types'
-
-// ─── Encryption Helpers ────────────────────────────────────────────────────
-const MACHINE_KEY = scryptSync(
-  process.env.CLIPMASTER_SECRET ?? 'clipmaster-default-secret-2026',
-  'clipmaster-salt',
-  32
-)
-
-function encrypt(text: string): string {
-  const iv = randomBytes(16)
-  const cipher = createCipheriv('aes-256-cbc', MACHINE_KEY, iv)
-  const encrypted = Buffer.concat([cipher.update(text, 'utf-8'), cipher.final()])
-  return iv.toString('hex') + ':' + encrypted.toString('hex')
-}
-
-function decrypt(data: string): string {
-  try {
-    const [ivHex, encHex] = data.split(':')
-    const iv = Buffer.from(ivHex, 'hex')
-    const decipher = createDecipheriv('aes-256-cbc', MACHINE_KEY, iv)
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(encHex, 'hex')),
-      decipher.final()
-    ])
-    return decrypted.toString('utf-8')
-  } catch {
-    return data // Return raw if decryption fails
-  }
-}
+import { encrypt, decrypt } from './crypto'
 
 // ─── Mongoose Schema ───────────────────────────────────────────────────────
 interface ClipDoc extends Document {

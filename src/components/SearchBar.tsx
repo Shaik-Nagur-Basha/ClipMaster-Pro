@@ -32,7 +32,7 @@ const SearchBar: React.FC = () => {
 
   return (
     <div className="relative flex items-center group w-full">
-      <div className="absolute left-3 text-gray-600 group-focus-within:text-gray-400 transition-colors pointer-events-none duration-150">
+      <div className="absolute left-3 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
         <IconSearch size={16} />
       </div>
       <input
@@ -41,13 +41,7 @@ const SearchBar: React.FC = () => {
         placeholder="Search clipboard…"
         defaultValue={filters.search}
         onChange={(e) => handleSearch(e.target.value)}
-        style={{
-          boxShadow: "none",
-          outline: "none",
-          border: "none",
-          borderBottom: "1px solid #4b5563",
-        }}
-        className="w-full bg-transparent hover:border-b hover:border-gray-600 focus:border-b focus:border-gray-500 pl-9 pr-9 py-2 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-2 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
       />
       {filters.search && (
         <button

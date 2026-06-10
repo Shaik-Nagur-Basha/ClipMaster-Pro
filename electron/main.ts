@@ -84,7 +84,13 @@ function createWindow(): void {
     height: 760,
     minWidth: 800,
     minHeight: 600,
-    frame: false,
+    frame: process.platform !== "win32",
+    titleBarStyle: process.platform === "win32" ? "hidden" : undefined,
+    titleBarOverlay: process.platform === "win32" ? {
+      color: "#0d0d1a",
+      symbolColor: "#a0a0b0",
+      height: 40,
+    } : undefined,
     backgroundColor: "#0d0d1a",
     show: false,
     title: "ClipMaster Pro",
@@ -742,7 +748,12 @@ function registerIPC(): void {
   // ── Application Updates ──────────────────────────────────────────────────
   ipcMain.handle("get-releases", async () => {
     try {
-      const response = await fetch("https://api.github.com/repos/Shaik-Nagur-Basha/ClipMaster-Pro/releases", {
+      const releasesUrl = import.meta.env.MAIN_VITE_GITHUB_RELEASES_URL || process.env.GITHUB_RELEASES_URL;
+      if (!releasesUrl) {
+        console.warn("[Update] MAIN_VITE_GITHUB_RELEASES_URL or GITHUB_RELEASES_URL is not defined. Skipping update check.");
+        return [];
+      }
+      const response = await fetch(releasesUrl, {
         headers: {
           "Accept": "application/vnd.github.v3+json",
           "User-Agent": "ClipMaster-Pro-Updater",

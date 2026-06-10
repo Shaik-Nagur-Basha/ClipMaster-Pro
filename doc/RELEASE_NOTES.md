@@ -1,6 +1,6 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.2.0 - Custom Version Switcher & Native Updater (Latest)
+## 🚀 v2.2.2 - Custom Version Switcher & Native Updater (Latest)
 
 **"The Native Version Control Update"**
 
@@ -14,6 +14,12 @@ This release introduces a fully custom, native version switcher and updater, let
 - **Background Downloader**: Robust chunk-by-chunk download streaming with interactive progress tracking, utilizing native Node `https` and redirect handling.
 - **Safe Overwrite Routine**: Automatically writes detached temporary installer scripts (`.bat` / `.sh`) that wait for the app to close, overwrite the active binary with the new version, and safely relaunch.
 - **Dev-Mode Simulation**: Built-in safety guards that simulate updates when running in developer mode (`!app.isPackaged`) to prevent local project environment corruption.
+
+### 🏷️ Active Tags Upgrades & Import Icons
+- **AND/OR Match Logic**: Switched default tag filtering logic to OR (matching any selected tag). Added a Venn diagram toggle button to switch between AND/OR matching.
+- **Tag Sorting & Counting**: Added a bar chart toggle button to sort tags based on frequency of use in active clips. Enabling this also shows the usage count next to each tag.
+- **Count Visibility**: Separated tag name truncation from count display, ensuring tag counts are always fully visible even on long tag names.
+- **Import Dialog Iconography**: Replaced generic checkmark/plus icons in the Data Import System wizard with context-related icons (`IconShield` for conflicts, `IconZap` for sanitization, document icon for selecting a file, and action button icons).
 
 ### 🛠️ Preload & Store Integration
 - **Zustand Updater State**: State machine managing target release versions, progress indicators, errors, and status tracking.

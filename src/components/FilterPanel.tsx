@@ -4,6 +4,29 @@ import TagBadge from "./TagBadge";
 import { IconFilter, IconClock, IconChevronUp, IconChevronDown } from "./Icons";
 import RangeSlider from "./RangeSlider";
 
+const IconVennOr = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="12" r="5" fill="currentColor" fillOpacity="0.1" />
+    <circle cx="15" cy="12" r="5" fill="currentColor" fillOpacity="0.1" />
+  </svg>
+);
+
+const IconVennAnd = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="12" r="5" />
+    <circle cx="15" cy="12" r="5" />
+    <path d="M12 8.16a5 5 0 0 1 3 3.84 5 5 0 0 1-3 3.84 5 5 0 0 1-3-3.84 5 5 0 0 1 3-3.84z" fill="currentColor" />
+  </svg>
+);
+
+const IconBarChart = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
+  </svg>
+);
+
 const FilterPanel: React.FC = () => {
   const { filters, setFilters, resetFilters, tags, clips, activePage } =
     useClipStore();
@@ -26,9 +49,16 @@ const FilterPanel: React.FC = () => {
 
   // Apply tag filter
   if (filters.tags.length > 0) {
-    filteredClips = filteredClips.filter((c) =>
-      filters.tags.every((t) => c.tags.includes(t)),
-    );
+    const matchMode = filters.tagMatchingMode ?? "or";
+    if (matchMode === "and") {
+      filteredClips = filteredClips.filter((c) =>
+        filters.tags.every((t) => c.tags.includes(t)),
+      );
+    } else {
+      filteredClips = filteredClips.filter((c) =>
+        filters.tags.some((t) => c.tags.includes(t)),
+      );
+    }
   }
 
   // Apply favorite filter
@@ -49,13 +79,39 @@ const FilterPanel: React.FC = () => {
   }
 
   const charCounts = filteredClips.map((c) => c.charCount ?? c.text.length);
-  const globalMin = charCounts.length > 0 ? Math.min(...charCounts) : 0;
-  let globalMax = charCounts.length > 0 ? Math.max(...charCounts) : 1000;
+  const globalMin = charCounts.length > 0 ? Math.min(...charCounts) : 1;
+  let globalMax = charCounts.length > 0 ? Math.max(...charCounts) : 100;
 
   // Ensure max is always at least min + 1 to avoid division by zero in RangeSlider
   if (globalMax <= globalMin) {
     globalMax = globalMin + 1;
   }
+
+  // Calculate usage count for each tag among active (non-deleted) clips
+  const tagCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    tags.forEach((t) => {
+      counts[t.id] = 0;
+    });
+    clips.forEach((c) => {
+      if (!c.isDeleted && c.tags) {
+        c.tags.forEach((tagId) => {
+          if (counts[tagId] !== undefined) {
+            counts[tagId]++;
+          }
+        });
+      }
+    });
+    return counts;
+  }, [clips, tags]);
+
+  // Sort tags if sortTagsByUsage is enabled
+  const displayedTags = React.useMemo(() => {
+    if (filters.sortTagsByUsage) {
+      return [...tags].sort((a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0));
+    }
+    return tags;
+  }, [tags, filters.sortTagsByUsage, tagCounts]);
 
   const hasActiveFilters =
     filters.search ||
@@ -206,22 +262,61 @@ const FilterPanel: React.FC = () => {
       {/* Tags */}
       {tags.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-4 bg-gradient-to-b from-amber-500 to-amber-600 rounded-full" />
-            <p className="text-[11px] text-gray-300 font-semibold uppercase tracking-tight">
-              Active Tags{" "}
-              <span className="text-gray-500/50">
-                ({filters.tags.length}/{tags.length})
-              </span>
-            </p>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-amber-500 to-amber-600 rounded-full" />
+              <p className="text-[11px] text-gray-300 font-semibold uppercase tracking-tight">
+                Active Tags{" "}
+                <span className="text-gray-500/50">
+                  ({filters.tags.length}/{tags.length})
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Toggle tagMatchingMode (AND/OR) */}
+              <button
+                onClick={() => {
+                  const currentMode = filters.tagMatchingMode ?? "or";
+                  setFilters({ tagMatchingMode: currentMode === "or" ? "and" : "or" });
+                }}
+                className={`p-1 rounded-md transition-all duration-200 active:scale-95 cursor-pointer ${
+                  (filters.tagMatchingMode ?? "or") === "and"
+                    ? "text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30"
+                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+                title={(filters.tagMatchingMode ?? "or") === "and" ? "Matching logic: AND (ALL tags must match)" : "Matching logic: OR (ANY tag can match)"}
+              >
+                {(filters.tagMatchingMode ?? "or") === "and" ? (
+                  <IconVennAnd size={16} />
+                ) : (
+                  <IconVennOr size={16} />
+                )}
+              </button>
+
+              {/* Toggle sortTagsByUsage */}
+              <button
+                onClick={() => {
+                  setFilters({ sortTagsByUsage: !filters.sortTagsByUsage });
+                }}
+                className={`p-1 rounded-md transition-all duration-200 active:scale-95 cursor-pointer ${
+                  filters.sortTagsByUsage
+                    ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
+                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+                title={filters.sortTagsByUsage ? "Sorting: By Usage Count (Counts shown)" : "Sorting: Default order"}
+              >
+                <IconBarChart size={14} />
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap ml-2 gap-1.5">
-            {tags.map((tag) => (
+            {displayedTags.map((tag) => (
               <TagBadge
                 key={tag.id}
                 tag={tag}
                 size="sm"
                 active={filters.tags.includes(tag.id)}
+                count={filters.sortTagsByUsage ? tagCounts[tag.id] : undefined}
                 onClick={() => {
                   const newTags = filters.tags.includes(tag.id)
                     ? filters.tags.filter((t) => t !== tag.id)

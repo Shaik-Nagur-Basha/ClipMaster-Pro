@@ -10,45 +10,8 @@
 import { net } from "electron";
 import { storageManager } from "./storage";
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  scryptSync,
-} from "crypto";
 import type { ClipboardItem, SyncState, SyncQueueEntry } from "../src/types";
-
-// ─── Encryption ────────────────────────────────────────────────────────────
-const MACHINE_KEY = scryptSync(
-  process.env.CLIPMASTER_SECRET ?? "clipmaster-default-secret-2026",
-  "clipmaster-salt-v2",
-  32,
-);
-
-function encrypt(text: string): string {
-  const iv = randomBytes(16);
-  const cipher = createCipheriv("aes-256-cbc", MACHINE_KEY, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(text, "utf-8"),
-    cipher.final(),
-  ]);
-  return iv.toString("hex") + ":" + encrypted.toString("hex");
-}
-
-function decrypt(data: string): string {
-  try {
-    const [ivHex, encHex] = data.split(":");
-    if (!ivHex || !encHex) return data;
-    const iv = Buffer.from(ivHex, "hex");
-    const decipher = createDecipheriv("aes-256-cbc", MACHINE_KEY, iv);
-    return Buffer.concat([
-      decipher.update(Buffer.from(encHex, "hex")),
-      decipher.final(),
-    ]).toString("utf-8");
-  } catch {
-    return data;
-  }
-}
+import { encrypt, decrypt } from "./crypto";
 
 function maskUri(uri: string): string {
   return uri

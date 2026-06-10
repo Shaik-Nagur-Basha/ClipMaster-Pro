@@ -6,7 +6,7 @@ import { IconX } from './Icons'
 interface DialogProps {
   isOpen: boolean
   onClose: () => void
-  title: string
+  title: React.ReactNode
   children: React.ReactNode
   maxWidth?: string
   contentClassName?: string
@@ -54,7 +54,11 @@ const Dialog: React.FC<DialogProps> = ({
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">{title}</h3>
+                  {typeof title === 'string' ? (
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest">{title}</h3>
+                  ) : (
+                    title
+                  )}
                   {headerAction}
                 </div>
                 <button

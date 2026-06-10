@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useClipStore } from '../store/useClipStore'
-import { IconCheck, IconEdit, IconX, IconPlus, IconTag, IconTrash } from './Icons'
+import { IconCheck, IconEdit, IconX, IconPlus, IconTag, IconTrash, IconSearch } from './Icons'
 import Dialog from './Dialog'
 import type { Tag } from '../types'
 
@@ -16,6 +16,13 @@ const TagManager: React.FC = () => {
   // Creation state
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(PRESET_COLORS[0])
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredTags = tags.filter((tag) =>
+    tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
   
   // Dialog state
   const [editingTag, setEditingTag] = useState<Tag | null>(null)
@@ -54,29 +61,58 @@ const TagManager: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Creation Section */}
-      <div className="bg-surface-700/20 rounded-2xl p-4 border-white/5 space-y-4">
-        <div className="flex items-center gap-2">
-           <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
-             <IconPlus size={14} />
-           </div>
-           <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Create New Tag</h3>
+      {/* Search and Creation Section Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Search Section */}
+        <div className="bg-surface-700/20 rounded-2xl p-4 border border-white/5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+               <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
+                 <IconSearch size={14} />
+               </div>
+               <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Search Tags</h3>
+            </div>
+            
+            <div className="relative flex items-center group w-full">
+              <div className="absolute left-3 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                <IconSearch size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search tags…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-2 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                  title="Clear search"
+                >
+                  <IconX size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="text-[10px] text-gray-500 font-medium leading-normal pl-1">
+             Filter down your tags list by entering a search term above.
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Tag name..."
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              className="flex-1 bg-surface-900 border-gray-700 text-white text-[12px] rounded-xl px-3 py-2 outline-none focus:ring-0 focus:border-gray-500 transition-colors"
-            />
+        {/* Creation Section */}
+        <div className="bg-surface-700/20 rounded-2xl p-4 border border-white/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+               <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
+                 <IconPlus size={14} />
+               </div>
+               <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Create New Tag</h3>
+            </div>
             <button
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="px-4 py-2 rounded-xl shadow-md transition-all duration-200 font-bold text-[11px] uppercase tracking-wider disabled:opacity-20 hover:brightness-110 active:scale-[0.98]"
+              className="px-3.5 py-1.5 rounded-xl shadow-md transition-all duration-200 font-bold text-[10px] uppercase tracking-wider disabled:opacity-20 hover:brightness-110 active:scale-[0.98] shrink-0"
               style={{
                 backgroundColor: newColor + '15',
                 color: newColor,
@@ -87,35 +123,51 @@ const TagManager: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 px-1">
-             <div className="flex items-center gap-1.5">
-               {PRESET_COLORS.map((c) => (
+          <div className="flex flex-col gap-3">
+            <div className="relative flex items-center group w-full">
+              <div className="absolute left-3 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                <IconTag size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Tag name..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-2 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 px-1">
+               <div className="flex items-center gap-1.5">
+                 {PRESET_COLORS.map((c) => (
+                   <button
+                     key={c}
+                     onClick={() => setNewColor(c)}
+                     className={`w-4 h-4 rounded-full transition-all duration-200 border-black/20 ${
+                       newColor === c ? 'ring-1 ring-white/60 scale-125' : 'opacity-40 hover:opacity-100'
+                     }`}
+                     style={{ backgroundColor: c }}
+                   />
+                 ))}
+                 <div className="h-3 w-px bg-gray-700 mx-1" />
                  <button
-                   key={c}
-                   onClick={() => setNewColor(c)}
-                   className={`w-4 h-4 rounded-full transition-all duration-200 border-black/20 ${
-                     newColor === c ? 'ring-1 ring-white/60 scale-125' : 'opacity-40 hover:opacity-100'
-                   }`}
-                   style={{ backgroundColor: c }}
+                    onClick={() => creationColorRef.current?.click()}
+                    className={`w-4 h-4 rounded-full border border-dashed border-gray-600 flex items-center justify-center text-[10px] hover:border-gray-400 transition-colors ${!PRESET_COLORS.includes(newColor) ? 'ring-1 ring-white/40 scale-125 shadow-lg' : ''}`}
+                    style={{ backgroundColor: !PRESET_COLORS.includes(newColor) ? newColor : undefined }}
+                 >
+                   {!PRESET_COLORS.includes(newColor) ? '' : '+'}
+                 </button>
+                 <input
+                   ref={creationColorRef}
+                   type="color"
+                   value={newColor}
+                   onChange={(e) => setNewColor(e.target.value)}
+                   className="absolute invisible opacity-0 pointer-events-none"
                  />
-               ))}
-               <div className="h-3 w-px bg-gray-700 mx-1" />
-               <button
-                  onClick={() => creationColorRef.current?.click()}
-                  className={`w-4 h-4 rounded-full border border-dashed border-gray-600 flex items-center justify-center text-[10px] hover:border-gray-400 transition-colors ${!PRESET_COLORS.includes(newColor) ? 'ring-1 ring-white/40 scale-125 shadow-lg' : ''}`}
-                  style={{ backgroundColor: !PRESET_COLORS.includes(newColor) ? newColor : undefined }}
-               >
-                 {!PRESET_COLORS.includes(newColor) ? '' : '+'}
-               </button>
-               <input
-                 ref={creationColorRef}
-                 type="color"
-                 value={newColor}
-                 onChange={(e) => setNewColor(e.target.value)}
-                 className="absolute invisible opacity-0 pointer-events-none"
-               />
-             </div>
-             <span className="text-[10px] font-mono text-gray-600 uppercase font-bold ml-auto">{newColor}</span>
+               </div>
+               <span className="text-[10px] font-mono text-gray-600 uppercase font-bold ml-auto">{newColor}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -123,7 +175,7 @@ const TagManager: React.FC = () => {
       {/* Tags Grid - Compact according to content */}
       <div className="flex flex-wrap gap-2">
         <AnimatePresence mode="popLayout">
-          {tags.map((tag) => (
+          {filteredTags.map((tag) => (
             <motion.div
               key={tag.id}
               layout
@@ -169,24 +221,47 @@ const TagManager: React.FC = () => {
              </p>
           </div>
         )}
+
+        {tags.length > 0 && filteredTags.length === 0 && (
+          <div className="w-full py-12 flex flex-col items-center justify-center opacity-30 grayscale">
+             <IconSearch size={40} className="text-gray-500 mb-2 stroke-[1.5]" />
+             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center max-w-[180px]">
+                No matching tags found
+             </p>
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}
       <Dialog
         isOpen={!!editingTag}
         onClose={() => setEditingTag(null)}
-        title="Edit Tag"
+        title={
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
+              <IconEdit size={14} />
+            </div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">Edit Tag</h3>
+          </div>
+        }
       >
         <div className="space-y-6">
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Tag Name</label>
-            <input
-              autoFocus
-              value={editingTag?.name ?? ''}
-              onChange={(e) => setEditingTag(prev => prev ? { ...prev, name: e.target.value } : null)}
-              onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
-              className="w-full bg-surface-900 border-gray-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:border-gray-600 transition-colors"
-            />
+            <div className="relative flex items-center group w-full">
+              <div className="absolute left-3 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                <IconTag size={16} />
+              </div>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Tag name..."
+                value={editingTag?.name ?? ''}
+                onChange={(e) => setEditingTag(prev => prev ? { ...prev, name: e.target.value } : null)}
+                onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
+                className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-4 py-2.5 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+              />
+            </div>
           </div>
 
           <div className="space-y-3">

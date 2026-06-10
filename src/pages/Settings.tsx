@@ -555,6 +555,7 @@ const Settings: React.FC = () => {
             title="Local Mongo sync"
             badge={<ConnectionStatus connected={mongoConnected} />}
             icon={<IconDatabase size={14} className="text-gray-500" />}
+            contentClassName="bg-brand-500/10"
           >
             <div className="space-y-4">
               <SettingRow
@@ -573,17 +574,22 @@ const Settings: React.FC = () => {
                     <label className="text-[13px] font-medium text-gray-400">
                       Connection URI
                     </label>
-                    <input
-                      type="text"
-                      value={localUri}
-                      onChange={(e) => {
-                        setLocalUri(e.target.value);
-                        setLocalStatus("idle");
-                      }}
-                      onBlur={() => saveSettings({ mongoUri: localUri })}
-                      placeholder="mongodb://localhost:27017/clipmaster"
-                      className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
-                    />
+                    <div className="relative group w-full">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                        <IconDatabase size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        value={localUri}
+                        onChange={(e) => {
+                          setLocalUri(e.target.value);
+                          setLocalStatus("idle");
+                        }}
+                        onBlur={() => saveSettings({ mongoUri: localUri })}
+                        placeholder="mongodb://localhost:27017/clipmaster"
+                        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 transition-colors duration-150"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -640,6 +646,7 @@ const Settings: React.FC = () => {
             title="Cloud synchronization"
             badge={<ConnectionStatus connected={atlasConnected} />}
             icon={<IconCloud size={14} className="text-gray-500" />}
+            contentClassName="bg-brand-500/10"
           >
             <div className="space-y-4">
               <SettingRow
@@ -659,7 +666,7 @@ const Settings: React.FC = () => {
                       Atlas Connection String
                     </label>
                     <div className="relative group">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
                         <IconShield size={16} />
                       </div>
                       <input
@@ -671,13 +678,13 @@ const Settings: React.FC = () => {
                         }}
                         onBlur={() => saveSettings({ atlasUri: atlasUri })}
                         placeholder="mongodb+srv://..."
-                        className="w-full bg-surface-900 border-gray-700 rounded-lg pl-10 pr-10 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-10 pr-10 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 transition-colors duration-150"
                       />
                       <button
                         type="button"
                         onClick={() => setAtlasUriVisible((prev) => !prev)}
                         onMouseDown={(e) => e.preventDefault()}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors duration-150"
                         aria-label={
                           atlasUriVisible
                             ? "Hide Atlas connection string"
@@ -1336,7 +1343,8 @@ const Section: React.FC<{
   badge?: React.ReactNode;
   icon?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ title, badge, icon, children }) => (
+  contentClassName?: string;
+}> = ({ title, badge, icon, children, contentClassName = "" }) => (
   <section className="space-y-3">
     <header className="flex items-center justify-between px-1">
       <div className="flex items-center gap-2">
@@ -1347,7 +1355,9 @@ const Section: React.FC<{
       </div>
       {badge}
     </header>
-    <div className="p-1 space-y-1">{children}</div>
+    <div className={contentClassName ? `p-5 rounded-2xl ${contentClassName} space-y-4` : "px-1 space-y-1"}>
+      {children}
+    </div>
   </section>
 );
 
