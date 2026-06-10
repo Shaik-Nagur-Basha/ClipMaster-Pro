@@ -14,10 +14,10 @@ import * as path from "path";
 import * as fs from "fs";
 import * as https from "https";
 import { IncomingMessage } from "http";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, exec } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import { syncManager } from "./syncManager";
-import type { ClipboardItem, SyncState } from "../src/types";
+import type { ClipboardItem, SyncState, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
 import { importManager } from "./importManager";
 
@@ -41,6 +41,12 @@ let lastClipboardText = "";
 let isQuitting = false;
 let pauseTimeout: NodeJS.Timeout | null = null;
 let clipboardListenerProc: ChildProcess | null = null;
+let nativeListenerWatchdog: NodeJS.Timeout | null = null;
+let nativeListenerStartTime = 0;
+let isRecyclingNativeListener = false;
+function getCachedSettings(): AppSettings {
+  return storageManager.getSettings();
+}
 
 // UI State Caching to preserve page/selection across window recreate
 let uiState = {
@@ -58,6 +64,7 @@ let uiState = {
     maxWordCount: null,
   },
 };
+let uiStateSaveTimeout: NodeJS.Timeout | null = null;
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
@@ -213,6 +220,10 @@ let pollTick = 0;
 
 function startPoller(): void {
   if (pollTimer) return;
+  if (clipboardListenerProc) {
+    console.log("[Clipboard] Native listener is active. Skipping poller start.");
+    return;
+  }
   lastClipboardText = clipboard.readText() ?? "";
   console.log("[Clipboard] Poller started, seed:", JSON.stringify(lastClipboardText.substring(0, 60)));
 
@@ -225,7 +236,7 @@ function startPoller(): void {
       }
 
       // Check if capturing is paused
-      const settings = storageManager.getSettings();
+      const settings = getCachedSettings();
       if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
         if (settings.pauseCaptureOption === "restart") {
           lastClipboardText = current;
@@ -266,6 +277,7 @@ function stopPoller(): void {
 }
 
 function startClipboardListener(): void {
+  stopPoller();
   if (clipboardListenerProc) return;
 
   const script = `
@@ -310,6 +322,8 @@ function startClipboardListener(): void {
     clipboardListenerProc = spawn("powershell", ["-NoProfile", "-Command", script], {
       windowsHide: true,
     });
+    nativeListenerStartTime = Date.now();
+    startNativeListenerWatchdog();
 
     clipboardListenerProc.stdout?.on("data", (data) => {
       const msg = data.toString().trim();
@@ -317,7 +331,7 @@ function startClipboardListener(): void {
         const current = clipboard.readText() ?? "";
 
         // Check if capturing is paused
-        const settings = storageManager.getSettings();
+        const settings = getCachedSettings();
         if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
           if (settings.pauseCaptureOption === "restart") {
             lastClipboardText = current;
@@ -352,6 +366,13 @@ function startClipboardListener(): void {
     });
 
     clipboardListenerProc.on("exit", (code) => {
+      if (isRecyclingNativeListener) {
+        isRecyclingNativeListener = false;
+        console.log("[Clipboard] Native listener exited due to recycling. Starting new instance...");
+        clipboardListenerProc = null;
+        startClipboardListener();
+        return;
+      }
       if (code !== 0 && !isQuitting) {
         console.warn(`[Clipboard] Native listener exited with code ${code}. Restarting poller fallback.`);
         clipboardListenerProc = null;
@@ -368,15 +389,78 @@ function startClipboardListener(): void {
 
 function startPollerFallback(): void {
   console.log("[Clipboard] Falling back to polling mode...");
+  if (clipboardListenerProc) {
+    try {
+      clipboardListenerProc.kill();
+    } catch {}
+    clipboardListenerProc = null;
+  }
   startPoller();
 }
 
 function stopClipboardListener(): void {
   stopPoller();
+  stopNativeListenerWatchdog();
   if (clipboardListenerProc) {
     clipboardListenerProc.kill();
     clipboardListenerProc = null;
     console.log("[Clipboard] Native Windows clipboard listener stopped.");
+  }
+}
+
+function stopNativeListenerWatchdog(): void {
+  if (nativeListenerWatchdog) {
+    clearInterval(nativeListenerWatchdog);
+    nativeListenerWatchdog = null;
+  }
+}
+
+function startNativeListenerWatchdog(): void {
+  stopNativeListenerWatchdog();
+  
+  // Run every 5 minutes (300000 ms)
+  nativeListenerWatchdog = setInterval(() => {
+    if (!clipboardListenerProc || !clipboardListenerProc.pid) return;
+    
+    // Recycle after 2 hours (7200000 ms) to avoid potential hangs or leaks
+    if (Date.now() - nativeListenerStartTime > 2 * 60 * 60 * 1000) {
+      console.log("[Watchdog] Native listener has been running for 2 hours. Recycling...");
+      restartNativeListener();
+      return;
+    }
+    
+    const pid = clipboardListenerProc.pid;
+    exec(`tasklist /FI "PID eq ${pid}" /NH`, (err: any, stdout: string) => {
+      if (err || !stdout) return;
+      
+      const match = stdout.match(/([\d,.]+)\s*[a-zA-Z]*$/);
+      if (match) {
+        const memStr = match[1].replace(/[,.]/g, "");
+        const memVal = parseInt(memStr, 10);
+        if (!isNaN(memVal)) {
+          const memMB = memVal / 1024;
+          console.log(`[Watchdog] Native clipboard listener (PID ${pid}) memory usage: ${memMB.toFixed(2)} MB`);
+          // Limit to 120MB. If it exceeds 120MB, restart it
+          if (memMB > 120) {
+            console.warn(`[Watchdog] Native listener PID ${pid} exceeded memory limit (120MB). Restarting...`);
+            restartNativeListener();
+          }
+        }
+      }
+    });
+  }, 5 * 60 * 1000);
+}
+
+function restartNativeListener(): void {
+  console.log("[Clipboard] Restarting native clipboard listener...");
+  if (clipboardListenerProc) {
+    isRecyclingNativeListener = true;
+    try {
+      clipboardListenerProc.kill();
+    } catch {}
+    clipboardListenerProc = null;
+  } else {
+    startClipboardListener();
   }
 }
 
@@ -413,14 +497,17 @@ function downloadFile(url: string, destPath: string, onProgress: (progress: numb
         const totalBytes = parseInt(res.headers["content-length"] || "0", 10);
         let receivedBytes = 0;
         let lastReportedProgress = -1;
+        let lastReportTime = 0;
         const fileStream = fs.createWriteStream(destPath);
 
         res.on("data", (chunk) => {
           receivedBytes += chunk.length;
           if (totalBytes > 0) {
             const progress = Math.round((receivedBytes / totalBytes) * 100);
-            if (progress !== lastReportedProgress) {
+            const now = Date.now();
+            if (progress !== lastReportedProgress && (now - lastReportTime >= 150 || progress === 100)) {
               lastReportedProgress = progress;
+              lastReportTime = now;
               onProgress(progress);
             }
           }
@@ -526,7 +613,7 @@ function registerIPC(): void {
     return true;
   });
 
-  ipcMain.handle("copy-to-clipboard", (_e, text: string) => {
+  ipcMain.handle("copy-to-clipboard", async (_e, text: string) => {
     clipboard.writeText(text);
     lastClipboardText = text; // prevent immediate re-capture
     return true;
@@ -539,7 +626,7 @@ function registerIPC(): void {
     syncManager.enqueueTagSync();
     return true;
   });
-  ipcMain.handle("get-settings", () => storageManager.getSettings());
+  ipcMain.handle("get-settings", async () => storageManager.getSettings());
   ipcMain.handle(
     "save-settings",
     async (_e, partial: Record<string, unknown>) => {
@@ -575,7 +662,7 @@ function registerIPC(): void {
   );
 
   // ── Sync Control & Logs ──────────────────────────────────────────────────
-  ipcMain.handle("get-sync-state", () => syncManager.getState());
+  ipcMain.handle("get-sync-state", async () => syncManager.getState());
 
   ipcMain.handle("get-sync-logs", async (_e, limit?: number) => {
     return await storageManager.getSyncLogs(limit);
@@ -592,10 +679,16 @@ function registerIPC(): void {
   // ── UI State Channel ─────────────────────────────────────────────────────
   ipcMain.on("update-ui-state", (_e, state) => {
     uiState = { ...uiState, ...state };
-    storageManager.saveUiState(uiState).catch(() => {});
+    if (uiStateSaveTimeout) {
+      clearTimeout(uiStateSaveTimeout);
+    }
+    uiStateSaveTimeout = setTimeout(() => {
+      storageManager.saveUiState(uiState).catch(() => {});
+      uiStateSaveTimeout = null;
+    }, 1000); // 1-second debounce to merge rapid updates
   });
 
-  ipcMain.handle("get-ui-state", () => {
+  ipcMain.handle("get-ui-state", async () => {
     return uiState;
   });
 
@@ -629,14 +722,14 @@ function registerIPC(): void {
     return true;
   });
 
-  ipcMain.handle("mongo-status", () => syncManager.isLocalConnected());
-  ipcMain.handle("atlas-status", () => syncManager.isAtlasConnected());
+  ipcMain.handle("mongo-status", async () => syncManager.isLocalConnected());
+  ipcMain.handle("atlas-status", async () => syncManager.isAtlasConnected());
 
-  ipcMain.handle("open-external", (_e, url: string) => {
+  ipcMain.handle("open-external", async (_e, url: string) => {
     shell.openExternal(url);
   });
 
-  ipcMain.handle("get-app-info", () => ({
+  ipcMain.handle("get-app-info", async () => ({
     name: "ClipMaster Pro",
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -874,7 +967,7 @@ rm "$0"
     }
   });
 
-  ipcMain.handle("get-active-download-status", () => {
+  ipcMain.handle("get-active-download-status", async () => {
     return {
       status: activeDownloadStatus,
       progress: activeDownloadProgress,
@@ -1177,6 +1270,11 @@ app.on("before-quit", async (e) => {
   isQuitting = true;
   stopClipboardListener();
   syncManager.stopBackgroundSync();
+
+  if (uiStateSaveTimeout) {
+    clearTimeout(uiStateSaveTimeout);
+    uiStateSaveTimeout = null;
+  }
 
   console.log("[App] Saving final UI State...");
   await storageManager.saveUiState(uiState).catch(() => {});

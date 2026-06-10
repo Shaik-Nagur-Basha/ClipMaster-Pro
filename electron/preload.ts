@@ -1,6 +1,26 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { ClipboardItem, Tag, AppSettings, SyncState } from "../src/types";
 
+// Registry to ensure at most one active listener exists on ipcRenderer per channel
+const activeListeners = new Map<string, (...args: any[]) => void>();
+
+function registerSingleListener(channel: string, listener: (...args: any[]) => void) {
+  const existing = activeListeners.get(channel);
+  if (existing) {
+    ipcRenderer.removeListener(channel, existing);
+  }
+  ipcRenderer.on(channel, listener);
+  activeListeners.set(channel, listener);
+
+  return () => {
+    const current = activeListeners.get(channel);
+    if (current === listener) {
+      ipcRenderer.removeListener(channel, listener);
+      activeListeners.delete(channel);
+    }
+  };
+}
+
 const clipAPI = {
   // ── Window controls ────────────────────────────────────────────────────
   minimize: () => ipcRenderer.send("window-minimize"),
@@ -54,18 +74,15 @@ const clipAPI = {
   // ── Push events from main ──────────────────────────────────────────────
   onNewClip: (cb: (item: ClipboardItem) => void) => {
     const h = (_: Electron.IpcRendererEvent, item: ClipboardItem) => cb(item);
-    ipcRenderer.on("new-clip", h);
-    return () => ipcRenderer.removeListener("new-clip", h);
+    return registerSingleListener("new-clip", h);
   },
   onSyncUpdate: (cb: (state: SyncState) => void) => {
     const h = (_: Electron.IpcRendererEvent, state: SyncState) => cb(state);
-    ipcRenderer.on("sync-update", h);
-    return () => ipcRenderer.removeListener("sync-update", h);
+    return registerSingleListener("sync-update", h);
   },
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => {
     const h = (_: Electron.IpcRendererEvent, settings: AppSettings) => cb(settings);
-    ipcRenderer.on("settings-updated", h);
-    return () => ipcRenderer.removeListener("settings-updated", h);
+    return registerSingleListener("settings-updated", h);
   },
 
   // ── Application Updates ────────────────────────────────────────────────
@@ -76,23 +93,19 @@ const clipAPI = {
   getActiveDownloadStatus: () => ipcRenderer.invoke("get-active-download-status"),
   onUpdateProgress: (cb: (progress: number) => void) => {
     const h = (_: Electron.IpcRendererEvent, p: number) => cb(p);
-    ipcRenderer.on("update-progress", h);
-    return () => ipcRenderer.removeListener("update-progress", h);
+    return registerSingleListener("update-progress", h);
   },
   onUpdateError: (cb: (err: string) => void) => {
     const h = (_: Electron.IpcRendererEvent, err: string) => cb(err);
-    ipcRenderer.on("update-error", h);
-    return () => ipcRenderer.removeListener("update-error", h);
+    return registerSingleListener("update-error", h);
   },
   onUpdateSuccess: (cb: () => void) => {
     const h = () => cb();
-    ipcRenderer.on("update-success", h);
-    return () => ipcRenderer.removeListener("update-success", h);
+    return registerSingleListener("update-success", h);
   },
   onUpdateStatusReset: (cb: () => void) => {
     const h = () => cb();
-    ipcRenderer.on("update-status-reset", h);
-    return () => ipcRenderer.removeListener("update-status-reset", h);
+    return registerSingleListener("update-status-reset", h);
   },
 
   // ── Export System ──────────────────────────────────────────────────────
@@ -103,16 +116,14 @@ const clipAPI = {
   cleanupExport: () => ipcRenderer.invoke("cleanup-export"),
   onExportProgress: (cb: (progress: { step: string; percent: number }) => void) => {
     const h = (_e: any, p: { step: string; percent: number }) => cb(p);
-    ipcRenderer.on("export-progress", h);
-    return () => ipcRenderer.removeListener("export-progress", h);
+    return registerSingleListener("export-progress", h);
   },
 
   // ── Import System ──────────────────────────────────────────────────────
   selectAndImportFile: (): Promise<any> => ipcRenderer.invoke("select-and-import-file"),
   onImportProgress: (cb: (progress: { step: string; percent: number }) => void) => {
     const h = (_e: any, p: { step: string; percent: number }) => cb(p);
-    ipcRenderer.on("import-progress", h);
-    return () => ipcRenderer.removeListener("import-progress", h);
+    return registerSingleListener("import-progress", h);
   },
 };
 
