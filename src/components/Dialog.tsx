@@ -11,6 +11,7 @@ interface DialogProps {
   contentClassName?: string
   headerAction?: React.ReactNode
   paddingClassName?: string
+  overflowVisible?: boolean
 }
 
 const Dialog: React.FC<DialogProps> = ({
@@ -21,7 +22,8 @@ const Dialog: React.FC<DialogProps> = ({
   maxWidth = 'max-w-md',
   contentClassName = 'dialog-scrollbar',
   headerAction,
-  paddingClassName = 'px-6 py-6'
+  paddingClassName = 'px-6 py-6',
+  overflowVisible = false
 }) => {
   return (
     <AnimatePresence>
@@ -42,7 +44,9 @@ const Dialog: React.FC<DialogProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`w-full ${maxWidth} max-h-[85vh] md:max-h-[90vh] bg-surface-800 border border-gray-700 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col`}
+              className={`w-full ${maxWidth} max-h-[85vh] md:max-h-[90vh] bg-surface-800 border border-gray-700 rounded-2xl shadow-2xl pointer-events-auto flex flex-col ${
+                overflowVisible ? 'overflow-visible' : 'overflow-hidden'
+              }`}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50">

@@ -94,6 +94,18 @@ const clipAPI = {
     ipcRenderer.on("update-status-reset", h);
     return () => ipcRenderer.removeListener("update-status-reset", h);
   },
+
+  // ── Export System ──────────────────────────────────────────────────────
+  startExport: (options: any): Promise<any> => ipcRenderer.invoke("start-export", options),
+  cancelExport: () => ipcRenderer.invoke("cancel-export"),
+  saveExportFile: (tempFilePath: string, defaultName: string): Promise<boolean> =>
+    ipcRenderer.invoke("save-export-file", tempFilePath, defaultName),
+  cleanupExport: () => ipcRenderer.invoke("cleanup-export"),
+  onExportProgress: (cb: (progress: { step: string; percent: number }) => void) => {
+    const h = (_e: any, p: { step: string; percent: number }) => cb(p);
+    ipcRenderer.on("export-progress", h);
+    return () => ipcRenderer.removeListener("export-progress", h);
+  },
 };
 
 contextBridge.exposeInMainWorld("clipAPI", clipAPI);

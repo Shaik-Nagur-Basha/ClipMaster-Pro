@@ -17,6 +17,7 @@ import { spawn, ChildProcess } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import { syncManager } from "./syncManager";
 import type { ClipboardItem, SyncState } from "../src/types";
+import { exportManager } from "./exportManager";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
@@ -853,9 +854,47 @@ rm "$0"
     };
   });
 
+  // ── Export System IPC ──────────────────────────────────────────────────
+  ipcMain.removeHandler("start-export");
+  ipcMain.handle("start-export", async (event, options) => {
+    try {
+      const summary = await exportManager.startExport(options, (step, percent) => {
+        event.sender.send("export-progress", { step, percent });
+      });
+      return summary;
+    } catch (err: any) {
+      console.error("[IPC] start-export failed:", err);
+      throw err;
+    }
+  });
+
+  ipcMain.removeHandler("cancel-export");
+  ipcMain.handle("cancel-export", () => {
+    exportManager.cancelExport();
+    return true;
+  });
+
+  ipcMain.removeHandler("save-export-file");
+  ipcMain.handle("save-export-file", async (_e, tempFilePath: string, defaultName: string) => {
+    try {
+      return await exportManager.saveExportFile(tempFilePath, defaultName);
+    } catch (err) {
+      console.error("[IPC] save-export-file failed:", err);
+      return false;
+    }
+  });
+
+  ipcMain.removeHandler("cleanup-export");
+  ipcMain.handle("cleanup-export", () => {
+    exportManager.cleanupExport();
+    return true;
+  });
+
   ipcMain.handle("reset-all", async () => {
     try {
       clearPauseTimeout();
+      exportManager.cancelExport();
+      exportManager.cleanupExport();
       await storageManager.resetClips();
       await storageManager.resetTags();
       await storageManager.resetSettings();
@@ -873,6 +912,10 @@ rm "$0"
   ipcMain.handle("clear-cache", async () => {
     try {
       console.log("[IPC] Starting clear-cache process...");
+
+      // Cancel and clean up exports during clear cache
+      exportManager.cancelExport();
+      exportManager.cleanupExport();
 
       // 1. Clear session cache and storage data (only valid Electron storage types)
       if (mainWindow && mainWindow.webContents && mainWindow.webContents.session) {

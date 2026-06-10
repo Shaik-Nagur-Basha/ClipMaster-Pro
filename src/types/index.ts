@@ -211,6 +211,34 @@ export interface ClipAPI {
   onUpdateError: (cb: (error: string) => void) => () => void;
   onUpdateSuccess: (cb: () => void) => () => void;
   onUpdateStatusReset: (cb: () => void) => () => void;
+
+  // Export System
+  startExport: (options: ExportOptions) => Promise<ExportSummary>;
+  cancelExport: () => Promise<void>;
+  saveExportFile: (tempFilePath: string, defaultName: string) => Promise<boolean>;
+  cleanupExport: () => Promise<void>;
+  onExportProgress: (cb: (progress: { step: string; percent: number }) => void) => () => void;
+}
+
+export interface ExportOptions {
+  source: "all" | "clips" | "tags" | "settings";
+  scope: "all" | "clips" | "favorites" | "recycle" | "tagged";
+  format: "raw" | "json" | "excel" | "pdf";
+}
+
+export interface ExportProgress {
+  step: "preparing" | "processing" | "generating" | "compressing" | "complete";
+  percent: number;
+}
+
+export interface ExportSummary {
+  totalRecords: number;
+  exportType: string;
+  format: string;
+  fileCount: number;
+  finalFileSize: number;
+  tempFilePath: string;
+  defaultFileName: string;
 }
 
 export interface GitHubReleaseAsset {

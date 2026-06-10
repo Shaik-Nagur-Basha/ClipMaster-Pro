@@ -3,6 +3,7 @@ import logoIcon from "@/assets/icon.png";
 import { useClipStore } from "../store/useClipStore";
 import { useUpdateStore } from "../store/useUpdateStore";
 import { UpdateSettings } from "../components/UpdateSettings";
+import { ExportWizard } from "../components/ExportWizard";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
 import { FullPageSpinner } from "../components/LoadingSpinner";
 import {
@@ -45,6 +46,7 @@ const Settings: React.FC = () => {
   const [showUpdatesDialog, setShowUpdatesDialog] = useState(false);
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
+  const [showExportWizard, setShowExportWizard] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearCacheStep, setClearCacheStep] = useState(0);
   const [clearCacheStatus, setClearCacheStatus] = useState<
@@ -809,6 +811,28 @@ const Settings: React.FC = () => {
             icon={<IconAlertCircle size={14} className="text-rose-500/60" />}
           >
             <div className="space-y-3">
+              {/* Export System */}
+              <div className="p-4 rounded-xl bg-brand-500/5 border-brand-500/20 space-y-3">
+                <div className="space-y-1">
+                  <h4 className="text-[13px] font-semibold text-brand-400">
+                    Export Application Data
+                  </h4>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Export your clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files for backups.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowExportWizard(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/10 border-brand-500/30 text-[13px] text-brand-400 font-medium hover:bg-brand-500/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Open Export System
+                </button>
+              </div>
+
+              {/* Clear All Data */}
               <div className="p-4 rounded-xl bg-rose-500/5 border-rose-500/20 space-y-3">
                 <div className="space-y-1">
                   <h4 className="text-[13px] font-semibold text-rose-400">
@@ -824,7 +848,7 @@ const Settings: React.FC = () => {
                     setShowResetDialog(true);
                     setResetConfirmText("");
                   }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 border-rose-500/30 text-[13px] text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 border-rose-500/30 text-[13px] text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer"
                 >
                   <IconAlertCircle size={14} />
                   Clear All Data
@@ -1248,6 +1272,12 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </Dialog>
+
+      {/* Export System Dialog */}
+      <ExportWizard
+        isOpen={showExportWizard}
+        onClose={() => setShowExportWizard(false)}
+      />
     </div>
   );
 };
