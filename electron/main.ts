@@ -375,11 +375,18 @@ function stopClipboardListener(): void {
   }
 }
 
+let activeDownloadRequest: any = null;
+let wasDownloadCancelled = false;
+let activeDownloadRelease: any = null;
+let activeDownloadProgress = 0;
+let activeDownloadStatus: "idle" | "checking" | "downloading" | "ready" | "error" = "idle";
+let activeDownloadErrorMessage: string | null = null;
+
 // Helper to download a file with progress tracking and redirection handling
 function downloadFile(url: string, destPath: string, onProgress: (progress: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = (targetUrl: string) => {
-      https.get(targetUrl, {
+      const req = https.get(targetUrl, {
         headers: {
           "User-Agent": "ClipMaster-Pro-Updater",
           "Accept": "application/octet-stream",
@@ -393,19 +400,24 @@ function downloadFile(url: string, destPath: string, onProgress: (progress: numb
         }
 
         if (res.statusCode !== 200) {
+          activeDownloadRequest = null;
           reject(new Error(`Failed to download: HTTP ${res.statusCode} ${res.statusMessage}`));
           return;
         }
 
         const totalBytes = parseInt(res.headers["content-length"] || "0", 10);
         let receivedBytes = 0;
+        let lastReportedProgress = -1;
         const fileStream = fs.createWriteStream(destPath);
 
         res.on("data", (chunk) => {
           receivedBytes += chunk.length;
           if (totalBytes > 0) {
             const progress = Math.round((receivedBytes / totalBytes) * 100);
-            onProgress(progress);
+            if (progress !== lastReportedProgress) {
+              lastReportedProgress = progress;
+              onProgress(progress);
+            }
           }
         });
 
@@ -413,21 +425,29 @@ function downloadFile(url: string, destPath: string, onProgress: (progress: numb
 
         fileStream.on("finish", () => {
           fileStream.close();
+          activeDownloadRequest = null;
           resolve();
         });
 
         fileStream.on("error", (err) => {
+          activeDownloadRequest = null;
           fs.unlink(destPath, () => {});
           reject(err);
         });
 
         res.on("error", (err) => {
+          activeDownloadRequest = null;
           fs.unlink(destPath, () => {});
           reject(err);
         });
-      }).on("error", (err) => {
+      });
+
+      req.on("error", (err) => {
+        activeDownloadRequest = null;
         reject(err);
       });
+
+      activeDownloadRequest = req;
     };
 
     request(url);
@@ -669,13 +689,36 @@ function registerIPC(): void {
     const tempFilePath = path.join(tempDir, selectedAsset.name);
 
     try {
-      mainWindow?.webContents.send("update-progress", 0);
-      
-      await downloadFile(selectedAsset.browser_download_url, tempFilePath, (progress) => {
-        mainWindow?.webContents.send("update-progress", progress);
-      });
+      wasDownloadCancelled = false;
+      activeDownloadRelease = release;
+      activeDownloadErrorMessage = null;
 
-      console.log("[Update] Download completed to:", tempFilePath);
+      let isAlreadyDownloaded = false;
+      if (fs.existsSync(tempFilePath)) {
+        const stats = fs.statSync(tempFilePath);
+        if (stats.size === selectedAsset.size) {
+          isAlreadyDownloaded = true;
+        }
+      }
+
+      if (!isAlreadyDownloaded) {
+        activeDownloadStatus = "downloading";
+        activeDownloadProgress = 0;
+        mainWindow?.webContents.send("update-progress", 0);
+        
+        await downloadFile(selectedAsset.browser_download_url, tempFilePath, (progress) => {
+          activeDownloadProgress = progress;
+          mainWindow?.webContents.send("update-progress", progress);
+        });
+
+        console.log("[Update] Download completed to:", tempFilePath);
+      } else {
+        console.log("[Update] File already fully downloaded. Skipping download step and proceeding to installation.");
+        mainWindow?.webContents.send("update-progress", 100);
+      }
+
+      activeDownloadStatus = "ready";
+      activeDownloadProgress = 100;
 
       // Perform dev mode safety check
       if (!app.isPackaged) {
@@ -744,8 +787,70 @@ rm "$0"
 
     } catch (err: any) {
       console.error("[Update] Update process failed:", err);
-      mainWindow?.webContents.send("update-error", err.message || String(err));
+      const message = wasDownloadCancelled ? "Download cancelled by user." : (err.message || String(err));
+      activeDownloadStatus = wasDownloadCancelled ? "idle" : "error";
+      activeDownloadErrorMessage = message;
+      mainWindow?.webContents.send("update-error", message);
     }
+  });
+
+  ipcMain.handle("cancel-update-download", () => {
+    if (activeDownloadRequest) {
+      wasDownloadCancelled = true;
+      activeDownloadRequest.destroy();
+      activeDownloadRequest = null;
+      activeDownloadRelease = null;
+      activeDownloadProgress = 0;
+      activeDownloadStatus = "idle";
+      activeDownloadErrorMessage = null;
+      console.log("[Update] Download cancelled by user.");
+      return true;
+    }
+    return false;
+  });
+
+  ipcMain.handle("check-update-downloaded", async (_e, release: any) => {
+    try {
+      const platform = process.platform;
+      const assets = release.assets || [];
+      let selectedAsset = null;
+
+      if (platform === "win32") {
+        selectedAsset = assets.find((a: any) => a.name.endsWith(".exe") && !a.name.toLowerCase().includes("setup"));
+        if (!selectedAsset) {
+          selectedAsset = assets.find((a: any) => a.name.endsWith(".exe"));
+        }
+      } else if (platform === "darwin") {
+        selectedAsset = assets.find((a: any) => a.name.endsWith(".dmg") || a.name.endsWith(".zip") || a.name.endsWith(".pkg"));
+      } else {
+        selectedAsset = assets.find((a: any) => a.name.endsWith(".AppImage") || a.name.endsWith(".deb") || a.name.endsWith(".tar.gz"));
+      }
+
+      if (!selectedAsset) return false;
+
+      const tempDir = app.getPath("temp");
+      const tempFilePath = path.join(tempDir, selectedAsset.name);
+
+      if (fs.existsSync(tempFilePath)) {
+        const stats = fs.statSync(tempFilePath);
+        if (stats.size === selectedAsset.size) {
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error("[Update] Check download status failed:", err);
+      return false;
+    }
+  });
+
+  ipcMain.handle("get-active-download-status", () => {
+    return {
+      status: activeDownloadStatus,
+      progress: activeDownloadProgress,
+      targetRelease: activeDownloadRelease,
+      errorMessage: activeDownloadErrorMessage,
+    };
   });
 
   ipcMain.handle("reset-all", async () => {
@@ -760,6 +865,88 @@ rm "$0"
       return true;
     } catch (err) {
       console.error("[IPC] reset-all failed:", err);
+      return false;
+    }
+  });
+
+  ipcMain.removeHandler("clear-cache");
+  ipcMain.handle("clear-cache", async () => {
+    try {
+      console.log("[IPC] Starting clear-cache process...");
+
+      // 1. Clear session cache and storage data (only valid Electron storage types)
+      if (mainWindow && mainWindow.webContents && mainWindow.webContents.session) {
+        const ses = mainWindow.webContents.session;
+        try {
+          await ses.clearCache();
+        } catch (cacheErr) {
+          console.warn("[IPC] clearCache warning:", cacheErr);
+        }
+        try {
+          await ses.clearStorageData({
+            storages: ["cachestorage", "serviceworkers"]
+          });
+        } catch (storageErr) {
+          console.warn("[IPC] clearStorageData warning:", storageErr);
+        }
+      }
+
+      // 2. Clear downloaded update executable versions in temp folder (case-insensitive)
+      const tempDir = app.getPath("temp");
+      if (fs.existsSync(tempDir)) {
+        const files = fs.readdirSync(tempDir);
+        for (const file of files) {
+          const filePath = path.join(tempDir, file);
+          const lowerFile = file.toLowerCase();
+          if (
+            lowerFile.includes("clipmaster") ||
+            lowerFile.startsWith("install-update")
+          ) {
+            try {
+              if (fs.statSync(filePath).isFile()) {
+                fs.unlinkSync(filePath);
+                console.log("[IPC] Deleted temp update file:", file);
+              }
+            } catch (unlinkErr) {
+              console.error(`[IPC] Failed to delete temp file ${file}:`, unlinkErr);
+            }
+          }
+        }
+      }
+
+      // 3. Reset active download status variables in main process memory
+      activeDownloadRelease = null;
+      activeDownloadProgress = 0;
+      activeDownloadStatus = "idle";
+      activeDownloadErrorMessage = null;
+      activeDownloadRequest = null;
+      wasDownloadCancelled = false;
+
+      // 4. Notify renderer to reset update status to idle
+      mainWindow?.webContents.send("update-status-reset");
+
+      // 5. Compact databases manually
+      const sm = storageManager as any;
+      if (sm.clipsDb && typeof sm.clipsDb.persistence?.compactDatafile === "function") {
+        sm.clipsDb.persistence.compactDatafile();
+      }
+      if (sm.tagsDb && typeof sm.tagsDb.persistence?.compactDatafile === "function") {
+        sm.tagsDb.persistence.compactDatafile();
+      }
+      if (sm.settingsDb && typeof sm.settingsDb.persistence?.compactDatafile === "function") {
+        sm.settingsDb.persistence.compactDatafile();
+      }
+      if (sm.queueDb && typeof sm.queueDb.persistence?.compactDatafile === "function") {
+        sm.queueDb.persistence.compactDatafile();
+      }
+      if (sm.syncLogsDb && typeof sm.syncLogsDb.persistence?.compactDatafile === "function") {
+        sm.syncLogsDb.persistence.compactDatafile();
+      }
+
+      console.log("[IPC] clear-cache process completed successfully.");
+      return true;
+    } catch (err) {
+      console.error("[IPC] clear-cache failed:", err);
       return false;
     }
   });

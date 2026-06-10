@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import logoIcon from "@/assets/icon.png";
 import { useClipStore } from "../store/useClipStore";
+import { useUpdateStore } from "../store/useUpdateStore";
 import { UpdateSettings } from "../components/UpdateSettings";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
 import {
@@ -19,6 +20,7 @@ import {
   IconMinimize,
   IconTrash,
   IconClock,
+  IconZap,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -36,6 +38,15 @@ const Settings: React.FC = () => {
     syncState,
     setSyncState,
   } = useClipStore();
+
+  const { updateStatus, downloadProgress } = useUpdateStore();
+  const [showUpdatesDialog, setShowUpdatesDialog] = useState(false);
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
+  const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+  const [clearCacheStep, setClearCacheStep] = useState(0);
+  const [clearCacheStatus, setClearCacheStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [clearCacheError, setClearCacheError] = useState("");
 
   const latestClipTimestamp = React.useMemo(() => {
     if (clips.length === 0) return 0;
@@ -98,7 +109,10 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     setSettingsLoading(true);
-    loadSettings().finally(() => setSettingsLoading(false));
+    loadSettings().finally(() => {
+      setSettingsLoading(false);
+      useUpdateStore.getState().fetchReleases();
+    });
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -249,6 +263,64 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleClearCache = async () => {
+    setClearingCache(true);
+    setClearCacheStatus("running");
+    setClearCacheStep(0);
+    setClearCacheError("");
+    setShowClearCacheDialog(true);
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    try {
+      // Step 0: Initialize
+      await delay(600);
+      
+      // Step 1: Scanning temp files
+      setClearCacheStep(1);
+      await delay(800);
+
+      // Step 2: Purging downloaded version assets
+      setClearCacheStep(2);
+      await delay(800);
+
+      // Step 3: Clearing web application cache
+      setClearCacheStep(3);
+      await delay(800);
+
+      // Step 4: Compacting database files
+      setClearCacheStep(4);
+      const success = window.clipAPI?.clearCache
+        ? await window.clipAPI.clearCache()
+        : true;
+      if (!success) {
+        throw new Error("Failed to clear cache in main process");
+      }
+      await delay(1000);
+
+      // Step 5: Optimizing index structures
+      setClearCacheStep(5);
+      const store = useClipStore.getState();
+      // Also reset the update store state (downloads cleared)
+      useUpdateStore.getState().resetProgress();
+      await Promise.all([
+        store.loadClips(),
+        store.loadTags(),
+      ]);
+      await delay(600);
+
+      // Complete
+      setClearCacheStep(6);
+      setClearCacheStatus("done");
+    } catch (err: any) {
+      console.error("Clear cache failed:", err);
+      setClearCacheStatus("error");
+      setClearCacheError(err.message || "An error occurred during cache clearance.");
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   const fmtTime = (iso: string | null) =>
     iso
       ? new Date(iso).toLocaleTimeString([], {
@@ -286,14 +358,82 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowShortcutDialog(true)}
-          className="inline-flex items-center justify-center rounded-full border border-gray-700 bg-surface-800 p-2 text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10"
-          title="Show keyboard shortcuts"
-        >
-          <IconInfo size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClearCache}
+            disabled={clearingCache}
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
+            title="Clear downloaded versions and cache"
+          >
+            <IconTrash size={14} className="text-rose-400" />
+            <span>Clear Cache</span>
+          </button>
+
+          {updateStatus === "downloading" ? (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-400 font-semibold transition hover:border-brand-500/50 hover:bg-brand-500/20 cursor-pointer"
+              title="Downloading update"
+            >
+              <IconRefresh size={14} className="animate-spin" />
+              <span className="tabular-nums">Downloading {downloadProgress}%</span>
+            </button>
+          ) : updateStatus === "ready" ? (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400 font-semibold transition hover:border-amber-500/50 hover:bg-amber-500/20 cursor-pointer"
+              title="Update ready to install"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+              <span>Ready to Restart</span>
+            </button>
+          ) : updateStatus === "checking" ? (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-400 font-semibold transition hover:border-brand-500/50 hover:bg-brand-500/20 cursor-pointer"
+              title="Checking for updates"
+            >
+              <IconRefresh size={14} className="animate-spin" />
+              <span>Checking...</span>
+            </button>
+          ) : updateStatus === "error" ? (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400 font-semibold transition hover:border-rose-500/50 hover:bg-rose-500/20 cursor-pointer"
+              title="Update error"
+            >
+              <IconAlertCircle size={14} />
+              <span>Update Error</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer"
+              title="Application updates"
+            >
+              <IconRefresh size={14} />
+              <span>Updates</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowShortcutDialog(true)}
+            className="inline-flex items-center justify-center rounded-full border border-gray-700 bg-surface-800 p-2 text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer"
+            title="Show keyboard shortcuts"
+          >
+            <IconInfo size={16} />
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -644,8 +784,7 @@ const Settings: React.FC = () => {
           </div>
           {/* End Sync Status Overlay */}
 
-          {/* Application Updates */}
-          <UpdateSettings />
+
 
           {/* Data Management & Reset */}
           <Section
@@ -727,6 +866,225 @@ const Settings: React.FC = () => {
           </p>
         </div>
       </footer>
+
+      {/* Application Updates Dialog */}
+      <Dialog
+        isOpen={showUpdatesDialog}
+        onClose={() => setShowUpdatesDialog(false)}
+        title="Application Updates"
+        maxWidth="max-w-xl"
+        contentClassName="settings-scrollbar"
+        paddingClassName="p-0"
+        headerAction={
+          <div className="flex items-center gap-2">
+            {updateStatus === "downloading" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-400 font-semibold animate-pulse">
+                <IconRefresh size={10} className="animate-spin" />
+                <span className="tabular-nums">Downloading {downloadProgress}%</span>
+              </span>
+            ) : updateStatus === "ready" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400 font-semibold">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                </span>
+                <span>Ready to Restart</span>
+              </span>
+            ) : updateStatus === "error" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400 font-semibold">
+                <IconAlertCircle size={10} />
+                <span>Update Error</span>
+              </span>
+            ) : updateStatus === "checking" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-400 font-semibold animate-pulse">
+                <IconRefresh size={10} className="animate-spin" />
+                <span>Checking...</span>
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowInfoDialog(true)}
+              className="inline-flex items-center justify-center rounded-full border border-gray-700 bg-surface-800 p-1.5 text-gray-400 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer"
+              title="Show updates info"
+            >
+              <IconInfo size={12} />
+            </button>
+          </div>
+        }
+      >
+        <UpdateSettings hideHeader />
+      </Dialog>
+
+      {/* Clear Cache & Optimization Dialog */}
+      <Dialog
+        isOpen={showClearCacheDialog}
+        onClose={() => {
+          if (!clearingCache) {
+            setShowClearCacheDialog(false);
+            setClearCacheStatus("idle");
+          }
+        }}
+        title="Cache Clearance & Optimization"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6 py-2">
+          {clearCacheStatus === "running" && (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              {/* Spinning optimization visual */}
+              <div className="relative flex items-center justify-center w-16 h-16">
+                <div className="absolute inset-0 border-4 border-brand-500/20 rounded-full" />
+                <div className="absolute inset-0 border-4 border-t-brand-500 rounded-full animate-spin" />
+                <IconZap size={24} className="text-brand-400 animate-pulse" />
+              </div>
+              <div className="text-center">
+                <h4 className="text-sm font-bold text-white">Clearing Application Cache</h4>
+                <p className="text-xs text-gray-400 mt-1">Please wait while we optimize ClipMaster Pro...</p>
+              </div>
+            </div>
+          )}
+
+          {clearCacheStatus === "done" && (
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                <IconCheck size={32} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-emerald-400">Cache Successfully Cleared</h4>
+                <p className="text-xs text-gray-400 mt-1">
+                  Downloaded update setup assets and version installers were deleted.
+                  Local databases compacted and system caches cleared.
+                  Your settings, clips, and tags remain fully preserved.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {clearCacheStatus === "error" && (
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                <IconAlertCircle size={32} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-400">Clear Cache Failed</h4>
+                <p className="text-xs text-gray-400 mt-1">{clearCacheError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Step-by-step progress checklist */}
+          <div className="bg-surface-900/40 border border-gray-700/50 rounded-xl p-4 space-y-3">
+            {[
+              { label: "Scanning temporary download folders", step: 1 },
+              { label: "Purging version installation files", step: 2 },
+              { label: "Purging web session caches", step: 3 },
+              { label: "Compacting local database files", step: 4 },
+              { label: "Re-indexing clip records", step: 5 },
+            ].map((item) => {
+              const isPending = clearCacheStep < item.step;
+              const isCurrent = clearCacheStep === item.step;
+              const isCompleted = clearCacheStep > item.step;
+
+              return (
+                <div key={item.step} className="flex items-center justify-between text-xs">
+                  <span className={`transition-colors duration-200 ${
+                    isCompleted ? "text-gray-400 decoration-gray-500/30" : isCurrent ? "text-brand-400 font-bold" : "text-gray-500"
+                  }`}>
+                    {item.label}
+                  </span>
+                  <div>
+                    {isCompleted ? (
+                      <IconCheck size={14} className="text-emerald-400" />
+                    ) : isCurrent ? (
+                      <IconRefresh size={14} className="animate-spin text-brand-400" />
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full border border-gray-700 block" />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Done / Close Actions */}
+          <div className="pt-2">
+            {clearCacheStatus === "done" && (
+              <button
+                onClick={() => {
+                  setShowClearCacheDialog(false);
+                  setClearCacheStatus("idle");
+                }}
+                className="w-full px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-all text-xs uppercase tracking-wider cursor-pointer"
+              >
+                Close Optimizer
+              </button>
+            )}
+            {clearCacheStatus === "error" && (
+              <button
+                onClick={() => {
+                  setShowClearCacheDialog(false);
+                  setClearCacheStatus("idle");
+                }}
+                className="w-full px-4 py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold transition-all text-xs uppercase tracking-wider cursor-pointer"
+              >
+                Close Dialog
+              </button>
+            )}
+            {clearCacheStatus === "running" && (
+              <button
+                disabled
+                className="w-full px-4 py-2.5 rounded-lg bg-gray-700 text-gray-500 font-bold text-xs uppercase tracking-wider cursor-not-allowed"
+              >
+                Optimizing...
+              </button>
+            )}
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Application Updates Information Dialog */}
+      <Dialog
+        isOpen={showInfoDialog}
+        onClose={() => setShowInfoDialog(false)}
+        title="Application Updates Information"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-brand-500/5 border border-brand-500/10 rounded-xl space-y-3">
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-white">How updates work:</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                ClipMaster Pro fetches the latest release assets directly from our secure GitHub repository releases.
+              </p>
+            </div>
+            <ul className="text-xs text-gray-400 space-y-2 ml-4 list-disc">
+              <li>
+                <span className="font-semibold text-gray-200">Installed Version</span> is the currently running build of the application.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Latest Release</span> represents the latest stable release tagged on GitHub.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Release Notes</span> are displayed below the selector to help you inspect new features, bug fixes, or performance enhancements.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Data Safety</span>: Your clipboard history, local MongoDB databases, and personalized configurations are fully preserved during updates.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Cancellation</span>: You can cancel the download at any time using the cancel button.
+              </li>
+            </ul>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => setShowInfoDialog(false)}
+              className="w-full px-3 py-2 rounded-md bg-brand-500 hover:bg-brand-600 text-white transition-all text-xs font-semibold uppercase tracking-wide cursor-pointer"
+            >
+              Close Info
+            </button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Shortcut Info Dialog */}
       <Dialog

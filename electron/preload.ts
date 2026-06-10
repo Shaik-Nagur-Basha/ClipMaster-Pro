@@ -49,6 +49,7 @@ const clipAPI = {
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
   getAppInfo: () => ipcRenderer.invoke("get-app-info"),
   resetAll: (): Promise<boolean> => ipcRenderer.invoke("reset-all"),
+  clearCache: (): Promise<boolean> => ipcRenderer.invoke("clear-cache"),
 
   // ── Push events from main ──────────────────────────────────────────────
   onNewClip: (cb: (item: ClipboardItem) => void) => {
@@ -70,6 +71,9 @@ const clipAPI = {
   // ── Application Updates ────────────────────────────────────────────────
   getReleases: () => ipcRenderer.invoke("get-releases"),
   triggerUpdate: (release: any) => ipcRenderer.invoke("trigger-update", release),
+  cancelUpdateDownload: () => ipcRenderer.invoke("cancel-update-download"),
+  checkUpdateDownloaded: (release: any) => ipcRenderer.invoke("check-update-downloaded", release),
+  getActiveDownloadStatus: () => ipcRenderer.invoke("get-active-download-status"),
   onUpdateProgress: (cb: (progress: number) => void) => {
     const h = (_: Electron.IpcRendererEvent, p: number) => cb(p);
     ipcRenderer.on("update-progress", h);
@@ -84,6 +88,11 @@ const clipAPI = {
     const h = () => cb();
     ipcRenderer.on("update-success", h);
     return () => ipcRenderer.removeListener("update-success", h);
+  },
+  onUpdateStatusReset: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on("update-status-reset", h);
+    return () => ipcRenderer.removeListener("update-status-reset", h);
   },
 };
 

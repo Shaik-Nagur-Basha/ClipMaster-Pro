@@ -10,6 +10,7 @@ import {
 } from "./Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
+import Dialog from "./Dialog";
 
 // Helper to format date
 const formatDate = (dateString: string) => {
@@ -39,7 +40,11 @@ const semverCompare = (v1: string, v2: string) => {
   return 0;
 };
 
-export const UpdateSettings: React.FC = () => {
+interface UpdateSettingsProps {
+  hideHeader?: boolean;
+}
+
+export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = false }) => {
   const {
     availableReleases,
     currentVersion,
@@ -50,12 +55,14 @@ export const UpdateSettings: React.FC = () => {
     fetchReleases,
     setTargetRelease,
     triggerUpdate,
+    cancelUpdate,
     resetProgress,
   } = useUpdateStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showReleaseNotes, setShowReleaseNotes] = useState(true);
   const [isPackaged, setIsPackaged] = useState(true);
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,7 +102,7 @@ export const UpdateSettings: React.FC = () => {
 
   if (updateStatus === "checking" && availableReleases.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 rounded-xl bg-surface-800 border border-gray-700/50 space-y-3">
+      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-surface-800">
         <IconRefresh size={20} className="animate-spin text-brand-400" />
         <span className="text-xs text-gray-400 font-medium">Checking GitHub releases...</span>
       </div>
@@ -103,17 +110,27 @@ export const UpdateSettings: React.FC = () => {
   }
 
   return (
-    <section className="space-y-3">
-      <header className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <IconRefresh size={14} className="text-gray-500" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
-            Application Updates
-          </h3>
-        </div>
-      </header>
+    <div className={hideHeader ? "" : "space-y-3"}>
+      {!hideHeader && (
+        <header className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <IconRefresh size={14} className="text-gray-500" />
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+              Application Updates
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInfoDialog(true)}
+            className="inline-flex items-center justify-center rounded-full border border-gray-700 bg-surface-800 p-1.5 text-gray-400 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer"
+            title="Show updates info"
+          >
+            <IconInfo size={12} />
+          </button>
+        </header>
+      )}
 
-      <div className="p-5 rounded-xl bg-surface-800 border border-gray-700 hover:border-gray-600 transition-colors duration-300 space-y-4">
+      <div className={`p-5 rounded-xl bg-surface-800 transition-colors duration-300 space-y-4 ${hideHeader ? "" : "border border-gray-700 hover:border-gray-600"}`}>
         {/* Versions Info Grid */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-surface-900/50 border border-gray-700/30 p-3 rounded-lg flex flex-col">
@@ -218,16 +235,16 @@ export const UpdateSettings: React.FC = () => {
         {/* Selected Release Detail card */}
         {targetRelease && (
           <div className="p-4 rounded-lg bg-surface-900/40 border border-gray-700/50 space-y-2">
-            <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+            <div className={`flex items-center justify-between gap-2 ${showReleaseNotes ? 'border-b border-gray-800 pb-2' : ''}`}>
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-bold text-gray-300">{targetRelease.name}</span>
+                <span className="text-[12px] font-bold text-gray-300 line-clamp-1">{targetRelease.name}</span>
                 {versionComparison > 0 && (
                   <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider">
                     Upgrade Available
                   </span>
                 )}
                 {versionComparison === 0 && (
-                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-700 border border-gray-600/30 text-gray-400 font-bold uppercase tracking-wider">
+                  <span className="text-[9px] text-nowrap px-2 py-0.5 rounded-full bg-gray-700 border border-gray-600/30 text-gray-400 font-bold uppercase tracking-wider">
                     Currently Installed
                   </span>
                 )}
@@ -239,14 +256,14 @@ export const UpdateSettings: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowReleaseNotes(!showReleaseNotes)}
-                className="text-[10px] text-brand-400 hover:text-brand-300 font-semibold focus:outline-none"
+                className="text-[10px] text-nowrap text-brand-400 hover:text-brand-300 font-semibold focus:outline-none"
               >
-                {showReleaseNotes ? "Hide release notes" : "Show release notes"}
+                {showReleaseNotes ? "Hide notes" : "Show notes"}
               </button>
             </div>
 
             {showReleaseNotes && targetRelease.body && (
-              <div className="text-xs text-gray-400 max-h-36 overflow-y-auto settings-scrollbar pr-1.5 leading-relaxed pt-1 select-text">
+              <div className="text-xs text-gray-400 max-h-64 overflow-y-auto settings-scrollbar pr-1.5 leading-relaxed pt-1 select-text">
                 <ReactMarkdown
                   components={{
                     p: ({ node, ...props }) => <p className="mb-2" {...props} />,
@@ -267,7 +284,7 @@ export const UpdateSettings: React.FC = () => {
 
         {/* Update progress or notifications */}
         {updateStatus === "downloading" && (
-          <div className="space-y-2 p-3 bg-brand-500/5 border border-brand-500/10 rounded-lg">
+          <div className="space-y-3 p-4 bg-brand-500/5 border border-brand-500/10 rounded-lg">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="text-brand-400 animate-pulse flex items-center gap-1.5">
                 <IconRefresh size={12} className="animate-spin" />
@@ -281,16 +298,25 @@ export const UpdateSettings: React.FC = () => {
                 style={{ width: `${downloadProgress}%` }}
               />
             </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={cancelUpdate}
+                className="px-3 py-1.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer"
+              >
+                Cancel Download
+              </button>
+            </div>
           </div>
         )}
 
         {updateStatus === "ready" && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-start gap-2.5">
-            <div className="mt-0.5 p-1 rounded bg-emerald-500/10 text-emerald-400">
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2.5">
+            <div className="mt-0.5 p-1 rounded bg-amber-500/10 text-amber-400">
               <IconCheck size={14} />
             </div>
             <div className="space-y-1">
-              <h5 className="text-[12px] font-bold text-emerald-400">Download Complete</h5>
+              <h5 className="text-[12px] font-bold text-amber-400">Download Complete</h5>
               <p className="text-[11px] text-gray-400 leading-normal">
                 {isPackaged
                   ? "The update was successfully downloaded. Click below to restart and install the version."
@@ -319,7 +345,7 @@ export const UpdateSettings: React.FC = () => {
         )}
 
         {/* Footer actions */}
-        <div className="flex justify-end gap-3 pt-1 border-t border-gray-800/40">
+        <div className="flex justify-end gap-3 pt-1">
           <button
             onClick={() => fetchReleases()}
             disabled={updateStatus === "downloading" || updateStatus === "checking"}
@@ -334,7 +360,7 @@ export const UpdateSettings: React.FC = () => {
             isPackaged ? (
               <button
                 onClick={handleUpdateClick}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-[12px] font-bold hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 transition-all"
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[12px] font-bold hover:shadow-lg hover:shadow-amber-500/10 active:scale-95 transition-all"
               >
                 Restart App & Apply Update
               </button>
@@ -380,6 +406,51 @@ export const UpdateSettings: React.FC = () => {
           )}
         </div>
       </div>
-    </section>
+      
+      {/* Update Info Dialog */}
+      <Dialog
+        isOpen={showInfoDialog}
+        onClose={() => setShowInfoDialog(false)}
+        title="Application Updates Information"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-brand-500/5 border border-brand-500/10 rounded-xl space-y-3">
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-white">How updates work:</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                ClipMaster Pro fetches the latest release assets directly from our secure GitHub repository releases.
+              </p>
+            </div>
+            <ul className="text-xs text-gray-400 space-y-2 ml-4 list-disc">
+              <li>
+                <span className="font-semibold text-gray-200">Installed Version</span> is the currently running build of the application.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Latest Release</span> represents the latest stable release tagged on GitHub.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Release Notes</span> are displayed below the selector to help you inspect new features, bug fixes, or performance enhancements.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Data Safety</span>: Your clipboard history, local MongoDB databases, and personalized configurations are fully preserved during updates.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-200">Cancellation</span>: You can cancel the download at any time using the cancel button.
+              </li>
+            </ul>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => setShowInfoDialog(false)}
+              className="w-full px-3 py-2 rounded-md bg-brand-500 hover:bg-brand-600 text-white transition-all text-xs font-semibold uppercase tracking-wide cursor-pointer"
+            >
+              Close Info
+            </button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
   );
 };

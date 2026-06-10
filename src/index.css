@@ -350,3 +350,19 @@ a {
   background: rgba(99, 102, 241, 0.15);
   color: #818cf8;
 }
+
+/* ─── Dialog custom scrollbar ────────────────────────────────────────── */
+.dialog-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dialog-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dialog-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 99px;
+}
+.dialog-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}

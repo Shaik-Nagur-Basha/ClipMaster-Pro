@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxEntries: 5000,
   pollingInterval: 600,
   paginationEnabled: false,
+  pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
   lastLocalSyncedAt: null,

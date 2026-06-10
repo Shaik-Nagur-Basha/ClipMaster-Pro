@@ -8,9 +8,21 @@ interface DialogProps {
   title: string
   children: React.ReactNode
   maxWidth?: string
+  contentClassName?: string
+  headerAction?: React.ReactNode
+  paddingClassName?: string
 }
 
-const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, maxWidth = 'max-w-md' }) => {
+const Dialog: React.FC<DialogProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'max-w-md',
+  contentClassName = 'dialog-scrollbar',
+  headerAction,
+  paddingClassName = 'px-6 py-6'
+}) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,11 +42,14 @@ const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, maxWi
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`w-full ${maxWidth} bg-surface-800 border border-gray-700 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col`}
+              className={`w-full ${maxWidth} max-h-[85vh] md:max-h-[90vh] bg-surface-800 border border-gray-700 rounded-2xl shadow-2xl pointer-events-auto overflow-hidden flex flex-col`}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50">
-                <h3 className="text-sm font-bold text-white uppercase tracking-widest">{title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">{title}</h3>
+                  {headerAction}
+                </div>
                 <button
                   onClick={onClose}
                   className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all"
@@ -44,7 +59,7 @@ const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, maxWi
               </div>
               
               {/* Content */}
-              <div className="px-6 py-6 min-h-0 overflow-y-auto">
+              <div className={`${paddingClassName} min-h-0 overflow-y-auto ${contentClassName}`}>
                 {children}
               </div>
             </motion.div>

@@ -77,6 +77,7 @@ export interface AppSettings {
   maxEntries: number;
   pollingInterval: number;
   paginationEnabled: boolean;
+  pageSize?: number;
   viewMode: ViewMode;
   displayMode: DisplayMode;
   lastLocalSyncedAt: string | null;
@@ -179,6 +180,7 @@ export interface ClipAPI {
 
   // Data Management
   resetAll: () => Promise<boolean>;
+  clearCache: () => Promise<boolean>;
 
   openExternal: (url: string) => void;
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;
@@ -197,9 +199,18 @@ export interface ClipAPI {
   }>;
   getReleases: () => Promise<GitHubRelease[]>;
   triggerUpdate: (release: GitHubRelease) => Promise<void>;
+  cancelUpdateDownload: () => Promise<boolean>;
+  checkUpdateDownloaded: (release: GitHubRelease) => Promise<boolean>;
+  getActiveDownloadStatus: () => Promise<{
+    status: "idle" | "checking" | "downloading" | "ready" | "error";
+    progress: number;
+    targetRelease: GitHubRelease | null;
+    errorMessage: string | null;
+  }>;
   onUpdateProgress: (cb: (progress: number) => void) => () => void;
   onUpdateError: (cb: (error: string) => void) => () => void;
   onUpdateSuccess: (cb: () => void) => () => void;
+  onUpdateStatusReset: (cb: () => void) => () => void;
 }
 
 export interface GitHubReleaseAsset {

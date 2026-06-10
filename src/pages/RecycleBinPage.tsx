@@ -8,6 +8,7 @@ import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import Dialog from "../components/Dialog";
 import { IconTrash } from "../components/Icons";
 import type { ClipboardItem } from "../types";
+import PageSizeDropdown from "../components/PageSizeDropdown";
 
 const RecycleBinPage: React.FC = () => {
   const store = useClipStore();
@@ -15,7 +16,7 @@ const RecycleBinPage: React.FC = () => {
   const filtered = selectFilteredClips(store, true);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = settings.pageSize || 10;
   const paginated = settings.paginationEnabled;
   const totalPages = paginated
     ? Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -76,27 +77,38 @@ const RecycleBinPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {paginated && filtered.length > pageSize && (
+          {paginated && !isEmpty && (
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
-              <button
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={currentPage === 1}
-                className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
-              >
-                Prev
-              </button>
-              <span>
-                Page {currentPage}/{totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  setCurrentPage((page) => Math.min(totalPages, page + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
-              >
-                Next
-              </button>
+              <PageSizeDropdown
+                value={pageSize}
+                onChange={(val) => {
+                  store.saveSettings({ pageSize: val });
+                  setCurrentPage(1);
+                }}
+              />
+              {filtered.length > pageSize && (
+                <>
+                  <button
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    Page {currentPage}/{totalPages}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </>
+              )}
             </div>
           )}
           {!isEmpty && (

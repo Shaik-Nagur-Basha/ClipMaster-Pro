@@ -239,9 +239,16 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     }),
     getReleases: async () => [],
     triggerUpdate: noop_p,
+    cancelUpdateDownload: noop_p,
+    checkUpdateDownloaded: noop_p,
+    getActiveDownloadStatus: async () => ({ status: "idle", progress: 0, targetRelease: null }),
     onUpdateProgress: () => noop,
     onUpdateError: () => noop,
     onUpdateSuccess: () => noop,
+    clearCache: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return true;
+    },
   } as any;
 }
 
@@ -337,6 +344,19 @@ export default function App() {
         target.contentEditable === "true"
       )
         return;
+
+      // Handle Ctrl+V or Cmd+V globally
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (searchInputRef?.current) {
+          if (document.activeElement !== searchInputRef.current) {
+            searchInputRef.current.focus();
+            // Move cursor to the end of the text
+            const len = searchInputRef.current.value.length;
+            searchInputRef.current.setSelectionRange(len, len);
+          }
+        }
+        return; // Let native paste handle inserting the clipboard text
+      }
 
       // Ignore special keys (Ctrl, Alt, Shift, Meta, Escape, etc.)
       if (
