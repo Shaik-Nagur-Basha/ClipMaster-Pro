@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-2.2.4-blue)
+![Version](https://img.shields.io/badge/Version-2.3.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
@@ -35,14 +35,14 @@
 - **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).
 - **System Integration**: Startup hidden flag (`--hidden`) and a system tray manager with quick settings toggles.
 - **Keyboard Optimization**: Native shortcut detection (like `Ctrl` clicking Delete to permanently remove entries).
-- **Milestone**: Version 2.2.4 complete with custom version switcher, native updater, and crash-resilient storage engine.
+- **Milestone**: Version 2.3.0 complete with custom version switcher, native updater, and crash-resilient storage engine.
 
 ## Download & Install
 - **[Setup Installer](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (85 MB) — Recommended for Windows users.
 - **[Portable Version](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (40 MB) — No installation required.
 
 ## Documentation
-- **[Release Notes](RELEASE_NOTES.md)** — Detailed v2.2.4 changelog.
+- **[Release Notes](RELEASE_NOTES.md)** — Detailed v2.3.0 changelog.
 - **[Quick Start](doc/QUICK_START.md)** — Setup in under 60 seconds.
 - **[Architecture](doc/ARCHITECTURE.md)** — Technical breakdown of the app.
 - **[Troubleshooting](doc/TROUBLESHOOTING.md)** — Common fixes and support.

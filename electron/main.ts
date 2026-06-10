@@ -865,13 +865,18 @@ function registerIPC(): void {
       if (platform === "win32") {
         const isSetup = selectedAsset.name.toLowerCase().includes("setup") || selectedAsset.name.toLowerCase().includes("installer");
         if (isSetup) {
-          console.log("[Update] Spawning Setup installer directly:", tempFilePath);
-          const child = spawn(tempFilePath, [], {
-            detached: true,
-            stdio: "ignore",
+          console.log("[Update] Spawning Setup installer via shell.openPath:", tempFilePath);
+          shell.openPath(tempFilePath).then((error) => {
+            if (error) {
+              console.error("[Update] shell.openPath failed:", error);
+              mainWindow?.webContents.send("update-error", `Failed to launch installer: ${error}`);
+            } else {
+              app.quit();
+            }
+          }).catch((err) => {
+            console.error("[Update] shell.openPath exception:", err);
+            mainWindow?.webContents.send("update-error", `Failed to launch installer: ${err.message || err}`);
           });
-          child.unref();
-          app.quit();
         } else {
           const scriptPath = path.join(tempDir, "install-update.bat");
           const batContent = `@echo off

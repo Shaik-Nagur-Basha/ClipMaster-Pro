@@ -1,12 +1,26 @@
 import { create } from "zustand";
 import { GitHubRelease } from "../types";
 
+const cleanVer = (v: string) => v.replace(/^v/, "").trim();
+const semverCompare = (v1: string, v2: string) => {
+  if (!v1 || !v2) return 0;
+  const p1 = cleanVer(v1).split(".").map(Number);
+  const p2 = cleanVer(v2).split(".").map(Number);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+};
+
 export interface UpdateState {
   availableReleases: GitHubRelease[];
   currentVersion: string;
   targetRelease: GitHubRelease | null;
   downloadProgress: number;
-  updateStatus: "idle" | "checking" | "downloading" | "ready" | "error";
+  updateStatus: "idle" | "checking" | "available" | "downloading" | "ready" | "error";
   errorMessage: string | null;
   fetchReleases: () => Promise<void>;
   setTargetRelease: (release: GitHubRelease | null) => Promise<void>;
@@ -87,7 +101,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
 
         // Get target release
         let targetRelease = activeReleases.length > 0 ? activeReleases[0] : null;
-        let status: "idle" | "checking" | "downloading" | "ready" | "error" = "idle";
+        let status: "idle" | "checking" | "available" | "downloading" | "ready" | "error" = "idle";
         let progress = 0;
         let errorMessage = null;
 
@@ -97,7 +111,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
           activeDownload = await window.clipAPI.getActiveDownloadStatus();
         }
         if (activeDownload && activeDownload.status !== "idle") {
-          status = activeDownload.status;
+          status = activeDownload.status as any;
           progress = activeDownload.progress;
           errorMessage = activeDownload.errorMessage;
           if (activeDownload.targetRelease) {
@@ -115,6 +129,11 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
           if (isDownloaded) {
             status = "ready";
             progress = 100;
+          } else {
+            const comp = semverCompare(targetRelease.tag_name, appInfo.version);
+            if (comp > 0) {
+              status = "available";
+            }
           }
         }
 
@@ -140,7 +159,15 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
         set({ targetRelease: null, downloadProgress: 0, errorMessage: null, updateStatus: "idle" });
         return;
       }
-      set({ targetRelease: release, downloadProgress: 0, errorMessage: null, updateStatus: "idle" });
+      const { currentVersion } = get();
+      let status: "idle" | "checking" | "available" | "downloading" | "ready" | "error" = "idle";
+      if (currentVersion) {
+        const comp = semverCompare(release.tag_name, currentVersion);
+        if (comp > 0) {
+          status = "available";
+        }
+      }
+      set({ targetRelease: release, downloadProgress: 0, errorMessage: null, updateStatus: status });
 
       try {
         let isDownloaded = false;

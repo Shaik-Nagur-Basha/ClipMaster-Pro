@@ -346,7 +346,6 @@ const Settings: React.FC = () => {
   if (settingsLoading) {
     return (
       <FullPageSpinner
-        icon="⚙️"
         label="Settings"
         subtitle="Loading your environment & sync configuration"
       />
@@ -417,6 +416,19 @@ const Settings: React.FC = () => {
             >
               <IconRefresh size={14} className="animate-spin" />
               <span>Checking...</span>
+            </button>
+          ) : updateStatus === "available" ? (
+            <button
+              type="button"
+              onClick={() => setShowUpdatesDialog(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-400 font-semibold transition hover:border-blue-500/50 hover:bg-blue-500/20 cursor-pointer animate-pulse"
+              title="New version available"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              </span>
+              <span>New Version</span>
             </button>
           ) : updateStatus === "error" ? (
             <button
@@ -985,6 +997,14 @@ const Settings: React.FC = () => {
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                 </span>
                 <span>Install Update</span>
+              </span>
+            ) : updateStatus === "available" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400 font-semibold">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                </span>
+                <span>Update Available</span>
               </span>
             ) : updateStatus === "error" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400 font-semibold">

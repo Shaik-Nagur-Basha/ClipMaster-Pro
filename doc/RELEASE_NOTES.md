@@ -1,8 +1,8 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.2.4 - Custom Version Switcher & Native Updater (Latest)
+## 🚀 v2.3.0 - Fix Setup Permission Error & Clean Up Releases (Latest)
 
-**"The Native Version Control Update"**
+**"The Permission Fix & Release Clean Update"**
 
 This release introduces a fully custom, native version switcher and updater, letting you browse, toggle, and install historical and latest releases directly from within the application Settings.
 
