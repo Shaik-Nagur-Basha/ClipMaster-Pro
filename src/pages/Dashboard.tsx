@@ -6,6 +6,7 @@ import SearchBar from "../components/SearchBar";
 import ViewToggle from "../components/ViewToggle";
 import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import { IconInbox } from "../components/Icons";
+import { ClipSkeleton } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
 import PageSizeDropdown from "../components/PageSizeDropdown";
 
@@ -130,7 +131,7 @@ const Dashboard: React.FC = () => {
         }`}
       >
         {isLoading ? (
-          <LoadingSkeleton />
+          <ClipSkeleton count={5} hint="Loading clipboard history" />
         ) : isEmpty ? (
           <EmptyState />
         ) : (
@@ -217,17 +218,5 @@ const EmptyState: React.FC = () => (
   </div>
 );
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────
-const LoadingSkeleton: React.FC = () => (
-  <div className="space-y-4">
-    {Array.from({ length: 5 }).map((_, i) => (
-      <div
-        key={i}
-        className="h-32 rounded-xl bg-surface-800 border border-gray-700/50 animate-pulse"
-        style={{ opacity: 1 - i * 0.15 }}
-      />
-    ))}
-  </div>
-);
 
 export default Dashboard;

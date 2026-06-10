@@ -123,19 +123,41 @@ class MongoConnection {
       this._connected = false;
     }
 
-    const timeoutMs = isAtlas ? 15000 : 5000;
+    const timeoutMs = isAtlas ? 10000 : 5000;
 
     try {
-      this.conn = await mongoose
-        .createConnection(uri, {
-          serverSelectionTimeoutMS: timeoutMs,
-          connectTimeoutMS: timeoutMs,
-          socketTimeoutMS: timeoutMs * 2,
-          tls: isAtlas,
-          retryWrites: true,
-          w: "majority",
-        })
-        .asPromise();
+      const options = {
+        serverSelectionTimeoutMS: timeoutMs,
+        connectTimeoutMS: timeoutMs,
+        socketTimeoutMS: isAtlas ? 45000 : 10000,
+        tls: isAtlas,
+        retryWrites: true,
+        w: "majority",
+        // Keep-alive settings to prevent dropouts
+        maxPoolSize: isAtlas ? 10 : 5,
+        minPoolSize: 1,
+        heartbeatFrequencyMS: isAtlas ? 10000 : 30000,
+      };
+
+      const connection = mongoose.createConnection(uri, options as any);
+
+      // Event listeners for real-time status tracking
+      connection.on("connected", () => {
+        this._connected = true;
+        console.log(`[Sync:${this._label}] Connection established`);
+      });
+
+      connection.on("disconnected", () => {
+        this._connected = false;
+        console.log(`[Sync:${this._label}] Connection disconnected`);
+      });
+
+      connection.on("error", (err) => {
+        this._connected = false;
+        console.warn(`[Sync:${this._label}] Connection error:`, err.message);
+      });
+
+      this.conn = await connection.asPromise();
 
       const clipSchema = new Schema<ClipDoc>(clipSchemaDefinition, {
         collection: "clips",
@@ -346,8 +368,21 @@ class SyncManager {
   private tagsDirty = false;
   private syncTimer: NodeJS.Timeout | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
+  private debounceTimeout: NodeJS.Timeout | null = null;
   private isLocalSyncing = false;
   private isAtlasSyncing = false;
+
+  private scheduleDebouncedSync(delayMs = 3000): void {
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+    }
+    this.debounceTimeout = setTimeout(() => {
+      console.log("[Sync] Triggering debounced sync pass...");
+      this.runSync().catch((err) => {
+        console.error("[Sync:debounced] Sync pass failed:", err.message);
+      });
+    }, delayMs);
+  }
 
   private state: SyncState = {
     localMongo: "idle",
@@ -465,11 +500,14 @@ class SyncManager {
     };
     await storageManager.queueDb.updateAsync({ id }, entry, { upsert: true });
 
-    // Threshold Check: Auto trigger sync if queue has >= 50 items
+    // Threshold Check: Auto trigger sync if queue has >= 50 items, otherwise schedule debounced sync
     const count = await storageManager.queueDb.countAsync({});
     if (count >= 50) {
       console.log(`[Sync] Queue size (${count}) reached threshold. Syncing...`);
+      if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.runSync().catch(() => {});
+    } else {
+      this.scheduleDebouncedSync();
     }
     this.emitState({});
   }
@@ -495,13 +533,17 @@ class SyncManager {
     const count = await storageManager.queueDb.countAsync({});
     if (count >= 50) {
       console.log(`[Sync] Queue size (${count}) reached threshold. Syncing...`);
+      if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
       this.runSync().catch(() => {});
+    } else {
+      this.scheduleDebouncedSync();
     }
     this.emitState({});
   }
 
   enqueueTagSync(): void {
     this.tagsDirty = true;
+    this.scheduleDebouncedSync();
     this.emitState({});
   }
 
@@ -529,6 +571,34 @@ class SyncManager {
 
     try {
       const settings = storageManager.getSettings();
+
+      // ─── Auto-Reconnection logic ──────────────────────────────────────────
+      // If Local MongoDB is enabled but not connected, try to reconnect
+      if (
+        (target === "all" || target === "local") &&
+        settings.mongoEnabled &&
+        !this.localConn.connected &&
+        settings.mongoUri
+      ) {
+        console.log("[Sync] Local MongoDB is enabled but disconnected. Reconnecting...");
+        await this.connectLocal(settings.mongoUri);
+      }
+
+      // If Atlas is enabled but not connected, try to reconnect if internet is available
+      if (
+        (target === "all" || target === "atlas") &&
+        settings.atlasEnabled &&
+        !this.atlasConn.connected &&
+        settings.atlasUri
+      ) {
+        const isOnline = await isInternetAvailable();
+        if (isOnline) {
+          console.log("[Sync] Atlas Cloud is enabled but disconnected. Reconnecting...");
+          await this.connectAtlas(settings.atlasUri);
+        } else {
+          console.log("[Sync] Atlas Cloud is enabled but offline. Skipping reconnection.");
+        }
+      }
 
       // Read persistent queue entries
       const queueEntries = await storageManager.queueDb.findAsync({});
@@ -886,14 +956,14 @@ class SyncManager {
     // Background sync runs every 10 minutes (600,000 ms) as per recommendations
     const ms = 10 * 60 * 1000;
     this.syncTimer = setInterval(() => {
-      this.runSync().catch((err) => {
+      this.runSync(true).catch((err) => {
         console.error("[Sync:background] Pulse failed:", err.message);
       });
     }, ms);
     console.log(`[Sync] Background heartbeat started every 10 minutes`);
 
     // Run once immediately on start
-    this.runSync().catch(() => {});
+    this.runSync(true).catch(() => {});
 
     // Retry queue items on interval (10 minutes) if pending exist
     this.retryTimer = setInterval(() => {

@@ -985,6 +985,7 @@ app.whenReady().then(async () => {
         if (ok) {
           syncManager
             .bootstrapSync(() => storageManager.readAll())
+            .then(() => syncManager.runSync(true))
             .catch(() => {});
         }
       })
@@ -998,6 +999,7 @@ app.whenReady().then(async () => {
         if (ok) {
           syncManager
             .bootstrapSync(() => storageManager.readAll())
+            .then(() => syncManager.runSync(true))
             .catch(() => {});
         }
       })

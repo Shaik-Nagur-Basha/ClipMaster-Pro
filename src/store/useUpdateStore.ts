@@ -60,7 +60,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
 
   // Always listen for status resets triggered by clear-cache
   if (typeof window !== "undefined" && window.clipAPI?.onUpdateStatusReset) {
-    if (unsubscribeStatusReset) unsubscribeStatusReset();
+    if (unsubscribeStatusReset) (unsubscribeStatusReset as any)();
     unsubscribeStatusReset = window.clipAPI.onUpdateStatusReset(() => {
       cleanupListeners();
       set({ updateStatus: "idle", downloadProgress: 0, targetRelease: null, errorMessage: null });

@@ -102,9 +102,27 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
 
   if (updateStatus === "checking" && availableReleases.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-surface-800">
-        <IconRefresh size={20} className="animate-spin text-brand-400" />
-        <span className="text-xs text-gray-400 font-medium">Checking GitHub releases...</span>
+      <div className="flex flex-col items-center justify-center p-12 space-y-4 bg-surface-800 relative overflow-hidden">
+        {/* Background glows */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-32 h-32 bg-blue-500/10 blur-[60px] rounded-full" />
+        </div>
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 bg-blue-500/20 blur-lg rounded-full animate-pulse" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 border-r-blue-500/40 animate-spin" />
+          <div className="absolute inset-1.5 rounded-full border border-transparent border-b-purple-500 border-l-purple-500/20 animate-[spin_2s_linear_infinite_reverse]" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-1 h-1 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+          </div>
+        </div>
+        <div className="space-y-1.5 text-center relative">
+          <span className="text-[9px] font-black text-white uppercase tracking-[0.4em]">Checking Releases</span>
+          <div className="flex items-center justify-center gap-1">
+            <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+            <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+            <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" />
+          </div>
+        </div>
       </div>
     );
   }

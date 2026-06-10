@@ -6,6 +6,7 @@ import SearchBar from "../components/SearchBar";
 import ViewToggle from "../components/ViewToggle";
 import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import { IconStar } from "../components/Icons";
+import { ClipSkeleton } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
 import PageSizeDropdown from "../components/PageSizeDropdown";
 
@@ -99,7 +100,7 @@ const FavoritesPage: React.FC = () => {
         }`}
       >
         {isLoading ? (
-          <LoadingSkeleton />
+          <ClipSkeleton count={5} hint="Fetching your starred clips" />
         ) : isEmpty ? (
           <EmptyState />
         ) : (
@@ -187,17 +188,5 @@ const EmptyState: React.FC = () => (
   </div>
 );
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────
-const LoadingSkeleton: React.FC = () => (
-  <div className="px-6 py-6 space-y-4">
-    {Array.from({ length: 5 }).map((_, i) => (
-      <div
-        key={i}
-        className="h-32 rounded-xl bg-surface-800 border border-gray-700/50 animate-pulse"
-        style={{ opacity: 1 - i * 0.15 }}
-      />
-    ))}
-  </div>
-);
 
 export default FavoritesPage;

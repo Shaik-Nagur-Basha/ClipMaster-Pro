@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { APP_NAME } from "./constants";
 import { useClipStore } from "./store/useClipStore";
 import Sidebar from "./components/Sidebar";
+import { FullPageSpinner } from "./components/LoadingSpinner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -11,35 +12,6 @@ const RecycleBinPage = React.lazy(() => import("./pages/RecycleBinPage"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const TagsPage = React.lazy(() => import("./pages/TagsPage"));
 
-function PageFallback() {
-  return (
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#0d0d1a",
-      }}
-    >
-      <div
-        style={{
-          height: 32,
-          width: 32,
-          borderRadius: "50%",
-          border: "4px solid rgba(99, 102, 241, 0.2)",
-          borderTopColor: "#6366f1",
-          animation: "spin 1s linear infinite",
-        }}
-      />
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    WINDOW CONTROLS — called at click-time only, never cached at module-eval
@@ -245,6 +217,7 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     onUpdateProgress: () => noop,
     onUpdateError: () => noop,
     onUpdateSuccess: () => noop,
+    onUpdateStatusReset: () => noop,
     clearCache: async () => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       return true;
@@ -282,27 +255,39 @@ function PageView() {
             minHeight: 0,
           }}
         >
-          <React.Suspense fallback={<PageFallback />}>
+          <React.Suspense fallback={<FullPageSpinner label="All Clips" subtitle="Loading your clipboard history" />}>
             {activePage === "dashboard" && (
               <ErrorBoundary name="Dashboard">
                 <Dashboard />
               </ErrorBoundary>
             )}
+          </React.Suspense>
+
+          <React.Suspense fallback={<FullPageSpinner label="Favourites" subtitle="Fetching your starred clips" />}>
             {activePage === "favorites" && (
               <ErrorBoundary name="Favourites">
                 <FavoritesPage />
               </ErrorBoundary>
             )}
+          </React.Suspense>
+
+          <React.Suspense fallback={<FullPageSpinner label="Recycle Bin" subtitle="Loading recently deleted items" />}>
             {activePage === "recycle" && (
               <ErrorBoundary name="Recycle Bin">
                 <RecycleBinPage />
               </ErrorBoundary>
             )}
+          </React.Suspense>
+
+          <React.Suspense fallback={<FullPageSpinner label="Settings" subtitle="Configuring your workspace" />}>
             {activePage === "settings" && (
               <ErrorBoundary name="Settings">
                 <Settings />
               </ErrorBoundary>
             )}
+          </React.Suspense>
+
+          <React.Suspense fallback={<FullPageSpinner label="Manage Tags" subtitle="Loading your tag library" />}>
             {activePage === "tags" && (
               <ErrorBoundary name="Tags">
                 <TagsPage />
@@ -392,8 +377,13 @@ export default function App() {
       await loadUIState();
       await loadTags();
 
-      // 2. Load on-demand clips: fetch first 200 clips for fast start
+      // 2. Phase 1: Load first 200 clips for fast initial render
       await loadClips(200);
+
+      // 3. Phase 2: Immediately load ALL clips in the background so counts
+      //    and all pages (favorites, recycle bin, dashboard) are fully populated
+      //    without requiring navigation to trigger the full fetch.
+      loadClips(); // no limit — runs async, updates store when complete
 
       // Check mongo connection status (safe — mongoStatus always defined)
       const checkMongo = async () => {
@@ -444,7 +434,7 @@ export default function App() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On-demand loading of full history when filter is active or on specialized pages
+  // On-demand reload of full history when filter is active
   useEffect(() => {
     const hasFiltersActive =
       filters.search.trim().length > 0 ||
@@ -453,11 +443,11 @@ export default function App() {
       filters.dateFrom !== null ||
       filters.dateTo !== null;
 
-    if (hasFiltersActive || activePage === "favorites" || activePage === "recycle") {
-      console.log("[App] Active filters or page change detected. Loading full clipboard history...");
+    if (hasFiltersActive) {
+      console.log("[App] Active filters detected. Loading full clipboard history...");
       loadClips(); // Load full history (no limit)
     }
-  }, [filters, activePage, loadClips]);
+  }, [filters, loadClips]);
 
   return (
     <div

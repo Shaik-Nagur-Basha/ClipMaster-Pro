@@ -4,6 +4,7 @@ import { useClipStore } from "../store/useClipStore";
 import { useUpdateStore } from "../store/useUpdateStore";
 import { UpdateSettings } from "../components/UpdateSettings";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
+import { FullPageSpinner } from "../components/LoadingSpinner";
 import {
   IconSettings,
   IconMonitor,
@@ -21,6 +22,7 @@ import {
   IconTrash,
   IconClock,
   IconZap,
+  IconEye,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -45,7 +47,9 @@ const Settings: React.FC = () => {
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearCacheStep, setClearCacheStep] = useState(0);
-  const [clearCacheStatus, setClearCacheStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [clearCacheStatus, setClearCacheStatus] = useState<
+    "idle" | "running" | "done" | "error"
+  >("idle");
   const [clearCacheError, setClearCacheError] = useState("");
 
   const latestClipTimestamp = React.useMemo(() => {
@@ -102,6 +106,7 @@ const Settings: React.FC = () => {
     "idle" | "ok" | "fail" | "connecting"
   >("idle");
   const [atlasError, setAtlasError] = useState("");
+  const [atlasUriVisible, setAtlasUriVisible] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -270,12 +275,13 @@ const Settings: React.FC = () => {
     setClearCacheError("");
     setShowClearCacheDialog(true);
 
-    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
 
     try {
       // Step 0: Initialize
       await delay(600);
-      
+
       // Step 1: Scanning temp files
       setClearCacheStep(1);
       await delay(800);
@@ -303,10 +309,7 @@ const Settings: React.FC = () => {
       const store = useClipStore.getState();
       // Also reset the update store state (downloads cleared)
       useUpdateStore.getState().resetProgress();
-      await Promise.all([
-        store.loadClips(),
-        store.loadTags(),
-      ]);
+      await Promise.all([store.loadClips(), store.loadTags()]);
       await delay(600);
 
       // Complete
@@ -315,7 +318,9 @@ const Settings: React.FC = () => {
     } catch (err: any) {
       console.error("Clear cache failed:", err);
       setClearCacheStatus("error");
-      setClearCacheError(err.message || "An error occurred during cache clearance.");
+      setClearCacheError(
+        err.message || "An error occurred during cache clearance.",
+      );
     } finally {
       setClearingCache(false);
     }
@@ -331,12 +336,11 @@ const Settings: React.FC = () => {
 
   if (settingsLoading) {
     return (
-      <div className="flex flex-col h-full bg-surface-900 items-center justify-center space-y-4">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" />
-        <span className="text-xs text-gray-500 font-medium">
-          Loading environment…
-        </span>
-      </div>
+      <FullPageSpinner
+        icon="⚙️"
+        label="Settings"
+        subtitle="Loading your environment & sync configuration"
+      />
     );
   }
 
@@ -378,7 +382,9 @@ const Settings: React.FC = () => {
               title="Downloading update"
             >
               <IconRefresh size={14} className="animate-spin" />
-              <span className="tabular-nums">Downloading {downloadProgress}%</span>
+              <span className="tabular-nums">
+                Downloading {downloadProgress}%
+              </span>
             </button>
           ) : updateStatus === "ready" ? (
             <button
@@ -649,7 +655,7 @@ const Settings: React.FC = () => {
                         <IconShield size={16} />
                       </div>
                       <input
-                        type="password"
+                        type={atlasUriVisible ? "text" : "password"}
                         value={atlasUri}
                         onChange={(e) => {
                           setAtlasUri(e.target.value);
@@ -657,8 +663,21 @@ const Settings: React.FC = () => {
                         }}
                         onBlur={() => saveSettings({ atlasUri: atlasUri })}
                         placeholder="mongodb+srv://..."
-                        className="w-full bg-surface-900 border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
+                        className="w-full bg-surface-900 border-gray-700 rounded-lg pl-10 pr-10 py-2.5 text-[13px] font-mono text-gray-300 placeholder-gray-600 focus:border-brand-500/50 outline-none transition-all"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setAtlasUriVisible((prev) => !prev)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        aria-label={
+                          atlasUriVisible
+                            ? "Hide Atlas connection string"
+                            : "Show Atlas connection string"
+                        }
+                      >
+                        <IconEye size={16} />
+                      </button>
                     </div>
                     <p className="text-[11px] text-gray-600 leading-relaxed px-1">
                       Encryption: Data is AES-256 encrypted before upload.
@@ -784,8 +803,6 @@ const Settings: React.FC = () => {
           </div>
           {/* End Sync Status Overlay */}
 
-
-
           {/* Data Management & Reset */}
           <Section
             title="Data Management"
@@ -880,7 +897,9 @@ const Settings: React.FC = () => {
             {updateStatus === "downloading" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] text-brand-400 font-semibold animate-pulse">
                 <IconRefresh size={10} className="animate-spin" />
-                <span className="tabular-nums">Downloading {downloadProgress}%</span>
+                <span className="tabular-nums">
+                  Downloading {downloadProgress}%
+                </span>
               </span>
             ) : updateStatus === "ready" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400 font-semibold">
@@ -937,8 +956,12 @@ const Settings: React.FC = () => {
                 <IconZap size={24} className="text-brand-400 animate-pulse" />
               </div>
               <div className="text-center">
-                <h4 className="text-sm font-bold text-white">Clearing Application Cache</h4>
-                <p className="text-xs text-gray-400 mt-1">Please wait while we optimize ClipMaster Pro...</p>
+                <h4 className="text-sm font-bold text-white">
+                  Clearing Application Cache
+                </h4>
+                <p className="text-xs text-gray-400 mt-1">
+                  Please wait while we optimize ClipMaster Pro...
+                </p>
               </div>
             </div>
           )}
@@ -949,10 +972,12 @@ const Settings: React.FC = () => {
                 <IconCheck size={32} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-emerald-400">Cache Successfully Cleared</h4>
+                <h4 className="text-sm font-bold text-emerald-400">
+                  Cache Successfully Cleared
+                </h4>
                 <p className="text-xs text-gray-400 mt-1">
-                  Downloaded update setup assets and version installers were deleted.
-                  Local databases compacted and system caches cleared.
+                  Downloaded update setup assets and version installers were
+                  deleted. Local databases compacted and system caches cleared.
                   Your settings, clips, and tags remain fully preserved.
                 </p>
               </div>
@@ -965,7 +990,9 @@ const Settings: React.FC = () => {
                 <IconAlertCircle size={32} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-rose-400">Clear Cache Failed</h4>
+                <h4 className="text-sm font-bold text-rose-400">
+                  Clear Cache Failed
+                </h4>
                 <p className="text-xs text-gray-400 mt-1">{clearCacheError}</p>
               </div>
             </div>
@@ -985,17 +1012,29 @@ const Settings: React.FC = () => {
               const isCompleted = clearCacheStep > item.step;
 
               return (
-                <div key={item.step} className="flex items-center justify-between text-xs">
-                  <span className={`transition-colors duration-200 ${
-                    isCompleted ? "text-gray-400 decoration-gray-500/30" : isCurrent ? "text-brand-400 font-bold" : "text-gray-500"
-                  }`}>
+                <div
+                  key={item.step}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span
+                    className={`transition-colors duration-200 ${
+                      isCompleted
+                        ? "text-gray-400 decoration-gray-500/30"
+                        : isCurrent
+                          ? "text-brand-400 font-bold"
+                          : "text-gray-500"
+                    }`}
+                  >
                     {item.label}
                   </span>
                   <div>
                     {isCompleted ? (
                       <IconCheck size={14} className="text-emerald-400" />
                     ) : isCurrent ? (
-                      <IconRefresh size={14} className="animate-spin text-brand-400" />
+                      <IconRefresh
+                        size={14}
+                        className="animate-spin text-brand-400"
+                      />
                     ) : (
                       <span className="w-3.5 h-3.5 rounded-full border border-gray-700 block" />
                     )}
@@ -1051,26 +1090,45 @@ const Settings: React.FC = () => {
         <div className="space-y-4">
           <div className="p-4 bg-brand-500/5 border border-brand-500/10 rounded-xl space-y-3">
             <div className="space-y-1">
-              <h4 className="text-sm font-semibold text-white">How updates work:</h4>
+              <h4 className="text-sm font-semibold text-white">
+                How updates work:
+              </h4>
               <p className="text-xs text-gray-400 leading-relaxed">
-                ClipMaster Pro fetches the latest release assets directly from our secure GitHub repository releases.
+                ClipMaster Pro fetches the latest release assets directly from
+                our secure GitHub repository releases.
               </p>
             </div>
             <ul className="text-xs text-gray-400 space-y-2 ml-4 list-disc">
               <li>
-                <span className="font-semibold text-gray-200">Installed Version</span> is the currently running build of the application.
+                <span className="font-semibold text-gray-200">
+                  Installed Version
+                </span>{" "}
+                is the currently running build of the application.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Latest Release</span> represents the latest stable release tagged on GitHub.
+                <span className="font-semibold text-gray-200">
+                  Latest Release
+                </span>{" "}
+                represents the latest stable release tagged on GitHub.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Release Notes</span> are displayed below the selector to help you inspect new features, bug fixes, or performance enhancements.
+                <span className="font-semibold text-gray-200">
+                  Release Notes
+                </span>{" "}
+                are displayed below the selector to help you inspect new
+                features, bug fixes, or performance enhancements.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Data Safety</span>: Your clipboard history, local MongoDB databases, and personalized configurations are fully preserved during updates.
+                <span className="font-semibold text-gray-200">Data Safety</span>
+                : Your clipboard history, local MongoDB databases, and
+                personalized configurations are fully preserved during updates.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Cancellation</span>: You can cancel the download at any time using the cancel button.
+                <span className="font-semibold text-gray-200">
+                  Cancellation
+                </span>
+                : You can cancel the download at any time using the cancel
+                button.
               </li>
             </ul>
           </div>

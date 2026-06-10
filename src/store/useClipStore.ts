@@ -70,7 +70,13 @@ export const useClipStore = create<ClipStore>((set, get) => ({
 
   // ── Data Actions ───────────────────────────────────────────────────────
   loadClips: async (limit?: number) => {
-    set({ isLoading: true });
+    const alreadyHasClips = get().clips.length > 0;
+    // Only show the loading skeleton when we have no clips yet (first load).
+    // Background refreshes (e.g. the full history load after the fast 200-clip start)
+    // should silently update the store without causing a loading flash.
+    if (!alreadyHasClips) {
+      set({ isLoading: true });
+    }
     try {
       console.log(`[Store] Fetching clips (limit=${limit}) from window.clipAPI...`);
       const clips = await window.clipAPI.getClips(limit);
