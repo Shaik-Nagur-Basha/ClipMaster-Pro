@@ -144,7 +144,7 @@ class MongoConnection {
   }
 
   get connected(): boolean {
-    return this._connected && this.conn?.readyState === 1;
+    return this.conn !== null && this.conn.readyState === 1;
   }
 
   get model(): Model<ClipDoc> | null {

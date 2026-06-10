@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useClipStore } from '../store/useClipStore'
-import { IconCheck, IconEdit, IconX, IconPlus, IconTag, IconTrash, IconSearch } from './Icons'
+import { IconCheck, IconEdit, IconX, IconPlus, IconTag, IconTrash, IconSearch, IconFilter } from './Icons'
 import Dialog from './Dialog'
 import type { Tag } from '../types'
 
@@ -31,6 +31,56 @@ const TagManager: React.FC = () => {
   // Refs
   const creationColorRef = useRef<HTMLInputElement>(null)
   const editColorRef = useRef<HTMLInputElement>(null)
+  const tagSearchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true"
+      ) {
+        return;
+      }
+
+      // Handle Ctrl+V or Cmd+V
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (tagSearchInputRef.current) {
+          if (document.activeElement !== tagSearchInputRef.current) {
+            tagSearchInputRef.current.focus();
+            // Move cursor to the end of the text
+            const len = tagSearchInputRef.current.value.length;
+            tagSearchInputRef.current.setSelectionRange(len, len);
+          }
+        }
+        return; // Let native paste handle inserting the clipboard text
+      }
+
+      // Ignore special keys (Ctrl, Alt, Shift, Meta, Escape, etc.)
+      if (
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.key === "Escape" ||
+        e.key.length > 1
+      ) {
+        return;
+      }
+
+      // Focus search input and type the character
+      if (tagSearchInputRef.current) {
+        e.preventDefault();
+        tagSearchInputRef.current.focus();
+        const char = e.key;
+        setSearchQuery((prev) => prev + char);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleAdd = async () => {
     const name = newName.trim()
@@ -66,9 +116,9 @@ const TagManager: React.FC = () => {
         {/* Search Section */}
         <div className="bg-surface-700/20 rounded-2xl p-4 border border-white/5 space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2">
                <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
-                 <IconSearch size={14} />
+                 <IconFilter size={14} />
                </div>
                <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">Search Tags</h3>
             </div>
@@ -78,6 +128,7 @@ const TagManager: React.FC = () => {
                 <IconSearch size={16} />
               </div>
               <input
+                ref={tagSearchInputRef}
                 type="text"
                 placeholder="Search tags…"
                 value={searchQuery}

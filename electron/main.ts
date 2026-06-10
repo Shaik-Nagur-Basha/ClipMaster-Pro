@@ -1053,29 +1053,8 @@ rm "$0"
     }
   });
 
-  ipcMain.handle("reset-all", async () => {
+  async function clearAppCacheAndTempData(): Promise<void> {
     try {
-      clearPauseTimeout();
-      exportManager.cancelExport();
-      exportManager.cleanupExport();
-      await storageManager.resetClips();
-      await storageManager.resetTags();
-      await storageManager.resetSettings();
-      await syncManager.disconnectLocal().catch(() => {});
-      await syncManager.disconnectAtlas().catch(() => {});
-      updateTrayMenu();
-      return true;
-    } catch (err) {
-      console.error("[IPC] reset-all failed:", err);
-      return false;
-    }
-  });
-
-  ipcMain.removeHandler("clear-cache");
-  ipcMain.handle("clear-cache", async () => {
-    try {
-      console.log("[IPC] Starting clear-cache process...");
-
       // Cancel and clean up exports during clear cache
       exportManager.cancelExport();
       exportManager.cleanupExport();
@@ -1086,14 +1065,14 @@ rm "$0"
         try {
           await ses.clearCache();
         } catch (cacheErr) {
-          console.warn("[IPC] clearCache warning:", cacheErr);
+          console.warn("[Cache] clearCache warning:", cacheErr);
         }
         try {
           await ses.clearStorageData({
             storages: ["cachestorage", "serviceworkers"]
           });
         } catch (storageErr) {
-          console.warn("[IPC] clearStorageData warning:", storageErr);
+          console.warn("[Cache] clearStorageData warning:", storageErr);
         }
       }
 
@@ -1112,13 +1091,13 @@ rm "$0"
               const stat = fs.statSync(filePath);
               if (stat.isFile()) {
                 fs.unlinkSync(filePath);
-                console.log("[IPC] Deleted temp update file:", file);
+                console.log("[Cache] Deleted temp update file:", file);
               } else if (stat.isDirectory()) {
                 fs.rmSync(filePath, { recursive: true, force: true });
-                console.log("[IPC] Deleted temp directory:", file);
+                console.log("[Cache] Deleted temp directory:", file);
               }
             } catch (unlinkErr) {
-              console.error(`[IPC] Failed to delete temp file/dir ${file}:`, unlinkErr);
+              console.error(`[Cache] Failed to delete temp file/dir ${file}:`, unlinkErr);
             }
           }
         }
@@ -1128,9 +1107,9 @@ rm "$0"
       if (activeDownloadRequest) {
         try {
           activeDownloadRequest.destroy();
-          console.log("[IPC] Aborted active update download during clear cache.");
+          console.log("[Cache] Aborted active update download during clear cache.");
         } catch (destroyErr) {
-          console.warn("[IPC] Failed to destroy active download request:", destroyErr);
+          console.warn("[Cache] Failed to destroy active download request:", destroyErr);
         }
         activeDownloadRequest = null;
       }
@@ -1142,8 +1121,53 @@ rm "$0"
 
       // 4. Notify renderer to reset update status to idle
       mainWindow?.webContents.send("update-status-reset");
+    } catch (err) {
+      console.error("[Cache] clearAppCacheAndTempData failed:", err);
+    }
+  }
 
-      // 5. Compact databases manually
+  ipcMain.removeHandler("reset-all");
+  ipcMain.handle("reset-all", async () => {
+    try {
+      clearPauseTimeout();
+
+      // 1. Clear application cache and temporary folders/files
+      await clearAppCacheAndTempData();
+
+      // 2. Reset and wipe NeDB databases
+      await storageManager.resetClips();
+      await storageManager.resetTags();
+      await storageManager.resetSettings();
+      const sm = storageManager as any;
+      if (typeof sm.resetSyncQueue === "function") {
+        await sm.resetSyncQueue();
+      }
+      if (typeof sm.resetSyncLogs === "function") {
+        await sm.resetSyncLogs();
+      }
+      if (typeof sm.resetUiState === "function") {
+        await sm.resetUiState();
+      }
+
+      // 3. Disconnect sync clients
+      await syncManager.disconnectLocal().catch(() => {});
+      await syncManager.disconnectAtlas().catch(() => {});
+
+      updateTrayMenu();
+      return true;
+    } catch (err) {
+      console.error("[IPC] reset-all failed:", err);
+      return false;
+    }
+  });
+
+  ipcMain.removeHandler("clear-cache");
+  ipcMain.handle("clear-cache", async () => {
+    try {
+      console.log("[IPC] Starting clear-cache process...");
+      await clearAppCacheAndTempData();
+
+      // Compact databases manually
       const sm = storageManager as any;
       if (sm.clipsDb && typeof sm.clipsDb.persistence?.compactDatafile === "function") {
         sm.clipsDb.persistence.compactDatafile();
@@ -1210,7 +1234,7 @@ app.whenReady().then(async () => {
       .catch(() => {});
   }
 
-  if (settings.atlasUri) {
+  if (settings.atlasEnabled && settings.atlasUri) {
     syncManager
       .connectAtlas(settings.atlasUri)
       .then(async (ok) => {

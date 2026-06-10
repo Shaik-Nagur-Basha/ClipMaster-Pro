@@ -350,7 +350,7 @@ class ExportManager {
       return items.map((c, index) => ({
         "Index": index + 1,
         "ID": c.id,
-        "Clipboard Content": c.text,
+        "Clipboard Content": c.text.length <= 32767 ? c.text : c.text.substring(0, 32700) + " ... [Truncated: Exceeded Excel's 32,767 character limit]",
         "Date Captured": c.timestamp,
         "Date Updated": c.updatedAt || c.timestamp,
         "Is Favorite": c.isFavorite ? "Yes" : "No",
@@ -622,8 +622,11 @@ class ExportManager {
       },
     });
 
+    const tempHtmlPath = outputPath + ".temp.html";
+
     try {
-      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+      fs.writeFileSync(tempHtmlPath, htmlContent, "utf-8");
+      await win.loadFile(tempHtmlPath);
       // Wait for rendering to settle
       await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -642,6 +645,13 @@ class ExportManager {
       fs.writeFileSync(outputPath, pdfBuffer);
     } finally {
       win.destroy();
+      try {
+        if (fs.existsSync(tempHtmlPath)) {
+          fs.unlinkSync(tempHtmlPath);
+        }
+      } catch (err) {
+        console.warn("[ExportManager] Failed to delete temporary HTML file:", err);
+      }
     }
   }
 

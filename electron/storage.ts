@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, copyFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, copyFileSync, unlinkSync } from "fs";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import Datastore from "@seald-io/nedb";
@@ -455,6 +455,27 @@ class StorageManager {
     await this.settingsDb.removeAsync({}, { multi: true });
     await this.settingsDb.insertAsync(DEFAULT_SETTINGS);
     createDbBackup(join(getDataDir(), "settings.db"));
+  }
+
+  async resetSyncQueue(): Promise<void> {
+    await this.queueDb.removeAsync({}, { multi: true });
+    createDbBackup(join(getDataDir(), "sync_queue.db"));
+  }
+
+  async resetSyncLogs(): Promise<void> {
+    await this.syncLogsDb.removeAsync({}, { multi: true });
+    createDbBackup(join(getDataDir(), "sync_logs.db"));
+  }
+
+  async resetUiState(): Promise<void> {
+    const filePath = this.getUiStatePath();
+    if (existsSync(filePath)) {
+      try {
+        unlinkSync(filePath);
+      } catch (err) {
+        console.error("[Storage] Failed to delete ui_state.json:", err);
+      }
+    }
   }
 
   // ── UI STATE PERSISTENCE ─────────────────────────────────────────────────

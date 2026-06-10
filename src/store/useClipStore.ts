@@ -270,15 +270,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     set({ searchInputRef: ref }),
   setMongoConnected: (v: boolean) => set({ mongoConnected: v }),
   setAtlasConnected: (v: boolean) => {
-    if (!v) {
-      // Clear persistent sync time on disconnect
-      get().saveSettings({ lastCloudSyncedAt: null });
-      set((state) => ({
-        atlasConnected: false,
-        syncState: { ...state.syncState, lastCloudSyncedAt: null },
-      }));
-    } else {
-      set({ atlasConnected: true });
+    if (get().atlasConnected !== v) {
+      set({ atlasConnected: v });
     }
   },
   setSyncState: (patch: Partial<SyncState>) => {

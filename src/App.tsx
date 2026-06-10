@@ -446,7 +446,7 @@ export default function App() {
       const checkAtlas = async () => {
         try {
           const s = await window.clipAPI.getSettings();
-          if (s.atlasUri) {
+          if (s.atlasEnabled && s.atlasUri) {
             const ok = await window.clipAPI.atlasConnect(s.atlasUri);
             setAtlasConnected(ok);
           }

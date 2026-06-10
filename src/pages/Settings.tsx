@@ -135,11 +135,12 @@ const Settings: React.FC = () => {
     setAtlasUri(settings.atlasUri ?? "");
   }, [settings.atlasUri]);
 
-  // Auto-connect to Atlas if URI is present
+  // Auto-connect to Atlas if URI is present and enabled
   const hasAutoConnected = useRef(false);
   useEffect(() => {
     if (
       !settingsLoading &&
+      settings.atlasEnabled &&
       atlasUri &&
       !atlasConnected &&
       !hasAutoConnected.current
@@ -147,7 +148,7 @@ const Settings: React.FC = () => {
       hasAutoConnected.current = true;
       handleConnectAtlas(true);
     }
-  }, [settingsLoading, atlasUri, atlasConnected]);
+  }, [settingsLoading, settings.atlasEnabled, atlasUri, atlasConnected]);
 
   const handleConnectLocal = async () => {
     if (!localUri.trim()) {
@@ -797,7 +798,9 @@ const Settings: React.FC = () => {
                         ? "syncing"
                         : "ok"
                     : settings.atlasEnabled
-                      ? "connecting"
+                      ? atlasConnecting
+                        ? "connecting"
+                        : "offline"
                       : "offline"
                 }
                 detail={
@@ -808,7 +811,9 @@ const Settings: React.FC = () => {
                         ? fmtTime(syncState.lastCloudSyncedAt) || "Linked"
                         : "Linked"
                     : settings.atlasEnabled
-                      ? "Connecting…"
+                      ? atlasConnecting
+                        ? "Connecting…"
+                        : "Offline"
                       : "Inactive"
                 }
                 icon={<IconCloud size={14} />}
