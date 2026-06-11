@@ -175,6 +175,7 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     permanentDelete: noop_p,
     restoreClip: noop_p,
     copyToClipboard: noop_p,
+    pasteClip: noop_p,
     // Tags & Settings
     getTags: async () => [],
     saveTags: noop_p,
@@ -341,11 +342,22 @@ export default function App() {
     searchInputRef,
     filters,
     activePage,
+    settings,
+    saveSettings,
   } = useClipStore();
 
   useEffect(() => {
     // Global keyboard listener — auto-focus search input on typing
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Handle Escape in popup mode to close the popup
+      if (e.key === "Escape" && isPopupMode) {
+        const isPinned = useClipStore.getState().settings.popupPinned === true;
+        if (!isPinned) {
+          window.clipAPI.closePopup();
+          return;
+        }
+      }
+
       // Ignore if typing in input, textarea, or contenteditable
       const target = e.target as HTMLElement;
       if (
@@ -402,15 +414,8 @@ export default function App() {
       await loadUIState();
       await loadTags();
 
-      // 2. Phase 1: Load first 200 clips for fast initial render
-      await loadClips(200);
-
-      // 3. Phase 2: Immediately load ALL clips in the background so counts
-      //    and all pages (favorites, recycle bin, dashboard) are fully populated
-      //    without requiring navigation to trigger the full fetch.
-      loadClips(); // no limit — runs async, updates store when complete
-
-
+      // 2. Load the initial page of clips
+      await loadClips();
     };
 
     initApp();
@@ -420,6 +425,12 @@ export default function App() {
       addClipFromMain(item),
     );
 
+    // Subscribe to window restore/show refresh events
+    const unsubRefresh = (window.clipAPI.onRefreshClips ?? noop)(() => {
+      console.log("[App] Window restored. Refreshing active clips...");
+      loadClips();
+    });
+
     // Global settings update listener
     const unsubSettings = (window.clipAPI.onSettingsUpdated ?? noop)(
       (settings: any) => {
@@ -427,28 +438,196 @@ export default function App() {
       },
     );
 
+    // Subscribe to clean-memory events to force GC in renderer
+    const unsubCleanMemory = (window.clipAPI.onCleanMemory ?? noop)(() => {
+      if ((window as any).gc) {
+        try {
+          (window as any).gc();
+          console.log("[Renderer] Garbage collection triggered successfully.");
+        } catch (e) {}
+      }
+    });
+
     return () => {
       if (typeof unsubClips === "function") unsubClips();
+      if (typeof unsubRefresh === "function") unsubRefresh();
       if (typeof unsubSettings === "function") unsubSettings();
+      if (typeof unsubCleanMemory === "function") unsubCleanMemory();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On-demand reload of full history when filter is active
-  useEffect(() => {
-    const hasFiltersActive =
-      filters.search.trim().length > 0 ||
-      filters.tags.length > 0 ||
-      filters.isFavorite !== null ||
-      filters.dateFrom !== null ||
-      filters.dateTo !== null;
+  const isPopupMode = typeof window !== "undefined" && window.location.search.includes("popup=true");
 
-    if (hasFiltersActive) {
-      console.log(
-        "[App] Active filters detected. Loading full clipboard history...",
-      );
-      loadClips(); // Load full history (no limit)
-    }
-  }, [filters, loadClips]);
+  if (isPopupMode) {
+    const isPinned = settings.popupPinned === true;
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden",
+          background: "#0d0d1a",
+          color: "#fff",
+          fontFamily: "Inter, system-ui, sans-serif",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Draggable Header Bar */}
+        <div
+          style={{
+            height: 38,
+            display: "flex",
+            alignItems: "center",
+            background: "#0a0a14",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            flexShrink: 0,
+            paddingLeft: 12,
+            paddingRight: 8,
+          }}
+        >
+          {/* Drag Handle */}
+          <div
+            style={{
+              flex: 1,
+              /* @ts-ignore */
+              WebkitAppRegion: "drag",
+              cursor: "move",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              userSelect: "none",
+            }}
+          >
+            <span
+              className="rotating-gradient-dot"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.35)",
+              }}
+            >
+              Clipboard History
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div
+            style={{
+              /* @ts-ignore */
+              WebkitAppRegion: "no-drag",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {/* Pin Toggle Button */}
+            <button
+              onClick={() => saveSettings({ popupPinned: !isPinned })}
+              title={isPinned ? "Unpin Window" : "Pin Window"}
+              style={{
+                width: 28,
+                height: 28,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                borderRadius: 6,
+                color: isPinned ? "#6366f1" : "#4b5563",
+                cursor: "pointer",
+                transition: "all 150ms",
+              }}
+              className="hover:bg-white/5 active:scale-90"
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill={isPinned ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.33-2.91A2 2 0 0 1 15.8 9.9V5a2 2 0 0 0-2-2h-3.6a2 2 0 0 0-2 2v4.9a2 2 0 0 1-.43 1.21L5.44 14a2 2 0 0 0-.44 1.24z" />
+              </svg>
+            </button>
+
+            {/* Close Button */}
+            {isPinned && (
+              <button
+                onClick={() => window.clipAPI.closePopup()}
+                title="Close"
+                style={{
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  borderRadius: 6,
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                  transition: "all 150ms",
+                }}
+                className="hover:bg-rose-500/10 hover:text-rose-400 active:scale-90"
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <main
+          className="bg-surface-900"
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            minHeight: 0,
+            minWidth: 0,
+          }}
+        >
+          <ErrorBoundary name="PopupDashboard">
+            <React.Suspense fallback={<FullPageSpinner label="Loading..." />}>
+              <Dashboard isPopup />
+            </React.Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -411,3 +411,17 @@ a {
     hue-shift 18s linear infinite !important;
 }
 
+.whiteblink-remover {
+  outline: none !important;
+  box-shadow: none !important;
+  /* border: none !important; */
+
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.whiteblink-remover:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  /* border: none !important; */
+}

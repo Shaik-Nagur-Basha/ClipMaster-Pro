@@ -28,14 +28,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoLaunch: false,
   maxEntries: 5000,
   pollingInterval: 600,
-  paginationEnabled: false,
+  paginationEnabled: true,
   pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
   pauseCaptureOption: "never",
   pauseUntil: null,
+  globalShortcutEnabled: true,
+  globalShortcutKey: "CommandOrControl+Shift+V",
+  popupPinned: false,
 };
-
 
 export const useClipStore = create<ClipStore>((set, get) => ({
   // ── Initial State ──────────────────────────────────────────────────────
@@ -51,26 +53,65 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   selectedClipId: null,
   editingClipId: null,
   isLoading: false,
+  totalCount: 0,
+  currentPage: 1,
+  sidebarCounts: { active: 0, favorites: 0, deleted: 0 },
 
   // ── Data Actions ───────────────────────────────────────────────────────
-  loadClips: async (limit?: number) => {
-    const alreadyHasClips = get().clips.length > 0;
-    // Only show the loading skeleton when we have no clips yet (first load).
-    // Background refreshes (e.g. the full history load after the fast 200-clip start)
-    // should silently update the store without causing a loading flash.
+  loadClips: async (forceLimit?: number) => {
+    const state = get();
+    const alreadyHasClips = state.clips.length > 0;
     if (!alreadyHasClips) {
       set({ isLoading: true });
     }
     try {
-      console.log(`[Store] Fetching clips (limit=${limit}) from window.clipAPI...`);
-      const clips = await window.clipAPI.getClips(limit);
-      console.log(
-        `[Store] loadClips success: received ${clips?.length ?? 0} clips`,
-      );
-      set({ clips: clips || [], isLoading: false });
+      let options: any;
+      if (forceLimit !== undefined) {
+        options = forceLimit;
+      } else {
+        const isFavorite = state.activePage === "favorites" ? true : null;
+        const isDeleted = state.activePage === "recycle";
+        const pageSize = state.settings.pageSize || 10;
+        const skip = (state.currentPage - 1) * pageSize;
+
+        options = {
+          limit: pageSize,
+          skip: skip,
+          search: state.filters.search,
+          tags: state.filters.tags,
+          isFavorite,
+          isDeleted,
+          sortMode: state.sortMode,
+          dateFrom: state.filters.dateFrom,
+          dateTo: state.filters.dateTo,
+          minWordCount: state.filters.minWordCount,
+          maxWordCount: state.filters.maxWordCount,
+          tagMatchingMode: state.filters.tagMatchingMode,
+        };
+      }
+
+      console.log("[Store] Fetching clips with options:", options);
+      const result = await window.clipAPI.getClips(options);
+      
+      if (forceLimit !== undefined) {
+        set({
+          clips: result || [],
+          totalCount: result ? result.length : 0,
+          isLoading: false
+        });
+      } else {
+        set({
+          clips: result?.clips || [],
+          totalCount: result?.totalCount || 0,
+          isLoading: false
+        });
+      }
+      
+      // Keep sidebar counts in sync
+      get().loadSidebarCounts();
     } catch (err) {
       console.error("[Store] loadClips failed:", err);
-      set({ clips: [], isLoading: false });
+      set({ clips: [], totalCount: 0, isLoading: false });
     }
   },
 
@@ -87,7 +128,6 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     try {
       const raw = await window.clipAPI.getSettings();
       const settings: AppSettings = { ...DEFAULT_SETTINGS, ...raw };
-      console.log("[Store] loadSettings →", Object.keys(settings).join(", "));
       set({
         settings,
         viewMode: settings.viewMode ?? "list",
@@ -106,19 +146,50 @@ export const useClipStore = create<ClipStore>((set, get) => ({
           activePage: state.activePage ?? "dashboard",
           selectedClipId: state.selectedClipId ?? null,
           sortMode: state.sortMode ?? "newest",
-          filters: state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS }
+          filters: state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS },
+          currentPage: 1,
         });
+        await get().loadClips();
       }
     } catch (err) {
       console.error("[Store] loadUIState failed:", err);
     }
   },
 
+  loadSidebarCounts: async () => {
+    try {
+      const counts = await window.clipAPI.getCounts();
+      if (counts) {
+        set({ sidebarCounts: counts });
+      }
+    } catch (err) {
+      console.error("[Store] loadSidebarCounts failed:", err);
+    }
+  },
+
   addClipFromMain: (item: ClipboardItem) => {
-    set((state) => {
-      if (state.clips.some((c) => c.id === item.id)) return state;
-      return { clips: [item, ...state.clips] };
-    });
+    const state = get();
+    const hasFiltersActive =
+      state.filters.search.trim().length > 0 ||
+      state.filters.tags.length > 0 ||
+      state.filters.isFavorite !== null ||
+      state.filters.dateFrom !== null ||
+      state.filters.dateTo !== null;
+
+    if (hasFiltersActive || state.activePage !== "dashboard" || state.currentPage !== 1) {
+      get().loadClips();
+    } else {
+      set((state) => {
+        if (state.clips.some((c) => c.id === item.id)) return state;
+        const pageSize = state.settings.pageSize || 10;
+        const newClips = [item, ...state.clips].slice(0, pageSize);
+        return {
+          clips: newClips,
+          totalCount: state.totalCount + 1
+        };
+      });
+      get().loadSidebarCounts();
+    }
   },
 
   updateClip: async (item: ClipboardItem) => {
@@ -132,41 +203,28 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     };
 
     await window.clipAPI.updateClip(updated);
-    set((state) => ({
-      clips: state.clips.map((c) => (c.id === updated.id ? updated : c)),
-      editingClipId: null,
-    }));
+    set({ editingClipId: null });
+    get().loadClips();
   },
 
   deleteClip: async (id: string) => {
     await window.clipAPI.deleteClip(id);
-    set((state) => ({
-      clips: state.clips.map((c) =>
-        c.id === id
-          ? { ...c, isDeleted: true, deletedAt: new Date().toISOString() }
-          : c,
-      ),
-    }));
+    get().loadClips();
   },
 
   permanentDelete: async (id: string) => {
     await window.clipAPI.permanentDelete(id);
-    set((state) => ({ clips: state.clips.filter((c) => c.id !== id) }));
+    get().loadClips();
   },
 
   permanentDeleteBulk: async (ids: string[]) => {
     await window.clipAPI.permanentDeleteBulk(ids);
-    const idSet = new Set(ids);
-    set((state) => ({ clips: state.clips.filter((c) => !idSet.has(c.id)) }));
+    get().loadClips();
   },
 
   restoreClip: async (id: string): Promise<boolean> => {
     await window.clipAPI.restoreClip(id);
-    set((state) => ({
-      clips: state.clips.map((c) =>
-        c.id === id ? { ...c, isDeleted: false, deletedAt: undefined } : c,
-      ),
-    }));
+    get().loadClips();
     return true;
   },
 
@@ -175,9 +233,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     if (!clip) return;
     const updated: ClipboardItem = { ...clip, isFavorite: !clip.isFavorite };
     await window.clipAPI.updateClip(updated);
-    set((state) => ({
-      clips: state.clips.map((c) => (c.id === id ? updated : c)),
-    }));
+    get().loadClips();
   },
 
   copyToClipboard: async (text: string) => {
@@ -209,31 +265,41 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     const nextSettings: AppSettings = (res && typeof res === "object")
       ? (res as AppSettings)
       : { ...get().settings, ...partial };
-    set({ settings: nextSettings });
+    set({ settings: nextSettings, currentPage: 1 });
     if (partial.viewMode) set({ viewMode: partial.viewMode });
     if (partial.displayMode) set({ displayMode: partial.displayMode });
+    get().loadClips();
   },
 
   // ── UI Actions ─────────────────────────────────────────────────────────
   setViewMode: (mode: ViewMode) => set({ viewMode: mode }),
   setDisplayMode: (mode: DisplayMode) => set({ displayMode: mode }),
   setSortMode: (mode: SortMode) => {
-    set({ sortMode: mode });
+    set({ sortMode: mode, currentPage: 1 });
     window.clipAPI.updateUIState?.({ sortMode: mode });
+    get().loadClips();
   },
-  setFilters: (partial: Partial<FilterState>) =>
+  setFilters: (partial: Partial<FilterState>) => {
     set((state) => {
       const next = { ...state.filters, ...partial };
       window.clipAPI.updateUIState?.({ filters: next });
+      // Schedule loading to prevent thread blockage
+      setTimeout(() => {
+        set({ currentPage: 1 });
+        get().loadClips();
+      }, 0);
       return { filters: next };
-    }),
+    });
+  },
   resetFilters: () => {
-    set({ filters: { ...DEFAULT_FILTERS } });
+    set({ filters: { ...DEFAULT_FILTERS }, currentPage: 1 });
     window.clipAPI.updateUIState?.({ filters: { ...DEFAULT_FILTERS } });
+    get().loadClips();
   },
   setActivePage: (page: ActivePage) => {
-    set({ activePage: page });
+    set({ activePage: page, currentPage: 1 });
     window.clipAPI.updateUIState?.({ activePage: page });
+    get().loadClips();
   },
   setSelectedClip: (id: string | null) => {
     set({ selectedClipId: id });
@@ -242,6 +308,10 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setEditingClip: (id: string | null) => set({ editingClipId: id }),
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) =>
     set({ searchInputRef: ref }),
+  setCurrentPage: (page: number) => {
+    set({ currentPage: page });
+    get().loadClips();
+  },
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId);
@@ -252,9 +322,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
 
     const updated = { ...clip, tags: newTags };
     await window.clipAPI.updateClip(updated);
-    set((state) => ({
-      clips: state.clips.map((c) => (c.id === clipId ? updated : c)),
-    }));
+    get().loadClips();
   },
 }));
 
@@ -264,90 +332,15 @@ export function selectFilteredClips(
   state: ClipStore,
   showDeleted = false,
 ): ClipboardItem[] {
-  const { clips, filters, sortMode } = state;
-  const {
-    search,
-    tags,
-    isFavorite,
-    minWordCount,
-    maxWordCount,
-    dateFrom,
-    dateTo,
-  } = filters;
-
-  let result = clips.filter((c) => !!c.isDeleted === showDeleted);
-
-  if (search.trim()) {
-    const q = search.toLowerCase();
-    result = result.filter((c) => c.text.toLowerCase().includes(q));
-  }
-
-  if (tags.length > 0) {
-    const matchMode = filters.tagMatchingMode ?? "or";
-    if (matchMode === "and") {
-      result = result.filter((c) => tags.every((t) => c.tags.includes(t)));
-    } else {
-      result = result.filter((c) => tags.some((t) => c.tags.includes(t)));
-    }
-  }
-
-  if (isFavorite === true) result = result.filter((c) => c.isFavorite);
-
-  if (minWordCount !== null || maxWordCount !== null) {
-    result = result.filter((c) => {
-      const len = c.charCount ?? c.text.length;
-      if (minWordCount !== null && len < minWordCount) return false;
-      if (maxWordCount !== null && len > maxWordCount) return false;
-      return true;
-    });
-  }
-
-  if (dateFrom)
-    result = result.filter((c) => new Date(c.timestamp) >= new Date(dateFrom));
-  if (dateTo)
-    result = result.filter(
-      (c) => new Date(c.timestamp) <= new Date(dateTo + "T23:59:59"),
-    );
-
-  if (sortMode === "newest")
-    result.sort(
-      (a, b) =>
-        new Date(b.updatedAt || b.timestamp).getTime() -
-        new Date(a.updatedAt || a.timestamp).getTime(),
-    );
-  else if (sortMode === "oldest")
-    result.sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
-  else if (sortMode === "longest")
-    result.sort(
-      (a, b) => (b.charCount ?? b.text.length) - (a.charCount ?? a.text.length),
-    );
-  else if (sortMode === "shortest")
-    result.sort(
-      (a, b) => (a.charCount ?? a.text.length) - (b.charCount ?? b.text.length),
-    );
-
-  return result;
+  // Since clips are already pre-paginated and pre-filtered in the database query,
+  // we can simply return the active clips array directly.
+  return state.clips;
 }
 
 export function selectDeletedClips(state: ClipStore): ClipboardItem[] {
-  return state.clips
-    .filter((c) => c.isDeleted)
-    .sort(
-      (a, b) =>
-        new Date(b.deletedAt ?? b.timestamp).getTime() -
-        new Date(a.deletedAt ?? a.timestamp).getTime(),
-    );
+  return state.clips;
 }
 
 export function selectFavoriteClips(state: ClipStore): ClipboardItem[] {
-  return state.clips
-    .filter((c) => !c.isDeleted && c.isFavorite)
-    .sort(
-      (a, b) =>
-        new Date(b.updatedAt || b.timestamp).getTime() -
-        new Date(a.updatedAt || a.timestamp).getTime(),
-    );
+  return state.clips;
 }

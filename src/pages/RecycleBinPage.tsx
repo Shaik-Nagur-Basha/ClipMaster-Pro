@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
@@ -13,35 +13,46 @@ import PageSizeDropdown from "../components/PageSizeDropdown";
 
 const RecycleBinPage: React.FC = () => {
   const store = useClipStore();
-  const { displayMode, isLoading, permanentDeleteBulk, settings } = store;
+  const { displayMode, isLoading, permanentDeleteBulk, settings, currentPage, totalCount, setCurrentPage } = store;
   const filtered = selectFilteredClips(store, true);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const pageSize = settings.pageSize || 10;
   const paginated = settings.paginationEnabled;
   const totalPages = paginated
-    ? Math.max(1, Math.ceil(filtered.length / pageSize))
+    ? Math.max(1, Math.ceil(totalCount / pageSize))
     : 1;
-  const pageClips = paginated
-    ? filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-    : filtered;
+  const pageClips = filtered;
   const pageEndCount = paginated
-    ? Math.min(currentPage * pageSize, filtered.length)
-    : filtered.length;
+    ? Math.min(currentPage * pageSize, totalCount)
+    : totalCount;
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, setCurrentPage]);
 
-  const isEmpty = filtered.length === 0;
+  const isEmpty = totalCount === 0;
   const [emptying, setEmptying] = React.useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
 
   const handleEmptyBin = async () => {
     setEmptying(true);
     try {
-      const ids = filtered.map((item) => item.id);
-      await permanentDeleteBulk(ids);
+      // In database-side pagination, to empty the bin, we might need all matching deleted clips.
+      // But wait! If we do database-side pagination, 'filtered' only contains the current page's clips.
+      // To delete ALL clips in the recycle bin, we can update permanentDeleteBulk to accept an empty array or a special signal,
+      // or we can fetch all deleted clips. But wait, in the main process:
+      // ipcMain.handle("permanent-delete-bulk", async (_e, ids) => storageManager.permanentDeleteBulk(ids))
+      // What if we want to delete all deleted clips?
+      // Let's check: in `electron/storage.ts`:
+      // permanentDeleteBulk(ids: string[]): removes clips with id in ids.
+      // If we pass 'all', or if we just query the deleted clips in the renderer?
+      // Wait, we can fetch all deleted clips using a call to `window.clipAPI.getClips({ isDeleted: true, limit: 100000 })` and get their IDs!
+      // Yes, this is very easy and doesn't require modifying the main process IPC handler.
+      const res = await window.clipAPI.getClips({ isDeleted: true, limit: 100000 });
+      const ids = (res?.clips || []).map((item: any) => item.id);
+      if (ids.length > 0) {
+        await permanentDeleteBulk(ids);
+      }
     } catch (error) {
       console.error("Bulk delete failed:", error);
     } finally {
@@ -73,8 +84,7 @@ const RecycleBinPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <IconTrash size={14} className="text-gray-500" />
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            {filtered.length} Deleted{" "}
-            {filtered.length === 1 ? "Entry" : "Entries"}
+            {totalCount} Deleted {totalCount === 1 ? "Entry" : "Entries"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -87,10 +97,10 @@ const RecycleBinPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
               />
-              {filtered.length > pageSize && (
+              {totalCount > pageSize && (
                 <>
                   <button
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                     className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
                   >
@@ -100,9 +110,7 @@ const RecycleBinPage: React.FC = () => {
                     Page {currentPage}/{totalPages}
                   </span>
                   <button
-                    onClick={() =>
-                      setCurrentPage((page) => Math.min(totalPages, page + 1))
-                    }
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
                     className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
                   >
@@ -145,7 +153,7 @@ const RecycleBinPage: React.FC = () => {
               <p className="text-xs text-gray-400 leading-relaxed">
                 You are about to permanently delete{" "}
                 <span className="font-semibold text-red-400">
-                  {filtered.length} {filtered.length === 1 ? "item" : "items"}
+                  {totalCount} {totalCount === 1 ? "item" : "items"}
                 </span>{" "}
                 from the recycle bin. Once deleted, they cannot be recovered.
               </p>
@@ -189,14 +197,14 @@ const RecycleBinPage: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      {paginated && !isEmpty && filtered.length > pageSize && (
+      {paginated && !isEmpty && totalCount > pageSize && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0 bg-surface-800/20 border-t border-white/5">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <span className="text-cyan-400/75">{pageEndCount}</span> of {filtered.length} deleted items
+            <span className="text-cyan-400/75">{pageEndCount}</span> of {totalCount} deleted items
           </p>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
             <button
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
             >
@@ -206,9 +214,7 @@ const RecycleBinPage: React.FC = () => {
               Page {currentPage}/{totalPages}
             </span>
             <button
-              onClick={() =>
-                setCurrentPage((page) => Math.min(totalPages, page + 1))
-              }
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
             >
@@ -264,6 +270,5 @@ const EmptyState: React.FC = () => (
     </div>
   </div>
 );
-
 
 export default RecycleBinPage;

@@ -8,6 +8,8 @@ import {
   Tray,
   shell,
   session,
+  globalShortcut,
+  screen,
 } from "electron";
 import { join } from "path";
 import * as path from "path";
@@ -22,6 +24,8 @@ import { importManager } from "./importManager";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
+app.commandLine.appendSwitch("js-flags", "--expose-gc --max-old-space-size=128");
+app.disableHardwareAcceleration();
 
 // ─── Singleton guard ────────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
@@ -34,6 +38,9 @@ const isStartupHidden = process.argv.includes("--hidden");
 
 // ─── State ──────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
+let popupWindow: BrowserWindow | null = null;
+let isPasting = false;
+let blurTimeout: NodeJS.Timeout | null = null;
 let tray: Tray | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let lastClipboardText = "";
@@ -46,6 +53,66 @@ let isRecyclingNativeListener = false;
 function getCachedSettings(): AppSettings {
   return storageManager.getSettings();
 }
+
+function broadcastSettingsUpdated(updated: AppSettings): void {
+  mainWindow?.webContents.send("settings-updated", updated);
+  popupWindow?.webContents.send("settings-updated", updated);
+}
+
+let registeredShortcutKey: string | null = null;
+
+function registerAppShortcut(): void {
+  const settings = storageManager.getSettings();
+  const enabled = settings.globalShortcutEnabled !== false;
+  const shortcutKey = settings.globalShortcutKey || "CommandOrControl+Shift+V";
+
+  if (!enabled) {
+    if (registeredShortcutKey) {
+      try {
+        globalShortcut.unregister(registeredShortcutKey);
+        console.log(`[Shortcut] Unregistered global shortcut: ${registeredShortcutKey}`);
+      } catch (err) {
+        console.error("[Shortcut] Failed to unregister shortcut:", err);
+      }
+      registeredShortcutKey = null;
+    }
+    return;
+  }
+
+  if (registeredShortcutKey === shortcutKey) {
+    try {
+      if (globalShortcut.isRegistered(shortcutKey)) {
+        return;
+      }
+    } catch {}
+  }
+
+  if (registeredShortcutKey) {
+    try {
+      globalShortcut.unregister(registeredShortcutKey);
+    } catch (err) {
+      console.error("[Shortcut] Failed to unregister old shortcut:", err);
+    }
+    registeredShortcutKey = null;
+  }
+
+  try {
+    const isRegistered = globalShortcut.register(shortcutKey, () => {
+      console.log(`[Shortcut] Triggered hotkey: ${shortcutKey}`);
+      createPopupWindow();
+    });
+
+    if (isRegistered) {
+      registeredShortcutKey = shortcutKey;
+      console.log(`[Shortcut] Registered global shortcut: ${shortcutKey}`);
+    } else {
+      console.warn(`[Shortcut] Could not register shortcut ${shortcutKey}. It might be in use by another application.`);
+    }
+  } catch (err) {
+    console.error(`[Shortcut] Invalid shortcut key or registration error for ${shortcutKey}:`, err);
+  }
+}
+
 
 // UI State Caching to preserve page/selection across window recreate
 let uiState = {
@@ -64,6 +131,142 @@ let uiState = {
   },
 };
 let uiStateSaveTimeout: NodeJS.Timeout | null = null;
+
+let memoryCleanupTimeout: NodeJS.Timeout | null = null;
+
+function cleanUpMemory(): void {
+  console.log("[Memory] Initiating memory cleanup...");
+  try {
+    session.defaultSession.clearCache().catch(() => {});
+  } catch (err) {}
+
+  if (global.gc) {
+    try {
+      global.gc();
+      console.log("[Memory] Main process garbage collection completed successfully.");
+    } catch (e) {
+      console.warn("[Memory] Main process GC failed:", e);
+    }
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send("clean-memory");
+    } catch (e) {}
+  }
+}
+
+function scheduleMemoryCleanup(delayMs: number = 3000): void {
+  if (memoryCleanupTimeout) {
+    clearTimeout(memoryCleanupTimeout);
+  }
+  memoryCleanupTimeout = setTimeout(() => {
+    cleanUpMemory();
+    memoryCleanupTimeout = null;
+  }, delayMs);
+}
+
+function getPasterPath(): string {
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    const devPath = join(__dirname, "paster.exe");
+    if (fs.existsSync(devPath)) return devPath;
+    return join(__dirname, "../../electron/paster.exe");
+  }
+  const prodPath = join(__dirname, "paster.exe").replace("app.asar", "app.asar.unpacked");
+  return prodPath;
+}
+
+function createPopupWindow(): void {
+  if (popupWindow) {
+    popupWindow.close();
+    return;
+  }
+
+  const cursorPoint = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursorPoint);
+
+  const width = 420;
+  const height = 550;
+
+  // Center horizontally relative to the cursor
+  let x = cursorPoint.x - Math.floor(width / 2);
+  // Place it 15px below the cursor
+  let y = cursorPoint.y + 15;
+
+  const bounds = display.bounds;
+  if (x < bounds.x) x = bounds.x;
+  if (x + width > bounds.x + bounds.width) x = bounds.x + bounds.width - width;
+  
+  // If placing it below the cursor pushes it off the bottom of the screen, place it above the cursor instead!
+  if (y + height > bounds.y + bounds.height) {
+    y = cursorPoint.y - height - 15; // 15px above the cursor
+  }
+  if (y < bounds.y) y = bounds.y;
+
+  popupWindow = new BrowserWindow({
+    width: width,
+    height: height,
+    x: x,
+    y: y,
+    frame: false,
+    resizable: false,
+    show: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: "#0d0d1a",
+    icon: join(
+      __dirname,
+      app.isPackaged ? "../renderer/icon.ico" : "../../public/icon.ico",
+    ),
+    webPreferences: {
+      preload: join(__dirname, "../preload/preload.js"),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  const popupUrl = !app.isPackaged && process.env["ELECTRON_RENDERER_URL"]
+    ? `${process.env["ELECTRON_RENDERER_URL"]}?popup=true`
+    : `file://${join(__dirname, "../renderer/index.html")}?popup=true`;
+
+  popupWindow.loadURL(popupUrl);
+
+  popupWindow.once("ready-to-show", () => {
+    popupWindow?.show();
+    popupWindow?.focus();
+  });
+
+  popupWindow.on("blur", () => {
+    if (isPasting) return;
+    
+    blurTimeout = setTimeout(() => {
+      if (popupWindow && !popupWindow.isDestroyed() && !popupWindow.isFocused()) {
+        const settings = storageManager.getSettings();
+        if (settings.popupPinned !== true) {
+          popupWindow.close();
+        }
+      }
+    }, 150);
+  });
+
+  popupWindow.on("focus", () => {
+    if (blurTimeout) {
+      clearTimeout(blurTimeout);
+      blurTimeout = null;
+    }
+  });
+
+  popupWindow.on("closed", () => {
+    if (blurTimeout) {
+      clearTimeout(blurTimeout);
+      blurTimeout = null;
+    }
+    popupWindow = null;
+    scheduleMemoryCleanup(500);
+  });
+}
 
 // ─── Window ─────────────────────────────────────────────────────────────────
 function createWindow(): void {
@@ -121,6 +324,45 @@ function createWindow(): void {
   // This frees renderer process memory when backgrounded.
   mainWindow.on("closed", () => {
     mainWindow = null;
+    scheduleMemoryCleanup(1000);
+  });
+
+  mainWindow.on("minimize", () => {
+    try {
+      (mainWindow?.webContents as any).forcefullyDeprioritize?.();
+    } catch (e) {}
+    scheduleMemoryCleanup(1500);
+  });
+
+  mainWindow.on("blur", () => {
+    scheduleMemoryCleanup(5000); // 5 seconds after becoming inactive
+  });
+
+  mainWindow.on("focus", () => {
+    if (memoryCleanupTimeout) {
+      clearTimeout(memoryCleanupTimeout);
+      memoryCleanupTimeout = null;
+    }
+  });
+
+  mainWindow.on("restore", () => {
+    if (memoryCleanupTimeout) {
+      clearTimeout(memoryCleanupTimeout);
+      memoryCleanupTimeout = null;
+    }
+    try {
+      mainWindow?.webContents.send("refresh-clips");
+    } catch (e) {}
+  });
+
+  mainWindow.on("show", () => {
+    if (memoryCleanupTimeout) {
+      clearTimeout(memoryCleanupTimeout);
+      memoryCleanupTimeout = null;
+    }
+    try {
+      mainWindow?.webContents.send("refresh-clips");
+    } catch (e) {}
   });
 }
 
@@ -166,7 +408,7 @@ function updateTrayMenu(): void {
           pauseUntil: null,
         });
         const updated = storageManager.getSettings();
-        mainWindow?.webContents.send("settings-updated", updated);
+        broadcastSettingsUpdated(updated);
         updateTrayMenu();
       },
     },
@@ -197,7 +439,7 @@ function setupPauseTimeout(ms: number): void {
       pauseUntil: null,
     });
     const updated = storageManager.getSettings();
-    mainWindow?.webContents.send("settings-updated", updated);
+    broadcastSettingsUpdated(updated);
     updateTrayMenu();
     pauseTimeout = null;
   }, ms);
@@ -211,7 +453,12 @@ async function handleClipboardCapture(text: string): Promise<void> {
     console.log("[Clipboard] addEntry result:", newItem ? newItem.id : "null (ignored)");
     if (!newItem) return;
 
-    mainWindow?.webContents.send("new-clip", newItem);
+    // Only update renderer if the window is currently visible and not minimized.
+    // This saves CPU and RAM rendering loops in the background.
+    const isWindowVisible = mainWindow && !mainWindow.isMinimized() && mainWindow.isVisible();
+    if (isWindowVisible && mainWindow) {
+      mainWindow.webContents.send("new-clip", newItem);
+    }
   } catch (err) {
     console.error("[Clipboard] Capture error:", err);
   }
@@ -254,7 +501,7 @@ function startPoller(): void {
               pauseCaptureOption: "never",
               pauseUntil: null,
             });
-            mainWindow?.webContents.send("settings-updated", storageManager.getSettings());
+            broadcastSettingsUpdated(storageManager.getSettings());
             updateTrayMenu();
           }
         }
@@ -278,54 +525,29 @@ function stopPoller(): void {
   }
 }
 
+function getClipboardListenerPath(): string {
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    const devPath = join(__dirname, "clipboard-listener.exe");
+    if (fs.existsSync(devPath)) return devPath;
+    return join(__dirname, "../../electron/clipboard-listener.exe");
+  }
+  const prodPath = join(__dirname, "clipboard-listener.exe").replace("app.asar", "app.asar.unpacked");
+  return prodPath;
+}
+
 function startClipboardListener(): void {
   stopPoller();
   if (clipboardListenerProc) return;
 
-  const script = `
-    Add-Type -AssemblyName System.Windows.Forms
-    $code = @"
-    using System;
-    using System.Runtime.InteropServices;
-    using System.Windows.Forms;
-
-    public class ClipboardListener : Form {
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool AddClipboardFormatListener(IntPtr hwnd);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
-
-        private const int WM_CLIPBOARDUPDATE = 0x031D;
-
-        public ClipboardListener() {
-            this.CreateHandle();
-            AddClipboardFormatListener(this.Handle);
-        }
-
-        protected override void WndProc(ref Message m) {
-            if (m.Msg == WM_CLIPBOARDUPDATE) {
-                Console.WriteLine("CLIPBOARD_CHANGED");
-            }
-            base.WndProc(ref m);
-        }
-
-        protected override void Dispose(bool disposing) {
-            RemoveClipboardFormatListener(this.Handle);
-            base.Dispose(disposing);
-        }
-    }
-"@
-    Add-Type -TypeDefinition $code -ReferencedAssemblies System.Windows.Forms
-    [Application]::Run(New-Object ClipboardListener)
-  `;
+  const helperPath = getClipboardListenerPath();
+  console.log("[Clipboard] Spawning native listener from:", helperPath);
 
   try {
-    clipboardListenerProc = spawn("powershell", ["-NoProfile", "-Command", script], {
+    clipboardListenerProc = spawn(helperPath, [], {
       windowsHide: true,
     });
     nativeListenerStartTime = Date.now();
-    startNativeListenerWatchdog();
 
     clipboardListenerProc.stdout?.on("data", (data) => {
       const msg = data.toString().trim();
@@ -349,7 +571,7 @@ function startClipboardListener(): void {
                 pauseCaptureOption: "never",
                 pauseUntil: null,
               });
-              mainWindow?.webContents.send("settings-updated", storageManager.getSettings());
+              broadcastSettingsUpdated(storageManager.getSettings());
               updateTrayMenu();
             }
           }
@@ -404,7 +626,9 @@ function stopClipboardListener(): void {
   stopPoller();
   stopNativeListenerWatchdog();
   if (clipboardListenerProc) {
-    clipboardListenerProc.kill();
+    try {
+      clipboardListenerProc.kill();
+    } catch {}
     clipboardListenerProc = null;
     console.log("[Clipboard] Native Windows clipboard listener stopped.");
   }
@@ -418,39 +642,7 @@ function stopNativeListenerWatchdog(): void {
 }
 
 function startNativeListenerWatchdog(): void {
-  stopNativeListenerWatchdog();
-  
-  // Run every 5 minutes (300000 ms)
-  nativeListenerWatchdog = setInterval(() => {
-    if (!clipboardListenerProc || !clipboardListenerProc.pid) return;
-    
-    // Recycle after 2 hours (7200000 ms) to avoid potential hangs or leaks
-    if (Date.now() - nativeListenerStartTime > 2 * 60 * 60 * 1000) {
-      console.log("[Watchdog] Native listener has been running for 2 hours. Recycling...");
-      restartNativeListener();
-      return;
-    }
-    
-    const pid = clipboardListenerProc.pid;
-    exec(`tasklist /FI "PID eq ${pid}" /NH`, (err: any, stdout: string) => {
-      if (err || !stdout) return;
-      
-      const match = stdout.match(/([\d,.]+)\s*[a-zA-Z]*$/);
-      if (match) {
-        const memStr = match[1].replace(/[,.]/g, "");
-        const memVal = parseInt(memStr, 10);
-        if (!isNaN(memVal)) {
-          const memMB = memVal / 1024;
-          console.log(`[Watchdog] Native clipboard listener (PID ${pid}) memory usage: ${memMB.toFixed(2)} MB`);
-          // Limit to 120MB. If it exceeds 120MB, restart it
-          if (memMB > 120) {
-            console.warn(`[Watchdog] Native listener PID ${pid} exceeded memory limit (120MB). Restarting...`);
-            restartNativeListener();
-          }
-        }
-      }
-    });
-  }, 5 * 60 * 1000);
+  // Simple empty stub since native listener watchdog is no longer needed
 }
 
 function restartNativeListener(): void {
@@ -565,8 +757,75 @@ function registerIPC(): void {
     mainWindow?.close(); // Triggers standard window close and destruction
   });
 
+  ipcMain.handle("paste-clip", async () => {
+    console.log("[IPC] paste-clip triggered");
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      isPasting = true;
+      
+      const hwndBuf = popupWindow.getNativeWindowHandle();
+      const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
+      const pid = process.pid.toString();
+      
+      const pasterPath = getPasterPath();
+      try {
+        const settings = storageManager.getSettings();
+        const shouldRefocus = settings.popupPinned === true ? "1" : "0";
+        const child = spawn(pasterPath, [hwnd, pid, "50", shouldRefocus], { windowsHide: true });
+        let resolved = false;
+
+        child.stdout?.on("data", (data) => {
+          const msg = data.toString().trim();
+          if (msg.includes("READY_TO_CLOSE")) {
+            const settings = storageManager.getSettings();
+            if (settings.popupPinned !== true) {
+              if (popupWindow && !popupWindow.isDestroyed()) {
+                popupWindow.close();
+              }
+              isPasting = false;
+            }
+          }
+        });
+
+        const done = () => {
+          if (resolved) return;
+          resolved = true;
+          setTimeout(() => {
+            const settings = storageManager.getSettings();
+            if (settings.popupPinned === true) {
+              if (popupWindow && !popupWindow.isDestroyed()) {
+                popupWindow.focus();
+                setTimeout(() => {
+                  isPasting = false;
+                }, 150);
+              } else {
+                isPasting = false;
+              }
+            } else {
+              if (popupWindow && !popupWindow.isDestroyed()) {
+                popupWindow.close();
+              }
+              isPasting = false;
+            }
+          }, 30);
+        };
+        child.on("close", done);
+        child.on("error", done);
+      } catch (err) {
+        console.error("[Paste] Failed to spawn paster:", err);
+        isPasting = false;
+      }
+    }
+  });
+
+  ipcMain.on("close-popup", () => {
+    if (popupWindow) {
+      popupWindow.close();
+    }
+  });
+
   // ── Clipboard CRUD ───────────────────────────────────────────────────────
-  ipcMain.handle("get-clips", async (_e, limit?: number) => await storageManager.readAll(limit));
+  ipcMain.handle("get-clips", async (_e, options?: any) => await storageManager.readAll(options));
+  ipcMain.handle("get-counts", async () => await storageManager.getCounts());
 
   ipcMain.handle("add-clip", async (_e, text: string) => {
     const item = await storageManager.addEntry(text);
@@ -640,7 +899,11 @@ function registerIPC(): void {
           args: ["--hidden"],
         });
       }
+      if ("globalShortcutEnabled" in partial || "globalShortcutKey" in partial) {
+        registerAppShortcut();
+      }
       updateTrayMenu();
+      broadcastSettingsUpdated(storageManager.getSettings());
       return storageManager.getSettings();
     },
   );
@@ -979,7 +1242,7 @@ rm "$0"
       
       // Notify the renderer process to refresh settings from disk if updated
       if (summary.success && summary.importedSettings) {
-        mainWindow.webContents.send("settings-updated", storageManager.getSettings());
+        broadcastSettingsUpdated(storageManager.getSettings());
       }
       
       return summary;
@@ -1122,8 +1385,42 @@ rm "$0"
   });
 }
 
+function clearTempUpdateFiles(): void {
+  try {
+    const tempDir = app.getPath("temp");
+    if (!fs.existsSync(tempDir)) return;
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      const filePath = path.join(tempDir, file);
+      const lowerFile = file.toLowerCase();
+      if (
+        lowerFile.includes("clipmaster") ||
+        lowerFile.startsWith("install-update")
+      ) {
+        try {
+          const stat = fs.statSync(filePath);
+          if (stat.isFile()) {
+            fs.unlinkSync(filePath);
+            console.log("[Startup] Cleaned up temp update file:", file);
+          } else if (stat.isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+            console.log("[Startup] Cleaned up temp directory:", file);
+          }
+        } catch (err) {
+          // Ignore startup deletion errors
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Startup] Failed to clean up temp update files:", err);
+  }
+}
+
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // ════ 0. Clean up temp update files ════
+  clearTempUpdateFiles();
+
   // ════ 1. Init NeDB storage first — source of truth ════
   await storageManager.init();
   try {
@@ -1134,6 +1431,9 @@ app.whenReady().then(async () => {
 
   // ════ 2. Register IPC ════
   registerIPC();
+
+  // ════ 2.5 Register Global Shortcut ════
+  registerAppShortcut();
 
   // ════ 3. Create Tray (Do NOT call createWindow here, starts Headless) ════
   createTray();
@@ -1181,6 +1481,20 @@ app.on("before-quit", async (e) => {
   isQuitting = true;
   stopClipboardListener();
 
+  if (popupWindow) {
+    try {
+      popupWindow.close();
+    } catch {}
+  }
+
+  // Unregister all global shortcuts
+  try {
+    globalShortcut.unregisterAll();
+    console.log("[Shortcut] Unregistered all shortcuts on quit.");
+  } catch (err) {
+    console.error("[Shortcut] Failed to unregister shortcuts on quit:", err);
+  }
+
   if (uiStateSaveTimeout) {
     clearTimeout(uiStateSaveTimeout);
     uiStateSaveTimeout = null;
@@ -1189,6 +1503,13 @@ app.on("before-quit", async (e) => {
   console.log("[App] Saving final UI State...");
   await storageManager.saveUiState(uiState).catch(() => {});
   app.quit();
+});
+
+app.on("will-quit", () => {
+  try {
+    globalShortcut.unregisterAll();
+    console.log("[Shortcut] final unregisterAll in will-quit");
+  } catch {}
 });
 
 app.on("window-all-closed", () => {

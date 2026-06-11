@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useClipStore, selectFilteredClips } from "../store/useClipStore";
 import EntryCard from "../components/EntryCard";
@@ -12,30 +12,25 @@ import PageSizeDropdown from "../components/PageSizeDropdown";
 
 const FavoritesPage: React.FC = () => {
   const store = useClipStore();
-  const { displayMode, isLoading, settings } = store;
+  const { displayMode, isLoading, settings, currentPage, totalCount, setCurrentPage } = store;
   const contentRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const pageSize = settings.pageSize || 10;
   const paginated = settings.paginationEnabled;
 
-  // Filter for favorite items that are not deleted
-  const allClips = selectFilteredClips(store);
-  const filtered = allClips.filter((c) => c.isFavorite);
+  const filtered = selectFilteredClips(store);
   const totalPages = paginated
-    ? Math.max(1, Math.ceil(filtered.length / pageSize))
+    ? Math.max(1, Math.ceil(totalCount / pageSize))
     : 1;
-  const pageClips = paginated
-    ? filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-    : filtered;
+  const pageClips = filtered;
   const pageEndCount = paginated
-    ? Math.min(currentPage * pageSize, filtered.length)
-    : filtered.length;
+    ? Math.min(currentPage * pageSize, totalCount)
+    : totalCount;
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, setCurrentPage]);
 
-  const isEmpty = filtered.length === 0;
+  const isEmpty = totalCount === 0;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
@@ -52,8 +47,7 @@ const FavoritesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <IconStar size={14} className="text-accent-500" />
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            {filtered.length} Favourite{" "}
-            {filtered.length === 1 ? "Entry" : "Entries"}
+            {totalCount} Favourite {totalCount === 1 ? "Entry" : "Entries"}
           </p>
         </div>
         {paginated && !isEmpty && (
@@ -65,10 +59,10 @@ const FavoritesPage: React.FC = () => {
                 setCurrentPage(1);
               }}
             />
-            {filtered.length > pageSize && (
+            {totalCount > pageSize && (
               <>
                 <button
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                   className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
                 >
@@ -78,9 +72,7 @@ const FavoritesPage: React.FC = () => {
                   Page {currentPage}/{totalPages}
                 </span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((page) => Math.min(totalPages, page + 1))
-                  }
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                   className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
                 >
@@ -111,15 +103,14 @@ const FavoritesPage: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      {paginated && !isEmpty && filtered.length > pageSize && (
+      {paginated && !isEmpty && totalCount > pageSize && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0 bg-surface-800/20 border-t border-white/5">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <span className="text-cyan-400/75">{pageEndCount}</span> of{" "}
-            {filtered.length} favourites
+            <span className="text-cyan-400/75">{pageEndCount}</span> of {totalCount} favourites
           </p>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
             <button
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
             >
@@ -129,9 +120,7 @@ const FavoritesPage: React.FC = () => {
               Page {currentPage}/{totalPages}
             </span>
             <button
-              onClick={() =>
-                setCurrentPage((page) => Math.min(totalPages, page + 1))
-              }
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
             >
@@ -187,6 +176,5 @@ const EmptyState: React.FC = () => (
     </div>
   </div>
 );
-
 
 export default FavoritesPage;

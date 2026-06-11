@@ -58,6 +58,9 @@ export interface AppSettings {
   displayMode: DisplayMode;
   pauseCaptureOption?: "never" | "15mins" | "30mins" | "1hour" | "restart";
   pauseUntil?: number | null;
+  globalShortcutEnabled?: boolean;
+  globalShortcutKey?: string;
+  popupPinned?: boolean;
 }
 
 // ─── Store State Types ────────────────────────────────────────────────────
@@ -78,12 +81,16 @@ export interface ClipStore {
   selectedClipId: string | null;
   editingClipId: string | null;
   isLoading: boolean;
+  totalCount: number;
+  currentPage: number;
+  sidebarCounts: { active: number; favorites: number; deleted: number };
 
   // Actions - Data
-  loadClips: (limit?: number) => Promise<void>;
+  loadClips: (forceLimit?: number) => Promise<void>;
   loadTags: () => Promise<void>;
   loadSettings: () => Promise<void>;
   loadUIState: () => Promise<void>;
+  loadSidebarCounts: () => Promise<void>;
   addClipFromMain: (item: ClipboardItem) => void;
   updateClip: (item: ClipboardItem) => Promise<void>;
   deleteClip: (id: string) => Promise<void>;
@@ -106,6 +113,7 @@ export interface ClipStore {
   setSelectedClip: (id: string | null) => void;
   setEditingClip: (id: string | null) => void;
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) => void;
+  setCurrentPage: (page: number) => void;
 }
 
 // ─── Window bridge type ───────────────────────────────────────────────────
@@ -116,7 +124,8 @@ export interface ClipAPI {
   close: () => void;
 
   // Clipboard CRUD
-  getClips: (limit?: number) => Promise<ClipboardItem[]>;
+  getClips: (options?: number | any) => Promise<any>;
+  getCounts: () => Promise<{ active: number; favorites: number; deleted: number }>;
   addClip: (text: string) => Promise<ClipboardItem | null>;
   updateClip: (item: ClipboardItem) => Promise<boolean>;
   deleteClip: (id: string) => Promise<boolean>;
@@ -124,6 +133,8 @@ export interface ClipAPI {
   permanentDeleteBulk: (ids: string[]) => Promise<boolean>;
   restoreClip: (id: string) => Promise<boolean>;
   copyToClipboard: (text: string) => Promise<boolean>;
+  pasteClip: () => Promise<void>;
+  closePopup: () => void;
 
   // Tags & Settings
   getTags: () => Promise<Tag[]>;
@@ -140,7 +151,9 @@ export interface ClipAPI {
 
   openExternal: (url: string) => void;
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;
+  onRefreshClips: (cb: () => void) => () => void;
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
+  onCleanMemory: (cb: () => void) => () => void;
 
   // Application Updates
   getAppInfo: () => Promise<{

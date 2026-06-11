@@ -28,7 +28,8 @@ const clipAPI = {
   close: () => ipcRenderer.send("window-close"),
 
   // ── Clipboard CRUD ─────────────────────────────────────────────────────
-  getClips: (limit?: number): Promise<ClipboardItem[]> => ipcRenderer.invoke("get-clips", limit),
+  getClips: (options?: number | any): Promise<any> => ipcRenderer.invoke("get-clips", options),
+  getCounts: (): Promise<{ active: number; favorites: number; deleted: number }> => ipcRenderer.invoke("get-counts"),
   addClip: (text: string) => ipcRenderer.invoke("add-clip", text),
   updateClip: (item: ClipboardItem) => ipcRenderer.invoke("update-clip", item),
   deleteClip: (id: string) => ipcRenderer.invoke("delete-clip", id),
@@ -38,6 +39,8 @@ const clipAPI = {
   restoreClip: (id: string) => ipcRenderer.invoke("restore-clip", id),
   copyToClipboard: (text: string) =>
     ipcRenderer.invoke("copy-to-clipboard", text),
+  pasteClip: (): Promise<void> => ipcRenderer.invoke("paste-clip"),
+  closePopup: () => ipcRenderer.send("close-popup"),
 
   // ── Tags & Settings ────────────────────────────────────────────────────
   getTags: (): Promise<Tag[]> => ipcRenderer.invoke("get-tags"),
@@ -62,9 +65,19 @@ const clipAPI = {
     return registerSingleListener("new-clip", h);
   },
 
+  onRefreshClips: (cb: () => void) => {
+    const h = () => cb();
+    return registerSingleListener("refresh-clips", h);
+  },
+
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => {
     const h = (_: Electron.IpcRendererEvent, settings: AppSettings) => cb(settings);
     return registerSingleListener("settings-updated", h);
+  },
+
+  onCleanMemory: (cb: () => void) => {
+    const h = () => cb();
+    return registerSingleListener("clean-memory", h);
   },
 
   // ── Application Updates ────────────────────────────────────────────────

@@ -33,6 +33,7 @@ const Sidebar: React.FC = () => {
     tags,
     loadClips,
     settings,
+    sidebarCounts,
   } = useClipStore();
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -68,16 +69,10 @@ const Sidebar: React.FC = () => {
 
 
 
-  const activeCount = clips.filter((c) => !c.isDeleted).length;
-  const favoritesCount = clips.filter(
-    (c) => c.isFavorite && !c.isDeleted,
-  ).length;
-  const deletedCount = clips.filter((c) => c.isDeleted).length;
-
   const getCounts = (page: ActivePage) => {
-    if (page === "dashboard") return activeCount;
-    if (page === "favorites") return favoritesCount;
-    if (page === "recycle") return deletedCount;
+    if (page === "dashboard") return sidebarCounts.active;
+    if (page === "favorites") return sidebarCounts.favorites;
+    if (page === "recycle") return sidebarCounts.deleted;
     if (page === "tags") return tags.length;
     return null;
   };

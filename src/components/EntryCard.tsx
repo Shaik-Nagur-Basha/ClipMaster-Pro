@@ -27,6 +27,7 @@ interface Props {
 
 const EntryCard = React.forwardRef<HTMLDivElement, Props>(
   ({ item, displayMode, viewMode }, ref) => {
+    const isPopupMode = typeof window !== "undefined" && window.location.search.includes("popup=true");
     const {
       tags,
       updateClip,
@@ -168,7 +169,20 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className={`group flex flex-col pb-2 pl-4 border-b transition-colors ${
+        onClick={async (e) => {
+          if (isPopupMode) {
+            if (isEditDialogOpen || isExpandDialogOpen) {
+              return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            await window.clipAPI.copyToClipboard(item.text);
+            await window.clipAPI.pasteClip();
+          }
+        }}
+        className={`group flex flex-col border-b transition-colors ${
+          isPopupMode ? "cursor-pointer pb-1.5 pl-2 pr-2 pt-1.5 hover:bg-surface-800/40" : "pb-2 pl-4"
+        } ${
           item.isFavorite
             ? "border-accent-500/20 bg-surface-900/30"
             : "border-gray-700/20 hover:bg-surface-900/20"
@@ -315,6 +329,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         <AnimatePresence>
           {showTagPicker && (
             <motion.div
+              onClick={(e) => e.stopPropagation()}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}

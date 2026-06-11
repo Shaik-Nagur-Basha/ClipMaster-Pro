@@ -6,10 +6,11 @@
   "author": "ClipMaster Pro",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "dev": "npm run build:listener && electron-vite dev",
+    "build": "electron-vite build && npm run build:listener",
     "preview": "electron-vite preview",
     "optimize": "node optimize-bundle.js",
+    "build:listener": "powershell -Command \"if (Get-Process -Name 'clipboard-listener' -ErrorAction SilentlyContinue) { Stop-Process -Name 'clipboard-listener' -Force -ErrorAction SilentlyContinue }\" && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\clipboard-listener.exe electron\\clipboard-listener.cs && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\paster.exe electron\\paster.cs && powershell -Command \"if (Test-Path out\\main) { Copy-Item -Path electron\\clipboard-listener.exe -Destination out\\main\\clipboard-listener.exe -Force; Copy-Item -Path electron\\paster.exe -Destination out\\main\\paster.exe -Force }\"",
     "clean": "node -e \"const {execSync}=require('child_process');try{execSync('taskkill /F /IM \\\"ClipMaster Pro.exe\\\" /T',{stdio:'ignore'})}catch(e){}const{execSync:ex}=require('child_process');['release','out'].forEach(p=>{try{ex('powershell -Command \\\"if(Test-Path '+p+'){Remove-Item -Path '+p+' -Recurse -Force -ErrorAction SilentlyContinue}\\\"',{stdio:'inherit'})}catch(e){}})\"",
     "dist": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis && npm run optimize",
     "dist:portable": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && npm run optimize",
@@ -50,13 +51,15 @@
     "vite": "^5.1.0"
   },
   "build": {
+    "compression": "maximum",
     "appId": "com.clipmaster.pro",
     "productName": "ClipMaster Pro",
     "copyright": "Copyright © 2026 ClipMaster Pro",
     "forceCodeSigning": false,
     "asar": true,
     "asarUnpack": [
-      "out/**/*.node"
+      "out/**/*.node",
+      "out/**/*.exe"
     ],
     "directories": {
       "output": "release"

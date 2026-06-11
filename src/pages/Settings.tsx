@@ -386,6 +386,28 @@ const Settings: React.FC = () => {
                   ]}
                 />
               </SettingRow>
+
+              <SettingRow
+                label="Global shortcut"
+                desc="Instantly open or focus the clipboard history window from anywhere."
+              >
+                <Toggle
+                  checked={settings.globalShortcutEnabled !== false}
+                  onChange={(v) => saveSettings({ globalShortcutEnabled: v })}
+                />
+              </SettingRow>
+
+              {settings.globalShortcutEnabled !== false && (
+                <SettingRow
+                  label="Global shortcut key"
+                  desc="Click record and press your desired key combination (default: Ctrl + Shift + V)."
+                >
+                  <ShortcutRecorder
+                    value={settings.globalShortcutKey || "CommandOrControl+Shift+V"}
+                    onChange={(v) => saveSettings({ globalShortcutKey: v })}
+                  />
+                </SettingRow>
+              )}
             </div>
           </Section>
 
@@ -805,6 +827,36 @@ const Settings: React.FC = () => {
         maxWidth="max-w-lg"
       >
         <div className="space-y-3">
+          {/* Global Shortcut Card */}
+          <div className="rounded-2xl border border-gray-700 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">
+                  Open Clipboard History Popup
+                </p>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-300">
+                  {settings.globalShortcutEnabled !== false ? (
+                    (settings.globalShortcutKey || "CommandOrControl+Shift+V")
+                      .split("+")
+                      .map((k, idx) => (
+                        <React.Fragment key={k}>
+                          {idx > 0 && <span className="text-gray-500 mx-0.5">+</span>}
+                          <span className="font-semibold text-white uppercase">
+                            {k === "CommandOrControl" ? "Ctrl" : k}
+                          </span>
+                        </React.Fragment>
+                      ))
+                  ) : (
+                    <span className="text-rose-400 font-semibold text-[10px] uppercase tracking-wider">Disabled</span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-2 text-[13px] leading-5 text-gray-400">
+                Press this global hotkey to instantly display a lightweight clipboard history window on top of any active application. This popup shows your 10 most recent clips, filters, custom options, and search features. Clicking any clip automatically copies it and pastes it directly into the active input field of other applications.
+              </p>
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-gray-700 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
             <div>
               <div className="flex items-center justify-between gap-3">
@@ -1010,6 +1062,135 @@ const Toggle: React.FC<{
     />
   </button>
 );
+
+const ShortcutRecorder: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ value, onChange }) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedKeys, setRecordedKeys] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === "Escape") {
+        setIsRecording(false);
+        setRecordedKeys([]);
+        return;
+      }
+
+      const keys: string[] = [];
+      if (e.ctrlKey || e.metaKey) {
+        keys.push("Ctrl");
+      }
+      if (e.altKey) keys.push("Alt");
+      if (e.shiftKey) keys.push("Shift");
+
+      const key = e.key;
+      if (
+        key !== "Control" &&
+        key !== "Meta" &&
+        key !== "Alt" &&
+        key !== "Shift" &&
+        key !== "Dead"
+      ) {
+        let mainKey = key.toUpperCase();
+        if (key === " ") mainKey = "Space";
+        else if (key === "ArrowUp") mainKey = "Up";
+        else if (key === "ArrowDown") mainKey = "Down";
+        else if (key === "ArrowLeft") mainKey = "Left";
+        else if (key === "ArrowRight") mainKey = "Right";
+        keys.push(mainKey);
+      }
+
+      setRecordedKeys(keys);
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const hasModifiers = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
+      const hasMainKey = recordedKeys.length > 0 && !["Ctrl", "Alt", "Shift"].includes(recordedKeys[recordedKeys.length - 1]);
+      
+      if (hasMainKey || (!hasModifiers && recordedKeys.length > 0)) {
+        saveShortcut();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+    };
+  }, [isRecording, recordedKeys]);
+
+  const saveShortcut = () => {
+    if (recordedKeys.length > 0) {
+      const hasModifier = recordedKeys.some(k => ["Ctrl", "Alt", "Shift"].includes(k));
+      const mainKey = recordedKeys[recordedKeys.length - 1];
+      const isFunctionKey = /^F[1-9][0-2]?$/.test(mainKey);
+
+      if (hasModifier || isFunctionKey) {
+        const accelerator = recordedKeys
+          .map((k) => {
+            if (k === "Ctrl") return "CommandOrControl";
+            return k;
+          })
+          .join("+");
+        onChange(accelerator);
+      }
+    }
+    setIsRecording(false);
+    setRecordedKeys([]);
+  };
+
+  const keysToDisplay = isRecording ? recordedKeys : (value ? value.split("+").map(k => k === "CommandOrControl" ? "Ctrl" : k) : []);
+
+  return (
+    <div className="flex items-center gap-3" ref={containerRef}>
+      <div className="flex items-center gap-1.5 min-h-[36px] bg-surface-900 border border-gray-700/50 rounded-xl px-3 py-1.5 font-mono select-none">
+        {keysToDisplay.length > 0 ? (
+          keysToDisplay.map((k, idx) => (
+            <React.Fragment key={k}>
+              {idx > 0 && <span className="text-gray-600 text-xs font-sans">+</span>}
+              <kbd className="inline-block px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-[10px] font-bold text-gray-200 shadow-[0_2px_4px_rgba(0,0,0,0.15)] leading-none uppercase">
+                {k}
+              </kbd>
+            </React.Fragment>
+          ))
+        ) : (
+          <span className="text-xs text-gray-500 font-sans italic">None configured</span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (isRecording) {
+            saveShortcut();
+          } else {
+            setIsRecording(true);
+            setRecordedKeys([]);
+          }
+        }}
+        className={`px-3 py-1.5 h-9 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 outline-none cursor-pointer ${
+          isRecording
+            ? "bg-rose-500/10 border-rose-500/30 text-rose-400 animate-pulse"
+            : "bg-surface-800 border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white"
+        }`}
+      >
+        {isRecording ? "Stop Recording" : "Record Shortcut"}
+      </button>
+    </div>
+  );
+};
 
 const CustomSelect: React.FC<{
   value: any;

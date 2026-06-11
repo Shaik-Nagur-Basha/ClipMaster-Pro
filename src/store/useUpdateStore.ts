@@ -126,14 +126,12 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
           if (window.clipAPI?.checkUpdateDownloaded) {
             isDownloaded = await window.clipAPI.checkUpdateDownloaded(targetRelease);
           }
-          if (isDownloaded) {
+          const comp = semverCompare(targetRelease.tag_name, appInfo.version);
+          if (isDownloaded && comp > 0) {
             status = "ready";
             progress = 100;
-          } else {
-            const comp = semverCompare(targetRelease.tag_name, appInfo.version);
-            if (comp > 0) {
-              status = "available";
-            }
+          } else if (comp > 0) {
+            status = "available";
           }
         }
 
@@ -175,7 +173,12 @@ export const useUpdateStore = create<UpdateState>((set, get) => {
           isDownloaded = await window.clipAPI.checkUpdateDownloaded(release);
         }
         if (isDownloaded) {
-          set({ updateStatus: "ready", downloadProgress: 100 });
+          const comp = semverCompare(release.tag_name, currentVersion);
+          if (comp > 0) {
+            set({ updateStatus: "ready", downloadProgress: 100 });
+          } else {
+            set({ updateStatus: "idle", downloadProgress: 0 });
+          }
         }
       } catch (e) {
         console.error("[UpdateStore] checkUpdateDownloaded failed on target select:", e);

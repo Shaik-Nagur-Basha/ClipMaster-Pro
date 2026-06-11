@@ -30,12 +30,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoLaunch: false,
   maxEntries: 5000,
   pollingInterval: 600,
-  paginationEnabled: false,
+  paginationEnabled: true,
   pageSize: 10,
   viewMode: "list",
   displayMode: "preview",
   pauseCaptureOption: "never",
   pauseUntil: null,
+  globalShortcutEnabled: true,
+  globalShortcutKey: "CommandOrControl+Shift+V",
+  popupPinned: false,
 };
 
 const DEFAULT_TAGS: Tag[] = [
@@ -242,12 +245,123 @@ class StorageManager {
 
   // ── CLIPS ───────────────────────────────────────────────────────────────
 
-  async readAll(limit?: number): Promise<ClipboardItem[]> {
-    let cursor = this.clipsDb.findAsync({}).sort({ timestamp: -1 });
-    if (limit !== undefined) {
-      cursor = cursor.limit(limit);
+  async readAll(): Promise<ClipboardItem[]>;
+  async readAll(limit: number): Promise<ClipboardItem[]>;
+  async readAll(options: {
+    limit?: number;
+    skip?: number;
+    search?: string;
+    tags?: string[];
+    isFavorite?: boolean | null;
+    isDeleted?: boolean;
+    sortMode?: string;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    minWordCount?: number | null;
+    maxWordCount?: number | null;
+    tagMatchingMode?: "and" | "or";
+  }): Promise<{ clips: ClipboardItem[]; totalCount: number }>;
+  async readAll(options?: number | {
+    limit?: number;
+    skip?: number;
+    search?: string;
+    tags?: string[];
+    isFavorite?: boolean | null;
+    isDeleted?: boolean;
+    sortMode?: string;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    minWordCount?: number | null;
+    maxWordCount?: number | null;
+    tagMatchingMode?: "and" | "or";
+  }): Promise<any> {
+    if (options === undefined || typeof options === "number") {
+      let cursor = this.clipsDb.findAsync({}).sort({ timestamp: -1 });
+      if (options !== undefined) {
+        cursor = cursor.limit(options);
+      }
+      return await cursor;
     }
-    return await cursor;
+
+    const query: any = {};
+
+    // 1. isDeleted
+    if (options.isDeleted !== undefined) {
+      query.isDeleted = options.isDeleted;
+    }
+
+    // 2. isFavorite
+    if (options.isFavorite === true) {
+      query.isFavorite = true;
+    } else if (options.isFavorite === false) {
+      query.isFavorite = false;
+    }
+
+    // 3. search
+    if (options.search && options.search.trim()) {
+      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.text = new RegExp(escaped, "i");
+    }
+
+    // 4. tags
+    if (options.tags && options.tags.length > 0) {
+      const matchMode = options.tagMatchingMode ?? "or";
+      if (matchMode === "and") {
+        query.tags = { $all: options.tags };
+      } else {
+        query.tags = { $in: options.tags };
+      }
+    }
+
+    // 5. word count / character count (filtering by length)
+    if (options.minWordCount !== null && options.minWordCount !== undefined) {
+      query.charCount = { ...query.charCount, $gte: options.minWordCount };
+    }
+    if (options.maxWordCount !== null && options.maxWordCount !== undefined) {
+      query.charCount = { ...query.charCount, $lte: options.maxWordCount };
+    }
+
+    // 6. date range
+    if (options.dateFrom) {
+      query.timestamp = { ...query.timestamp, $gte: new Date(options.dateFrom).toISOString() };
+    }
+    if (options.dateTo) {
+      query.timestamp = { ...query.timestamp, $lte: new Date(options.dateTo + "T23:59:59").toISOString() };
+    }
+
+    // Sorting
+    let sortQuery: any = { timestamp: -1 };
+    if (options.sortMode === "oldest") {
+      sortQuery = { timestamp: 1 };
+    } else if (options.sortMode === "longest") {
+      sortQuery = { charCount: -1 };
+    } else if (options.sortMode === "shortest") {
+      sortQuery = { charCount: 1 };
+    } else if (options.sortMode === "newest") {
+      sortQuery = { timestamp: -1 };
+    }
+
+    // Fetch total count matching query
+    const totalCount = await this.clipsDb.countAsync(query);
+
+    // Fetch paginated results
+    let cursor = this.clipsDb.findAsync(query).sort(sortQuery);
+    if (options.skip !== undefined) {
+      cursor = cursor.skip(options.skip);
+    }
+    if (options.limit !== undefined) {
+      cursor = cursor.limit(options.limit);
+    }
+
+    const clips = await cursor;
+    return { clips, totalCount };
+  }
+
+  async getCounts(): Promise<{ active: number; favorites: number; deleted: number }> {
+    const active = await this.clipsDb.countAsync({ isDeleted: false });
+    const favorites = await this.clipsDb.countAsync({ isDeleted: false, isFavorite: true });
+    const deleted = await this.clipsDb.countAsync({ isDeleted: true });
+    return { active, favorites, deleted };
   }
 
   async addEntry(text: string): Promise<ClipboardItem | null> {
