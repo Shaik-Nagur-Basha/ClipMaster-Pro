@@ -348,12 +348,22 @@ class ImportManager {
           await storageManager.saveSettings(partialSettings);
 
           if ("autoLaunch" in partialSettings) {
-            app.setLoginItemSettings({
-              openAtLogin: Boolean(partialSettings.autoLaunch),
-              name: "ClipMaster Pro",
-              path: app.getPath("exe"),
-              args: ["--hidden"],
-            });
+            if (app.isPackaged) {
+              app.setLoginItemSettings({
+                openAtLogin: Boolean(partialSettings.autoLaunch),
+                name: "ClipMaster Pro",
+                path: app.getPath("exe"),
+                args: ["--hidden"],
+              });
+            } else {
+              // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
+              app.setLoginItemSettings({
+                openAtLogin: false,
+                name: "ClipMaster Pro",
+                path: app.getPath("exe"),
+                args: ["--hidden"],
+              });
+            }
           }
           importedSettings = true;
         }

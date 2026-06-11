@@ -892,12 +892,22 @@ function registerIPC(): void {
 
       await storageManager.saveSettings(partial as never);
       if ("autoLaunch" in partial) {
-        app.setLoginItemSettings({
-          openAtLogin: Boolean(partial.autoLaunch),
-          name: "ClipMaster Pro",
-          path: app.getPath("exe"),
-          args: ["--hidden"],
-        });
+        if (app.isPackaged) {
+          app.setLoginItemSettings({
+            openAtLogin: Boolean(partial.autoLaunch),
+            name: "ClipMaster Pro",
+            path: app.getPath("exe"),
+            args: ["--hidden"],
+          });
+        } else {
+          // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
+          app.setLoginItemSettings({
+            openAtLogin: false,
+            name: "ClipMaster Pro",
+            path: app.getPath("exe"),
+            args: ["--hidden"],
+          });
+        }
       }
       if ("globalShortcutEnabled" in partial || "globalShortcutKey" in partial) {
         registerAppShortcut();
@@ -1441,6 +1451,25 @@ app.whenReady().then(async () => {
   // ════ 4. Start clipboard polling ════
 
   const initSettings = storageManager.getSettings();
+
+  // Synchronize startup login item settings to keep registry key up-to-date
+  if (app.isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: Boolean(initSettings.autoLaunch),
+      name: "ClipMaster Pro",
+      path: app.getPath("exe"),
+      args: ["--hidden"],
+    });
+  } else {
+    // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
+    app.setLoginItemSettings({
+      openAtLogin: false,
+      name: "ClipMaster Pro",
+      path: app.getPath("exe"),
+      args: ["--hidden"],
+    });
+  }
+
   if (initSettings.pauseCaptureOption === "restart") {
     storageManager.saveSettings({
       pauseCaptureOption: "never",

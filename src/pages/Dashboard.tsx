@@ -75,7 +75,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Toolbar */}
       {isPopup ? (
-        <div className="relative z-10 flex flex-col gap-2 px-3 py-2 border-b border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
+        <div className="relative z-10 flex flex-col px-3 py-2 border-b border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 w-full">
               {(["all", "favorites", "recycle"] as const).map((tab) => {
@@ -97,7 +97,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                         : "text-gray-500 hover:text-gray-300 border border-transparent"
                     }`}
                   >
-                    {tab === "recycle" ? "Recycle" : tab}
+                    {tab === "recycle" ? "Recycle Bin" : tab}
                   </button>
                 );
               })}
