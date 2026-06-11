@@ -84,6 +84,9 @@ export interface ClipStore {
   totalCount: number;
   currentPage: number;
   sidebarCounts: { active: number; favorites: number; deleted: number };
+  popupSearchVisible: boolean;
+  popupTagsMenuVisible: boolean;
+  popupSearchValue: string;
 
   // Actions - Data
   loadClips: (forceLimit?: number) => Promise<void>;
@@ -114,6 +117,9 @@ export interface ClipStore {
   setEditingClip: (id: string | null) => void;
   setSearchInputRef: (ref: React.RefObject<HTMLInputElement> | null) => void;
   setCurrentPage: (page: number) => void;
+  setPopupSearchVisible: (visible: boolean) => void;
+  setPopupTagsMenuVisible: (visible: boolean) => void;
+  setPopupSearchValue: (value: string) => void;
 }
 
 // ─── Window bridge type ───────────────────────────────────────────────────
@@ -135,6 +141,7 @@ export interface ClipAPI {
   copyToClipboard: (text: string) => Promise<boolean>;
   pasteClip: () => Promise<void>;
   closePopup: () => void;
+  setSearchFocusable: (focusable: boolean) => void;
 
   // Tags & Settings
   getTags: () => Promise<Tag[]>;

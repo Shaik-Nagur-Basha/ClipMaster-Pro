@@ -56,6 +56,9 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   totalCount: 0,
   currentPage: 1,
   sidebarCounts: { active: 0, favorites: 0, deleted: 0 },
+  popupSearchVisible: false,
+  popupTagsMenuVisible: false,
+  popupSearchValue: "",
 
   // ── Data Actions ───────────────────────────────────────────────────────
   loadClips: async (forceLimit?: number) => {
@@ -142,8 +145,13 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     try {
       const state = await window.clipAPI.getUIState();
       if (state) {
+        const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
+        let activePage = state.activePage ?? "dashboard";
+        if (isPopup && !["dashboard", "favorites", "recycle"].includes(activePage)) {
+          activePage = "dashboard";
+        }
         set({
-          activePage: state.activePage ?? "dashboard",
+          activePage,
           selectedClipId: state.selectedClipId ?? null,
           sortMode: state.sortMode ?? "newest",
           filters: state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS },
@@ -169,6 +177,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
 
   addClipFromMain: (item: ClipboardItem) => {
     const state = get();
+    const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
+    console.log(`[Store] addClipFromMain isPopup=${isPopup} activePage=${state.activePage} currentPage=${state.currentPage} item=${item.id}`);
     const hasFiltersActive =
       state.filters.search.trim().length > 0 ||
       state.filters.tags.length > 0 ||
@@ -177,15 +187,18 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       state.filters.dateTo !== null;
 
     if (hasFiltersActive || state.activePage !== "dashboard" || state.currentPage !== 1) {
+      console.log("[Store] addClipFromMain calling loadClips");
       get().loadClips();
     } else {
+      console.log("[Store] addClipFromMain prepending item directly");
       set((state) => {
-        if (state.clips.some((c) => c.id === item.id)) return state;
+        const filteredClips = state.clips.filter((c) => c.id !== item.id);
         const pageSize = state.settings.pageSize || 10;
-        const newClips = [item, ...state.clips].slice(0, pageSize);
+        const newClips = [item, ...filteredClips].slice(0, pageSize);
+        const isDuplicate = state.clips.some((c) => c.id === item.id);
         return {
           clips: newClips,
-          totalCount: state.totalCount + 1
+          totalCount: isDuplicate ? state.totalCount : state.totalCount + 1
         };
       });
       get().loadSidebarCounts();
@@ -312,6 +325,9 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     set({ currentPage: page });
     get().loadClips();
   },
+  setPopupSearchVisible: (visible: boolean) => set({ popupSearchVisible: visible }),
+  setPopupTagsMenuVisible: (visible: boolean) => set({ popupTagsMenuVisible: visible }),
+  setPopupSearchValue: (value: string) => set({ popupSearchValue: value }),
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId);

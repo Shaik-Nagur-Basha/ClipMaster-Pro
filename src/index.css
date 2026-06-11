@@ -366,7 +366,7 @@ a {
 /* ─── Dialog custom scrollbar ────────────────────────────────────────── */
 .dialog-scrollbar::-webkit-scrollbar {
   width: 6px;
-  height: 6px;
+  height: 4px;
 }
 .dialog-scrollbar::-webkit-scrollbar-track {
   background: transparent;

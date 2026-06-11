@@ -176,6 +176,8 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     restoreClip: noop_p,
     copyToClipboard: noop_p,
     pasteClip: noop_p,
+    closePopup: noop,
+    setSearchFocusable: noop,
     // Tags & Settings
     getTags: async () => [],
     saveTags: noop_p,
@@ -347,11 +349,31 @@ export default function App() {
   } = useClipStore();
 
   useEffect(() => {
-    // Global keyboard listener — auto-focus search input on typing
+    // Global keyboard listener
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Handle Escape in popup mode to close the popup
+      const storeState = useClipStore.getState();
+      const shouldHandle = !isPopupMode || storeState.popupSearchVisible;
+      const searchInputRef = storeState.searchInputRef;
+
+      // Handle Escape in popup mode to close the popup or hide search/dropdowns
       if (e.key === "Escape" && isPopupMode) {
-        const isPinned = useClipStore.getState().settings.popupPinned === true;
+        // 1. If tags dropdown is open, close it first
+        if (storeState.popupTagsMenuVisible) {
+          e.preventDefault();
+          storeState.setPopupTagsMenuVisible(false);
+          return;
+        }
+
+        // 2. If search input is visible, close it
+        if (storeState.popupSearchVisible) {
+          e.preventDefault();
+          storeState.setPopupSearchVisible(false);
+          storeState.setFilters({ search: "" });
+          return;
+        }
+
+        // 3. Otherwise, close the popup window if not pinned
+        const isPinned = storeState.settings.popupPinned === true;
         if (!isPinned) {
           window.clipAPI.closePopup();
           return;
@@ -369,15 +391,28 @@ export default function App() {
 
       // Handle Ctrl+V or Cmd+V globally
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
-        if (searchInputRef?.current) {
+        if (isPopupMode && storeState.popupTagsMenuVisible) {
+          const tagInput = document.querySelector('input[placeholder="Search tags..."]') as HTMLInputElement;
+          if (tagInput) {
+            if (document.activeElement !== tagInput) {
+              tagInput.focus();
+              // Move cursor to the end of the text
+              const len = tagInput.value.length;
+              tagInput.setSelectionRange(len, len);
+            }
+          }
+          return; // Let native paste handle inserting the clipboard text
+        }
+
+        if (shouldHandle && searchInputRef?.current) {
           if (document.activeElement !== searchInputRef.current) {
             searchInputRef.current.focus();
             // Move cursor to the end of the text
             const len = searchInputRef.current.value.length;
             searchInputRef.current.setSelectionRange(len, len);
           }
+          return; // Let native paste handle inserting the clipboard text
         }
-        return; // Let native paste handle inserting the clipboard text
       }
 
       // Ignore special keys (Ctrl, Alt, Shift, Meta, Escape, etc.)
@@ -390,8 +425,23 @@ export default function App() {
       )
         return;
 
+      // Redirect keyboard input to tag search input if tags dropdown is open
+      if (isPopupMode && storeState.popupTagsMenuVisible) {
+        const tagInput = document.querySelector('input[placeholder="Search tags..."]') as HTMLInputElement;
+        if (tagInput) {
+          e.preventDefault();
+          tagInput.focus();
+          const currentValue = tagInput.value;
+          tagInput.value = currentValue + e.key;
+          // Trigger change event for React controlled state
+          const event = new Event("change", { bubbles: true });
+          tagInput.dispatchEvent(event);
+        }
+        return;
+      }
+
       // Focus search input and type the character
-      if (searchInputRef?.current) {
+      if (shouldHandle && searchInputRef?.current) {
         e.preventDefault();
         searchInputRef.current.focus();
         // Simulate typing the key
@@ -405,7 +455,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [searchInputRef]);
+  }, []);
 
   useEffect(() => {
     const initApp = async () => {

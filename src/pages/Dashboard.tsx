@@ -12,7 +12,7 @@ import PageSizeDropdown from "../components/PageSizeDropdown";
 
 const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
   const store = useClipStore();
-  const { displayMode, isLoading, settings, currentPage, totalCount, setCurrentPage } = store;
+  const { displayMode, isLoading, settings, currentPage, totalCount, setCurrentPage, popupSearchVisible, setPopupSearchVisible, popupTagsMenuVisible, setPopupTagsMenuVisible } = store;
 
   if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
     console.log(
@@ -43,7 +43,6 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
 
   const isEmpty = totalCount === 0;
 
-  const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [tagSearchQuery, setTagSearchQuery] = useState("");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -54,21 +53,105 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
-        setShowTagDropdown(false);
+        setPopupTagsMenuVisible(false);
         setTagSearchQuery("");
       }
     };
-    if (showTagDropdown) {
+    if (popupTagsMenuVisible) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showTagDropdown]);
+  }, [popupTagsMenuVisible, setPopupTagsMenuVisible]);
+
+  const [isWindowFocused, setIsWindowFocused] = useState(document.hasFocus());
+
+  useEffect(() => {
+    if (!isPopup) return;
+    const handleFocus = () => setIsWindowFocused(true);
+    const handleBlur = () => setIsWindowFocused(false);
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [isPopup]);
+
+  // Auto-close search input after inactivity (10 seconds of no user interaction, only when window has focus)
+  useEffect(() => {
+    if (!isPopup || !popupSearchVisible || !isWindowFocused) return;
+
+    const timeoutMs = 10000; // 10 seconds of inactivity
+    let timer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setPopupSearchVisible(false);
+        store.setFilters({ search: "" });
+      }, timeoutMs);
+    };
+
+    resetTimer();
+
+    const events = ["mousedown", "mousemove", "keydown", "wheel", "touchstart"];
+    const handleActivity = () => {
+      resetTimer();
+    };
+
+    events.forEach((event) => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [isPopup, popupSearchVisible, isWindowFocused, setPopupSearchVisible, store]);
+
+  // Auto-close search and tags dropdown when window loses focus (click/interact outside the window)
+  useEffect(() => {
+    if (!isPopup) return;
+
+    const handleWindowBlur = () => {
+      if (popupSearchVisible) {
+        const hasPersistData = store.popupSearchValue.trim().length > 0;
+        if (!hasPersistData) {
+          setPopupSearchVisible(false);
+          store.setFilters({ search: "" });
+        }
+      }
+      if (popupTagsMenuVisible) {
+        setPopupTagsMenuVisible(false);
+        setTagSearchQuery("");
+      }
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [isPopup, popupSearchVisible, popupTagsMenuVisible, setPopupSearchVisible, setPopupTagsMenuVisible, store]);
+
+  // Dynamically update window focusability based on search or tag dropdown visibility
+  useEffect(() => {
+    if (!isPopup) return;
+    const isFocusable = popupSearchVisible || popupTagsMenuVisible;
+    window.clipAPI.setSearchFocusable?.(isFocusable);
+  }, [isPopup, popupSearchVisible, popupTagsMenuVisible]);
 
   const handleToggleDropdown = () => {
-    if (showTagDropdown) {
+    const nextVal = !popupTagsMenuVisible;
+    if (nextVal) {
+      // Mutual Exclusivity: Close search bar when opening tags
+      setPopupSearchVisible(false);
+      store.setFilters({ search: "" });
+    } else {
       setTagSearchQuery("");
     }
-    setShowTagDropdown(!showTagDropdown);
+    setPopupTagsMenuVisible(nextVal);
   };
 
   return (
@@ -89,9 +172,13 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                     onClick={() => {
                       store.setActivePage(tab === "all" ? "dashboard" : tab === "favorites" ? "favorites" : "recycle");
                       store.setCurrentPage(1);
+                      if (isPopup) {
+                        setPopupSearchVisible(false);
+                        store.setFilters({ search: "" });
+                      }
                       store.loadClips();
                     }}
-                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
+                    className={`px-2 py-1 rounded-md text-nowrap text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
                       isActive
                         ? "bg-brand-500/10 border border-brand-500/25 text-brand-400"
                         : "text-gray-500 hover:text-gray-300 border border-transparent"
@@ -104,19 +191,53 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
               
               <div className="w-1.5" />
 
-              {/* Tags Dropdown */}
-              <div className="ml-auto relative" ref={tagDropdownRef}>
+              {/* Right Side Buttons (Search & Tags) */}
+              <div className="ml-auto flex items-center gap-1.5 relative">
+                {/* Search Toggle Button */}
                 <button
                   type="button"
-                  onClick={handleToggleDropdown}
+                  onClick={() => {
+                    const nextShowSearch = !popupSearchVisible;
+                    setPopupSearchVisible(nextShowSearch);
+                    if (nextShowSearch) {
+                      // Mutual Exclusivity: Close tags dropdown when opening search
+                      setPopupTagsMenuVisible(false);
+                      setTagSearchQuery("");
+                      // Restore search filter using cached popupSearchValue
+                      store.setFilters({ search: store.popupSearchValue });
+                      setTimeout(() => {
+                        const input = useClipStore.getState().searchInputRef?.current ||
+                                      (document.querySelector('input[placeholder="Search clipboard\u2026"]') as HTMLInputElement);
+                        input?.focus();
+                      }, 50);
+                    } else {
+                      // Close search and clear active filter
+                      store.setFilters({ search: "" });
+                    }
+                  }}
                   className={`flex items-center gap-1 h-6 px-2 rounded-md border text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
-                    showTagDropdown || store.filters.tags.length > 0
+                    popupSearchVisible || store.filters.search
                       ? "bg-brand-500/10 border-brand-500/25 text-brand-400"
                       : "border-gray-700/50 text-gray-500 hover:border-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  <IconTag size={12} />
-                  <span>Tags</span>
+                  <IconSearch size={12} />
+                  <span>Search</span>
+                </button>
+
+                {/* Tags Dropdown */}
+                <div ref={tagDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={handleToggleDropdown}
+                    className={`flex items-center gap-1 h-6 px-2 rounded-md border text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
+                      popupTagsMenuVisible || store.filters.tags.length > 0
+                        ? "bg-brand-500/10 border-brand-500/25 text-brand-400"
+                        : "border-gray-700/50 text-gray-500 hover:border-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    <IconTag size={12} />
+                    <span>Tags</span>
                   {store.filters.tags.length > 0 && (
                     <span className="flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded bg-brand-500 text-[8px] font-bold text-white leading-none">
                       {store.filters.tags.length}
@@ -125,7 +246,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                 </button>
 
                 <AnimatePresence>
-                  {showTagDropdown && (
+                  {popupTagsMenuVisible && (
                     <motion.div
                       initial={{ opacity: 0, y: 8, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -139,6 +260,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                           <IconSearch size={12} />
                         </div>
                         <input
+                          autoFocus
                           type="text"
                           placeholder="Search tags..."
                           value={tagSearchQuery}
@@ -187,7 +309,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                                   store.setCurrentPage(1);
                                   store.loadClips();
                                 }}
-                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] transition-all duration-150 my-0.5 cursor-pointer focus:outline-none focus:ring-0 ${
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] transition-all duration-150 my-0.5 cursor-pointer focus:outline-none focus:ring-0 whiteblink-remover ${
                                   isSelected
                                     ? "bg-brand-500/10 text-brand-400"
                                     : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
@@ -211,11 +333,14 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                 </AnimatePresence>
               </div>
             </div>
+            </div>
           </div>
           
-          <div className="w-full">
-            <SearchBar />
-          </div>
+          {popupSearchVisible && (
+            <div className="w-full mt-2 animate-in fade-in slide-in-from-top-1 duration-150">
+              <SearchBar />
+            </div>
+          )}
         </div>
       ) : (
         <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">

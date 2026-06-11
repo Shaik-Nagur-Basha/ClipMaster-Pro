@@ -3,7 +3,7 @@ import { useClipStore } from "../store/useClipStore";
 import { IconSearch, IconX } from "./Icons";
 
 const SearchBar: React.FC = () => {
-  const { filters, setFilters, setSearchInputRef } = useClipStore();
+  const { filters, setFilters, setSearchInputRef, popupSearchValue, setPopupSearchValue } = useClipStore();
   const debounceRef = useRef<NodeJS.Timeout>();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -15,16 +15,18 @@ const SearchBar: React.FC = () => {
 
   const handleSearch = useCallback(
     (value: string) => {
+      setPopupSearchValue(value);
       clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         setFilters({ search: value });
       }, 200);
     },
-    [setFilters],
+    [setFilters, setPopupSearchValue],
   );
 
   const clearSearch = () => {
     setFilters({ search: "" });
+    setPopupSearchValue("");
     if (inputRef.current) {
       inputRef.current.value = "";
     }
@@ -39,7 +41,7 @@ const SearchBar: React.FC = () => {
         ref={inputRef}
         type="text"
         placeholder="Search clipboard…"
-        defaultValue={filters.search}
+        defaultValue={popupSearchValue}
         onChange={(e) => handleSearch(e.target.value)}
         className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-2 text-[13px] text-white/85 placeholder-gray-600 transition-colors duration-150"
       />

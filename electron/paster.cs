@@ -13,6 +13,10 @@ public class Program {
     private static extern bool IsWindowVisible(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
     private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [DllImport("user32.dll")]
@@ -21,6 +25,48 @@ public class Program {
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TOPMOST = 0x00000008;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
+
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
+    private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex) {
+        if (IntPtr.Size == 8) {
+            return GetWindowLongPtr64(hWnd, nIndex);
+        } else {
+            return new IntPtr(GetWindowLong(hWnd, nIndex));
+        }
+    }
+
+    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong) {
+        if (IntPtr.Size == 8) {
+            return SetWindowLongPtr64(hWnd, nIndex, dwNewLong);
+        } else {
+            return new IntPtr(SetWindowLong(hWnd, nIndex, dwNewLong.ToInt32()));
+        }
+    }
 
     private const uint GW_HWNDNEXT = 2;
 
@@ -35,6 +81,59 @@ public class Program {
             if (long.TryParse(args[0], out val)) {
                 popupHwnd = new IntPtr(val);
             }
+        }
+        if (args.Length > 1 && args[1] == "topmost") {
+            if (popupHwnd != IntPtr.Zero) {
+                try {
+                    IntPtr exStyle = GetWindowLongPtr(popupHwnd, GWL_EXSTYLE);
+                    long newExStyle = exStyle.ToInt64() | WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+                    SetWindowLongPtr(popupHwnd, GWL_EXSTYLE, new IntPtr(newExStyle));
+
+                    SetWindowPos(popupHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    Console.WriteLine("TOPMOST_SUCCESS");
+
+                    // Keep enforcing HWND_TOPMOST Z-order periodically while the window is valid
+                    // to prevent Z-order competition and keep it topmost during drag/move.
+                    while (true) {
+                        Thread.Sleep(50);
+                        if (!IsWindow(popupHwnd)) {
+                            break;
+                        }
+                        SetWindowPos(popupHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    }
+                } catch (Exception ex) {
+                    Console.WriteLine("ERROR_TOPMOST: " + ex.Message);
+                }
+            }
+            return;
+        }
+        if (args.Length > 1 && args[1] == "noactivate") {
+            if (popupHwnd != IntPtr.Zero) {
+                try {
+                    IntPtr exStyle = GetWindowLongPtr(popupHwnd, GWL_EXSTYLE);
+                    long newExStyle = exStyle.ToInt64() | WS_EX_NOACTIVATE;
+                    SetWindowLongPtr(popupHwnd, GWL_EXSTYLE, new IntPtr(newExStyle));
+                    SetWindowPos(popupHwnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | 0x0200);
+                    Console.WriteLine("NOACTIVATE_SUCCESS");
+                } catch (Exception ex) {
+                    Console.WriteLine("ERROR_NOACTIVATE: " + ex.Message);
+                }
+            }
+            return;
+        }
+        if (args.Length > 1 && args[1] == "focusable") {
+            if (popupHwnd != IntPtr.Zero) {
+                try {
+                    IntPtr exStyle = GetWindowLongPtr(popupHwnd, GWL_EXSTYLE);
+                    long newExStyle = exStyle.ToInt64() & ~WS_EX_NOACTIVATE;
+                    SetWindowLongPtr(popupHwnd, GWL_EXSTYLE, new IntPtr(newExStyle));
+                    SetWindowPos(popupHwnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | 0x0200);
+                    Console.WriteLine("FOCUSABLE_SUCCESS");
+                } catch (Exception ex) {
+                    Console.WriteLine("ERROR_FOCUSABLE: " + ex.Message);
+                }
+            }
+            return;
         }
         if (args.Length > 1) {
             uint p = 0;

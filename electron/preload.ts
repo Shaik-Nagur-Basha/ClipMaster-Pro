@@ -41,6 +41,8 @@ const clipAPI = {
     ipcRenderer.invoke("copy-to-clipboard", text),
   pasteClip: (): Promise<void> => ipcRenderer.invoke("paste-clip"),
   closePopup: () => ipcRenderer.send("close-popup"),
+  setSearchFocusable: (focusable: boolean) =>
+    ipcRenderer.send("set-search-focusable", focusable),
 
   // ── Tags & Settings ────────────────────────────────────────────────────
   getTags: (): Promise<Tag[]> => ipcRenderer.invoke("get-tags"),

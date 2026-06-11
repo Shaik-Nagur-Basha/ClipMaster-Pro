@@ -447,6 +447,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
           maxWidth="max-w-4xl"
         >
           <div
+            className="dialog-scrollbar"
             style={{
               maxHeight: `${computeExpandHeight()}px`,
               minHeight: "180px",

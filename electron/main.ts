@@ -234,8 +234,37 @@ function createPopupWindow(): void {
   popupWindow.loadURL(popupUrl);
 
   popupWindow.once("ready-to-show", () => {
-    popupWindow?.show();
-    popupWindow?.focus();
+    // Call paster.exe to set topmost via HWND_TOPMOST and apply WS_EX_TOPMOST/WS_EX_NOACTIVATE style BEFORE showing the window
+    const hwndBuf = popupWindow?.getNativeWindowHandle();
+    if (hwndBuf) {
+      try {
+        const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
+        const pasterPath = getPasterPath();
+        console.log(`[Popup] Pre-setting topmost/noactivate styles for HWND: ${hwnd}`);
+        const child = spawn(pasterPath, [hwnd, "topmost"], { windowsHide: true });
+        
+        let styleApplied = false;
+        child.stdout?.on("data", (data) => {
+          const msg = data.toString().trim();
+          console.log("[Popup] paster topmost stdout:", msg);
+          if (msg.includes("TOPMOST_SUCCESS") && !styleApplied) {
+            styleApplied = true;
+            if (popupWindow && !popupWindow.isDestroyed()) {
+              popupWindow.showInactive();
+            }
+          }
+        });
+        child.stderr?.on("data", (data) => {
+          console.error("[Popup] paster topmost stderr:", data.toString().trim());
+        });
+
+        child.on("close", () => {
+          console.log(`[Popup] paster topmost monitor closed for HWND: ${hwnd}`);
+        });
+      } catch (err) {
+        console.error("[Popup] Failed to apply topmost styling:", err);
+      }
+    }
   });
 
   popupWindow.on("blur", () => {
@@ -255,6 +284,12 @@ function createPopupWindow(): void {
     if (blurTimeout) {
       clearTimeout(blurTimeout);
       blurTimeout = null;
+    }
+  });
+
+  popupWindow.on("moved", () => {
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      popupWindow.setAlwaysOnTop(true);
     }
   });
 
@@ -458,6 +493,10 @@ async function handleClipboardCapture(text: string): Promise<void> {
     const isWindowVisible = mainWindow && !mainWindow.isMinimized() && mainWindow.isVisible();
     if (isWindowVisible && mainWindow) {
       mainWindow.webContents.send("new-clip", newItem);
+    }
+
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      popupWindow.webContents.send("new-clip", newItem);
     }
   } catch (err) {
     console.error("[Clipboard] Capture error:", err);
@@ -755,6 +794,32 @@ function registerIPC(): void {
   ipcMain.on("window-close", () => {
     console.log("[IPC] close - closing to tray");
     mainWindow?.close(); // Triggers standard window close and destruction
+  });
+
+  ipcMain.on("set-search-focusable", (_e, focusable: boolean) => {
+    console.log(`[IPC] set-search-focusable: ${focusable}`);
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      const hwndBuf = popupWindow.getNativeWindowHandle();
+      if (hwndBuf) {
+        try {
+          const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
+          const pasterPath = getPasterPath();
+          const cmd = focusable ? "focusable" : "noactivate";
+          console.log(`[Popup] Setting focusable state to ${focusable} (cmd: ${cmd}) for HWND: ${hwnd}`);
+          const child = spawn(pasterPath, [hwnd, cmd], { windowsHide: true });
+          
+          if (focusable) {
+            child.on("close", () => {
+              if (popupWindow && !popupWindow.isDestroyed()) {
+                popupWindow.focus();
+              }
+            });
+          }
+        } catch (err) {
+          console.error("[Popup] Failed to update focusable style:", err);
+        }
+      }
+    }
   });
 
   ipcMain.handle("paste-clip", async () => {
