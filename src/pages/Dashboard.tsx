@@ -12,7 +12,7 @@ import PageSizeDropdown from "../components/PageSizeDropdown";
 
 const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
   const store = useClipStore();
-  const { displayMode, isLoading, settings, currentPage, totalCount, setCurrentPage, popupSearchVisible, setPopupSearchVisible, popupTagsMenuVisible, setPopupTagsMenuVisible } = store;
+  const { displayMode, isLoading, settings, currentPage, totalCount, setCurrentPage, popupSearchVisible, setPopupSearchVisible, popupTagsMenuVisible, setPopupTagsMenuVisible, isTagSearchFocused, setIsTagSearchFocused } = store;
 
   if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
     console.log(
@@ -45,16 +45,51 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
 
   const [tagSearchQuery, setTagSearchQuery] = useState("");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
+  const tagSearchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredTags = store.tags.filter((tag) =>
     tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
   );
 
+  const handleTagSearchMouseDown = () => {
+    if (isPopup && !isTagSearchFocused) {
+      setIsTagSearchFocused(true);
+      setTimeout(() => {
+        tagSearchInputRef.current?.focus();
+      }, 50);
+      setTimeout(() => {
+        tagSearchInputRef.current?.focus();
+      }, 150);
+    }
+  };
+
+  const handleTagSearchFocus = () => {
+    if (isPopup && !isTagSearchFocused) {
+      setIsTagSearchFocused(true);
+    }
+  };
+
+  const handleTagSearchBlur = () => {
+    if (isPopup) {
+      setTimeout(() => {
+        if (document.activeElement !== tagSearchInputRef.current) {
+          setIsTagSearchFocused(false);
+        }
+      }, 100);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // If the clicked element was unmounted during state update, ignore the click
+      if (!document.body.contains(target)) {
+        return;
+      }
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(target)) {
         setPopupTagsMenuVisible(false);
         setTagSearchQuery("");
+        setIsTagSearchFocused(false);
       }
     };
     if (popupTagsMenuVisible) {
@@ -62,6 +97,17 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [popupTagsMenuVisible, setPopupTagsMenuVisible]);
+
+  useEffect(() => {
+    if (popupTagsMenuVisible) {
+      setTimeout(() => {
+        tagSearchInputRef.current?.focus();
+      }, 50);
+      setTimeout(() => {
+        tagSearchInputRef.current?.focus();
+      }, 150);
+    }
+  }, [popupTagsMenuVisible]);
 
   const [isWindowFocused, setIsWindowFocused] = useState(document.hasFocus());
 
@@ -79,80 +125,18 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
     };
   }, [isPopup]);
 
-  // Auto-close search input after inactivity (10 seconds of no user interaction, only when window has focus)
-  useEffect(() => {
-    if (!isPopup || !popupSearchVisible || !isWindowFocused) return;
 
-    const timeoutMs = 10000; // 10 seconds of inactivity
-    let timer: NodeJS.Timeout;
 
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        setPopupSearchVisible(false);
-        store.setFilters({ search: "" });
-      }, timeoutMs);
-    };
 
-    resetTimer();
 
-    const events = ["mousedown", "mousemove", "keydown", "wheel", "touchstart"];
-    const handleActivity = () => {
-      resetTimer();
-    };
-
-    events.forEach((event) => {
-      window.addEventListener(event, handleActivity);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      events.forEach((event) => {
-        window.removeEventListener(event, handleActivity);
-      });
-    };
-  }, [isPopup, popupSearchVisible, isWindowFocused, setPopupSearchVisible, store]);
-
-  // Auto-close search and tags dropdown when window loses focus (click/interact outside the window)
+  // Dynamically update window focusability based on search or tag dropdown search focus
   useEffect(() => {
     if (!isPopup) return;
-
-    const handleWindowBlur = () => {
-      if (popupSearchVisible) {
-        const hasPersistData = store.popupSearchValue.trim().length > 0;
-        if (!hasPersistData) {
-          setPopupSearchVisible(false);
-          store.setFilters({ search: "" });
-        }
-      }
-      if (popupTagsMenuVisible) {
-        setPopupTagsMenuVisible(false);
-        setTagSearchQuery("");
-      }
-    };
-
-    window.addEventListener("blur", handleWindowBlur);
-    return () => window.removeEventListener("blur", handleWindowBlur);
-  }, [isPopup, popupSearchVisible, popupTagsMenuVisible, setPopupSearchVisible, setPopupTagsMenuVisible, store]);
-
-  // Dynamically update window focusability based on search or tag dropdown visibility
-  useEffect(() => {
-    if (!isPopup) return;
-    const isFocusable = popupSearchVisible || popupTagsMenuVisible;
+    const isFocusable = store.isSearchFocused || isTagSearchFocused;
     window.clipAPI.setSearchFocusable?.(isFocusable);
-  }, [isPopup, popupSearchVisible, popupTagsMenuVisible]);
+  }, [isPopup, store.isSearchFocused, isTagSearchFocused]);
 
-  const handleToggleDropdown = () => {
-    const nextVal = !popupTagsMenuVisible;
-    if (nextVal) {
-      // Mutual Exclusivity: Close search bar when opening tags
-      setPopupSearchVisible(false);
-      store.setFilters({ search: "" });
-    } else {
-      setTagSearchQuery("");
-    }
-    setPopupTagsMenuVisible(nextVal);
-  };
+
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
@@ -169,13 +153,21 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                   <button
                     key={tab}
                     type="button"
-                    onClick={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      if (isPopup) {
+                        const hasSearchValue = store.popupSearchValue.trim().length > 0;
+                        if (hasSearchValue) {
+                          setPopupSearchVisible(true);
+                          store.setIsSearchFocused(false);
+                        } else {
+                          setPopupSearchVisible(false);
+                          store.setIsSearchFocused(false);
+                          store.setFilters({ search: "" });
+                        }
+                      }
                       store.setActivePage(tab === "all" ? "dashboard" : tab === "favorites" ? "favorites" : "recycle");
                       store.setCurrentPage(1);
-                      if (isPopup) {
-                        setPopupSearchVisible(false);
-                        store.setFilters({ search: "" });
-                      }
                       store.loadClips();
                     }}
                     className={`px-2 py-1 rounded-md text-nowrap text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
@@ -196,23 +188,24 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                 {/* Search Toggle Button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextShowSearch = !popupSearchVisible;
-                    setPopupSearchVisible(nextShowSearch);
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const state = useClipStore.getState();
+                    const nextShowSearch = !state.popupSearchVisible;
+                    state.setPopupSearchVisible(nextShowSearch);
                     if (nextShowSearch) {
                       // Mutual Exclusivity: Close tags dropdown when opening search
-                      setPopupTagsMenuVisible(false);
+                      state.setPopupTagsMenuVisible(false);
                       setTagSearchQuery("");
-                      // Restore search filter using cached popupSearchValue
-                      store.setFilters({ search: store.popupSearchValue });
-                      setTimeout(() => {
-                        const input = useClipStore.getState().searchInputRef?.current ||
-                                      (document.querySelector('input[placeholder="Search clipboard\u2026"]') as HTMLInputElement);
-                        input?.focus();
-                      }, 50);
+                      state.setIsTagSearchFocused(false);
+                      
+                      // Restore the persisted search filter using current popupSearchValue
+                      state.setFilters({ search: state.popupSearchValue });
+                      state.setIsSearchFocused(true);
                     } else {
-                      // Close search and clear active filter
-                      store.setFilters({ search: "" });
+                      // Close search and clear active filter, but keep popupSearchValue
+                      state.setFilters({ search: "" });
+                      state.setIsSearchFocused(false);
                     }
                   }}
                   className={`flex items-center gap-1 h-6 px-2 rounded-md border text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
@@ -229,7 +222,33 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                 <div ref={tagDropdownRef} className="relative">
                   <button
                     type="button"
-                    onClick={handleToggleDropdown}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const state = useClipStore.getState();
+                      const nextVal = !state.popupTagsMenuVisible;
+                      if (nextVal) {
+                        // Close search focus but keep it visible if it has value
+                        const hasSearchValue = state.popupSearchValue.trim().length > 0;
+                        if (hasSearchValue) {
+                          state.setPopupSearchVisible(true);
+                          state.setIsSearchFocused(false);
+                        } else {
+                          state.setPopupSearchVisible(false);
+                          state.setIsSearchFocused(false);
+                          state.setFilters({ search: "" });
+                        }
+                        
+                        // Auto focus tag search input
+                        setTimeout(() => {
+                          tagSearchInputRef.current?.focus();
+                        }, 50);
+                        state.setIsTagSearchFocused(true);
+                      } else {
+                        setTagSearchQuery("");
+                        state.setIsTagSearchFocused(false);
+                      }
+                      state.setPopupTagsMenuVisible(nextVal);
+                    }}
                     className={`flex items-center gap-1 h-6 px-2 rounded-md border text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 focus-visible:outline-none select-none whiteblink-remover ${
                       popupTagsMenuVisible || store.filters.tags.length > 0
                         ? "bg-brand-500/10 border-brand-500/25 text-brand-400"
@@ -260,24 +279,31 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                           <IconSearch size={12} />
                         </div>
                         <input
-                          autoFocus
+                          ref={tagSearchInputRef}
                           type="text"
                           placeholder="Search tags..."
                           value={tagSearchQuery}
                           onChange={(e) => setTagSearchQuery(e.target.value)}
+                          onMouseDown={handleTagSearchMouseDown}
+                          onFocus={handleTagSearchFocus}
+                          onBlur={handleTagSearchBlur}
                           className="w-full bg-transparent border-0 border-b border-gray-700 hover:border-gray-600 focus:border-brand-500 focus:ring-0 focus:outline-none pl-7 pr-12 py-1 text-[11px] text-white/85 placeholder-gray-600 transition-colors duration-150"
                         />
                         <div className="absolute right-3.5 flex items-center gap-1.5 pointer-events-auto">
-                          <span className="text-[9px] font-bold text-gray-500 bg-white/5 px-1 py-0.2 rounded select-none" title="Total tags">
-                            {store.tags.length}
+                          <span className="text-[9px] font-bold text-gray-500 bg-white/5 px-1 py-0.2 rounded select-none" title="Selected / Total tags">
+                            {store.filters.tags.length}/{store.tags.length}
                           </span>
                           {store.filters.tags.length > 0 && (
-                            <button
+                           <button
                               type="button"
-                              onClick={() => {
+                              onMouseDown={(e) => {
+                                e.preventDefault();
                                 store.setFilters({ tags: [] });
                                 store.setCurrentPage(1);
                                 store.loadClips();
+                                setTimeout(() => {
+                                  tagSearchInputRef.current?.focus();
+                                }, 50);
                               }}
                               className="p-0.5 text-gray-600 hover:text-gray-400 hover:bg-white/5 rounded transition-all duration-150 cursor-pointer focus:outline-none focus:ring-0 select-none"
                               title="Clear tag filter"
@@ -300,7 +326,8 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                               <button
                                 key={tag.id}
                                 type="button"
-                                onClick={() => {
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
                                   const activeTags = store.filters.tags;
                                   const newTags = activeTags.includes(tag.id)
                                     ? activeTags.filter((t) => t !== tag.id)
@@ -308,6 +335,9 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                                   store.setFilters({ tags: newTags });
                                   store.setCurrentPage(1);
                                   store.loadClips();
+                                  setTimeout(() => {
+                                    tagSearchInputRef.current?.focus();
+                                  }, 50);
                                 }}
                                 className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] transition-all duration-150 my-0.5 cursor-pointer focus:outline-none focus:ring-0 whiteblink-remover ${
                                   isSelected
@@ -446,6 +476,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
           </p>
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-400">
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="rounded-md px-1.5 py-0.5 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40 focus:outline-none focus:ring-0 focus-visible:outline-none"
@@ -456,6 +487,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
               {currentPage}/{totalPages}
             </span>
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="rounded-md px-1.5 py-0.5 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40 focus:outline-none focus:ring-0 focus-visible:outline-none"

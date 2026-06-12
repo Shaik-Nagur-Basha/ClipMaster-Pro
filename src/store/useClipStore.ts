@@ -25,7 +25,7 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
-  autoLaunch: false,
+  autoLaunch: true,
   maxEntries: 5000,
   pollingInterval: 600,
   paginationEnabled: true,
@@ -59,6 +59,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   popupSearchVisible: false,
   popupTagsMenuVisible: false,
   popupSearchValue: "",
+  isSearchFocused: false,
+  isTagSearchFocused: false,
 
   // ── Data Actions ───────────────────────────────────────────────────────
   loadClips: async (forceLimit?: number) => {
@@ -150,12 +152,16 @@ export const useClipStore = create<ClipStore>((set, get) => ({
         if (isPopup && !["dashboard", "favorites", "recycle"].includes(activePage)) {
           activePage = "dashboard";
         }
+        const loadedFilters = state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS };
+        const hasSearch = !!(loadedFilters.search && loadedFilters.search.trim().length > 0);
         set({
           activePage,
           selectedClipId: state.selectedClipId ?? null,
           sortMode: state.sortMode ?? "newest",
-          filters: state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS },
+          filters: loadedFilters,
           currentPage: 1,
+          popupSearchValue: loadedFilters.search || "",
+          popupSearchVisible: hasSearch,
         });
         await get().loadClips();
       }
@@ -328,6 +334,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   setPopupSearchVisible: (visible: boolean) => set({ popupSearchVisible: visible }),
   setPopupTagsMenuVisible: (visible: boolean) => set({ popupTagsMenuVisible: visible }),
   setPopupSearchValue: (value: string) => set({ popupSearchValue: value }),
+  setIsSearchFocused: (focused: boolean) => set({ isSearchFocused: focused }),
+  setIsTagSearchFocused: (focused: boolean) => set({ isTagSearchFocused: focused }),
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId);

@@ -41,6 +41,7 @@ const clipAPI = {
     ipcRenderer.invoke("copy-to-clipboard", text),
   pasteClip: (): Promise<void> => ipcRenderer.invoke("paste-clip"),
   closePopup: () => ipcRenderer.send("close-popup"),
+  updateTargetHwnd: () => ipcRenderer.send("update-target-hwnd"),
   setSearchFocusable: (focusable: boolean) =>
     ipcRenderer.send("set-search-focusable", focusable),
 
@@ -80,6 +81,16 @@ const clipAPI = {
   onCleanMemory: (cb: () => void) => {
     const h = () => cb();
     return registerSingleListener("clean-memory", h);
+  },
+
+  onHookedKey: (cb: (data: { type: "char" | "key"; value: string }) => void) => {
+    const h = (_: Electron.IpcRendererEvent, data: { type: "char" | "key"; value: string }) => cb(data);
+    return registerSingleListener("hooked-key", h);
+  },
+
+  onClickOutside: (cb: () => void) => {
+    const h = () => cb();
+    return registerSingleListener("click-outside", h);
   },
 
   // ── Application Updates ────────────────────────────────────────────────

@@ -10,28 +10,63 @@ import {
   session,
   globalShortcut,
   screen,
+  Notification,
 } from "electron";
 import { join } from "path";
 import * as path from "path";
 import * as fs from "fs";
 import * as https from "https";
 import { IncomingMessage } from "http";
-import { spawn, ChildProcess, exec } from "child_process";
+import { spawn, spawnSync, ChildProcess, exec } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import type { ClipboardItem, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
 import { importManager } from "./importManager";
+import { syncAutoLaunch } from "./autoLaunch";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
 app.commandLine.appendSwitch("js-flags", "--expose-gc --max-old-space-size=128");
 app.disableHardwareAcceleration();
 
+function checkIsAdmin(): boolean {
+  try {
+    const res = spawnSync("net", ["session"]);
+    return res.status === 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+function killOtherInstances() {
+  const ourPid = process.pid;
+  try {
+    spawnSync("powershell", [
+      "-Command",
+      `Get-Process -Name 'ClipMaster Pro' -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne ${ourPid} } | Stop-Process -Force`
+    ]);
+  } catch (err) {
+    console.error("Failed to kill other instances:", err);
+  }
+}
+
 // ─── Singleton guard ────────────────────────────────────────────────────────
-const gotLock = app.requestSingleInstanceLock();
+let gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
-  app.quit();
-  process.exit(0);
+  if (checkIsAdmin()) {
+    console.log("[Main] Elevated instance detected another running instance. Terminating standard background processes...");
+    killOtherInstances();
+    spawnSync("powershell", ["-Command", "Start-Sleep -m 500"]);
+    gotLock = app.requestSingleInstanceLock();
+    if (!gotLock) {
+      console.error("[Main] Failed to acquire lock even after killing other instances. Quitting.");
+      app.quit();
+      process.exit(0);
+    }
+  } else {
+    app.quit();
+    process.exit(0);
+  }
 }
 
 const isStartupHidden = process.argv.includes("--hidden");
@@ -42,10 +77,14 @@ let popupWindow: BrowserWindow | null = null;
 let isPasting = false;
 let blurTimeout: NodeJS.Timeout | null = null;
 let tray: Tray | null = null;
+let targetHwnd = "0";
+let isSearchFocusable = false;
 let pollTimer: NodeJS.Timeout | null = null;
+let hookProcess: ChildProcess | null = null;
 let lastClipboardText = "";
 let isQuitting = false;
 let pauseTimeout: NodeJS.Timeout | null = null;
+
 let clipboardListenerProc: ChildProcess | null = null;
 let nativeListenerWatchdog: NodeJS.Timeout | null = null;
 let nativeListenerStartTime = 0;
@@ -99,6 +138,18 @@ function registerAppShortcut(): void {
   try {
     const isRegistered = globalShortcut.register(shortcutKey, () => {
       console.log(`[Shortcut] Triggered hotkey: ${shortcutKey}`);
+      
+      // Capture the active window handle before creating/showing the popup
+      try {
+        const pasterPath = getPasterPath();
+        const child = spawnSync(pasterPath, ["get-foreground"], { windowsHide: true });
+        targetHwnd = child.stdout.toString().trim();
+        console.log(`[Shortcut] Captured target window HWND: ${targetHwnd}`);
+      } catch (err) {
+        console.error("[Shortcut] Failed to capture active window:", err);
+        targetHwnd = "0";
+      }
+
       createPopupWindow();
     });
 
@@ -177,17 +228,71 @@ function getPasterPath(): string {
   return prodPath;
 }
 
-function createPopupWindow(): void {
-  if (popupWindow) {
-    popupWindow.close();
-    return;
+function startHookProcess(): void {
+  if (hookProcess) return;
+  if (!popupWindow || popupWindow.isDestroyed()) return;
+
+  const hwndBuf = popupWindow.getNativeWindowHandle();
+  if (!hwndBuf) return;
+
+  try {
+    const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
+    const pasterPath = getPasterPath();
+    console.log(`[Popup] Starting persistent hook process for HWND: ${hwnd}`);
+    hookProcess = spawn(pasterPath, [hwnd, "hook"], { windowsHide: true });
+    
+    hookProcess.stdout?.on("data", (data) => {
+      const lines = data.toString().split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        console.log(`[Paster Output] ${trimmed}`);
+        if (trimmed.startsWith("CHAR:")) {
+          const val = trimmed.substring(5);
+          popupWindow?.webContents.send("hooked-key", { type: "char", value: val });
+        } else if (trimmed.startsWith("KEY:")) {
+          const val = trimmed.substring(4);
+          popupWindow?.webContents.send("hooked-key", { type: "key", value: val });
+        } else if (trimmed === "CLICK_OUTSIDE") {
+          console.log("[Popup] Detected mouse click outside popup. Hiding search/tag focus...");
+          popupWindow?.webContents.send("click-outside");
+        }
+      }
+    });
+
+    hookProcess.on("close", () => {
+      console.log(`[Popup] Persistent hook process closed.`);
+      hookProcess = null;
+    });
+  } catch (err) {
+    console.error("[Popup] Failed to start persistent hook process:", err);
   }
+}
+
+function stopHookProcess(): void {
+  if (hookProcess) {
+    try {
+      hookProcess.kill();
+    } catch {}
+    hookProcess = null;
+  }
+}
+
+function closePopupWindow(): void {
+  stopHookProcess();
+  if (popupWindow && !popupWindow.isDestroyed()) {
+    try {
+      popupWindow.hide();
+    } catch {}
+  }
+}
+
+function createPopupWindow(): void {
+  const width = 420;
+  const height = 550;
 
   const cursorPoint = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursorPoint);
-
-  const width = 420;
-  const height = 550;
 
   // Center horizontally relative to the cursor
   let x = cursorPoint.x - Math.floor(width / 2);
@@ -204,6 +309,20 @@ function createPopupWindow(): void {
   }
   if (y < bounds.y) y = bounds.y;
 
+  if (popupWindow && !popupWindow.isDestroyed()) {
+    if (popupWindow.isVisible()) {
+      closePopupWindow();
+    } else {
+      popupWindow.setBounds({ x, y, width, height });
+      popupWindow.showInactive();
+      startHookProcess();
+      
+      // Refresh clips list in the renderer
+      popupWindow.webContents.send("refresh-clips");
+    }
+    return;
+  }
+
   popupWindow = new BrowserWindow({
     width: width,
     height: height,
@@ -214,6 +333,7 @@ function createPopupWindow(): void {
     show: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    focusable: true,
     backgroundColor: "#0d0d1a",
     icon: join(
       __dirname,
@@ -233,6 +353,13 @@ function createPopupWindow(): void {
 
   popupWindow.loadURL(popupUrl);
 
+  // Hook WM_MOUSEACTIVATE (0x0021) to prevent window from taking focus and deactivating target application on click
+  const WM_MOUSEACTIVATE = 0x0021;
+  const MA_NOACTIVATE = 3;
+  popupWindow.hookWindowMessage(WM_MOUSEACTIVATE, () => {
+    return MA_NOACTIVATE;
+  });
+
   popupWindow.once("ready-to-show", () => {
     // Call paster.exe to set topmost via HWND_TOPMOST and apply WS_EX_TOPMOST/WS_EX_NOACTIVATE style BEFORE showing the window
     const hwndBuf = popupWindow?.getNativeWindowHandle();
@@ -251,6 +378,7 @@ function createPopupWindow(): void {
             styleApplied = true;
             if (popupWindow && !popupWindow.isDestroyed()) {
               popupWindow.showInactive();
+              startHookProcess();
             }
           }
         });
@@ -274,7 +402,7 @@ function createPopupWindow(): void {
       if (popupWindow && !popupWindow.isDestroyed() && !popupWindow.isFocused()) {
         const settings = storageManager.getSettings();
         if (settings.popupPinned !== true) {
-          popupWindow.close();
+          closePopupWindow();
         }
       }
     }, 150);
@@ -294,6 +422,12 @@ function createPopupWindow(): void {
   });
 
   popupWindow.on("closed", () => {
+    if (hookProcess) {
+      try {
+        hookProcess.kill();
+      } catch {}
+      hookProcess = null;
+    }
     if (blurTimeout) {
       clearTimeout(blurTimeout);
       blurTimeout = null;
@@ -796,31 +930,48 @@ function registerIPC(): void {
     mainWindow?.close(); // Triggers standard window close and destruction
   });
 
+  ipcMain.on("update-target-hwnd", () => {
+    try {
+      const pasterPath = getPasterPath();
+      const child = spawnSync(pasterPath, ["get-foreground"], { windowsHide: true });
+      const activeHwnd = child.stdout.toString().trim();
+      
+      if (popupWindow && !popupWindow.isDestroyed()) {
+        const hwndBuf = popupWindow.getNativeWindowHandle();
+        const popupHwndStr = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
+        if (activeHwnd !== popupHwndStr && activeHwnd !== "0" && activeHwnd !== "") {
+          targetHwnd = activeHwnd;
+          console.log(`[Hover] Updated target window HWND: ${targetHwnd}`);
+        }
+      }
+    } catch (err) {
+      console.error("[Hover] Failed to update target window HWND:", err);
+    }
+  });
+
   ipcMain.on("set-search-focusable", (_e, focusable: boolean) => {
     console.log(`[IPC] set-search-focusable: ${focusable}`);
-    if (popupWindow && !popupWindow.isDestroyed()) {
-      const hwndBuf = popupWindow.getNativeWindowHandle();
-      if (hwndBuf) {
-        try {
-          const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
-          const pasterPath = getPasterPath();
-          const cmd = focusable ? "focusable" : "noactivate";
-          console.log(`[Popup] Setting focusable state to ${focusable} (cmd: ${cmd}) for HWND: ${hwnd}`);
-          const child = spawn(pasterPath, [hwnd, cmd], { windowsHide: true });
-          
-          if (focusable) {
-            child.on("close", () => {
-              if (popupWindow && !popupWindow.isDestroyed()) {
-                popupWindow.focus();
-              }
-            });
-          }
-        } catch (err) {
-          console.error("[Popup] Failed to update focusable style:", err);
-        }
+    isSearchFocusable = focusable;
+    if (!hookProcess) {
+      startHookProcess();
+    }
+    if (hookProcess && hookProcess.stdin && !hookProcess.stdin.destroyed) {
+      if (focusable) {
+        hookProcess.stdin.write("ENABLE_KEYBOARD\n");
+      } else {
+        hookProcess.stdin.write("DISABLE_KEYBOARD\n");
       }
     }
   });
+
+function showUacWarningNotification() {
+  const notification = new Notification({
+    title: "ClipMaster Pro",
+    body: "Cannot paste into elevated window (e.g. Task Manager). Please run ClipMaster Pro as Administrator.",
+    silent: false,
+  });
+  notification.show();
+}
 
   ipcMain.handle("paste-clip", async () => {
     console.log("[IPC] paste-clip triggered");
@@ -829,46 +980,77 @@ function registerIPC(): void {
       
       const hwndBuf = popupWindow.getNativeWindowHandle();
       const hwnd = process.arch === "x64" ? hwndBuf.readBigUInt64LE().toString() : hwndBuf.readUInt32LE().toString();
-      const pid = process.pid.toString();
+      
+      const settings = storageManager.getSettings();
+      const isPinned = settings.popupPinned === true;
+      
+      // DO NOT hide the popup before pasting.
+      // Like Windows Clipboard (Win+V), the popup stays visible during the paste.
+      // Hiding it causes Windows to re-evaluate activation and steal focus from the target.
       
       const pasterPath = getPasterPath();
       try {
-        const settings = storageManager.getSettings();
-        const shouldRefocus = settings.popupPinned === true ? "1" : "0";
-        const child = spawn(pasterPath, [hwnd, pid, "50", shouldRefocus], { windowsHide: true });
-        let resolved = false;
+        // TEMPORARILY disable keyboard hook during paste so Ctrl+V is not intercepted
+        if (hookProcess && hookProcess.stdin && !hookProcess.stdin.destroyed) {
+          console.log("[Paste] Temporarily disabling keyboard hook during paste");
+          hookProcess.stdin.write("DISABLE_KEYBOARD\n");
+        }
+
+        // We always pass "0" (never refocus the popup window) to prevent deactivation of target window.
+        const child = spawn(pasterPath, [hwnd, targetHwnd, "50", "0"], { windowsHide: true });
 
         child.stdout?.on("data", (data) => {
           const msg = data.toString().trim();
-          if (msg.includes("READY_TO_CLOSE")) {
-            const settings = storageManager.getSettings();
-            if (settings.popupPinned !== true) {
-              if (popupWindow && !popupWindow.isDestroyed()) {
-                popupWindow.close();
-              }
-              isPasting = false;
+          console.log("[Paste] paster stdout:", msg);
+          if (msg.includes("UAC_ELEVATION_BLOCKED")) {
+            showUacWarningNotification();
+          }
+          if (msg.includes("PASTE_DONE")) {
+            // Paste is complete and focus has been re-asserted on target.
+            // NOW it's safe to hide the popup.
+            if (!isPinned) {
+              closePopupWindow();
             }
           }
         });
 
         const done = () => {
-          if (resolved) return;
-          resolved = true;
           setTimeout(() => {
-            const settings = storageManager.getSettings();
-            if (settings.popupPinned === true) {
-              if (popupWindow && !popupWindow.isDestroyed()) {
-                popupWindow.focus();
-                setTimeout(() => {
-                  isPasting = false;
-                }, 150);
-              } else {
-                isPasting = false;
+            if (isPinned) {
+              // Pinned popup: keep it visible, but refocus target window so it remains active.
+              setTimeout(() => {
+                if (targetHwnd && targetHwnd !== "0") {
+                  console.log(`[Paste] Pinned refocusing target window: ${targetHwnd}`);
+                  const childRefocus = spawn(pasterPath, [targetHwnd, "refocus"], { windowsHide: true });
+                  childRefocus.stdout?.on("data", (data) => {
+                    console.log("[Refocus-Pinned] paster stdout:", data.toString().trim());
+                  });
+                }
+              }, 50);
+              
+              // Re-enable keyboard hook if search or tags input was focused
+              if (isSearchFocusable && hookProcess && hookProcess.stdin && !hookProcess.stdin.destroyed) {
+                console.log("[Paste] Re-enabling keyboard hook for pinned popup");
+                hookProcess.stdin.write("ENABLE_KEYBOARD\n");
               }
+              
+              isPasting = false;
             } else {
-              if (popupWindow && !popupWindow.isDestroyed()) {
-                popupWindow.close();
-              }
+              // Unpinned popup: hide it, and refocus target window.
+              closePopupWindow();
+              
+              // Refocus the target window after hiding the popup!
+              // Wait 50ms for the window hide to process at OS level
+              setTimeout(() => {
+                if (targetHwnd && targetHwnd !== "0") {
+                  console.log(`[Paste] Unpinned refocusing target window: ${targetHwnd}`);
+                  const childRefocus = spawn(pasterPath, [targetHwnd, "refocus"], { windowsHide: true });
+                  childRefocus.stdout?.on("data", (data) => {
+                    console.log("[Refocus-Unpinned] paster stdout:", data.toString().trim());
+                  });
+                }
+              }, 50);
+              
               isPasting = false;
             }
           }, 30);
@@ -883,9 +1065,7 @@ function registerIPC(): void {
   });
 
   ipcMain.on("close-popup", () => {
-    if (popupWindow) {
-      popupWindow.close();
-    }
+    closePopupWindow();
   });
 
   // ── Clipboard CRUD ───────────────────────────────────────────────────────
@@ -957,22 +1137,7 @@ function registerIPC(): void {
 
       await storageManager.saveSettings(partial as never);
       if ("autoLaunch" in partial) {
-        if (app.isPackaged) {
-          app.setLoginItemSettings({
-            openAtLogin: Boolean(partial.autoLaunch),
-            name: "ClipMaster Pro",
-            path: app.getPath("exe"),
-            args: ["--hidden"],
-          });
-        } else {
-          // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
-          app.setLoginItemSettings({
-            openAtLogin: false,
-            name: "ClipMaster Pro",
-            path: app.getPath("exe"),
-            args: ["--hidden"],
-          });
-        }
+        syncAutoLaunch(Boolean(partial.autoLaunch));
       }
       if ("globalShortcutEnabled" in partial || "globalShortcutKey" in partial) {
         registerAppShortcut();
@@ -1517,23 +1682,8 @@ app.whenReady().then(async () => {
 
   const initSettings = storageManager.getSettings();
 
-  // Synchronize startup login item settings to keep registry key up-to-date
-  if (app.isPackaged) {
-    app.setLoginItemSettings({
-      openAtLogin: Boolean(initSettings.autoLaunch),
-      name: "ClipMaster Pro",
-      path: app.getPath("exe"),
-      args: ["--hidden"],
-    });
-  } else {
-    // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
-    app.setLoginItemSettings({
-      openAtLogin: false,
-      name: "ClipMaster Pro",
-      path: app.getPath("exe"),
-      args: ["--hidden"],
-    });
-  }
+  // Synchronize startup auto launch task
+  syncAutoLaunch(Boolean(initSettings.autoLaunch));
 
   if (initSettings.pauseCaptureOption === "restart") {
     storageManager.saveSettings({

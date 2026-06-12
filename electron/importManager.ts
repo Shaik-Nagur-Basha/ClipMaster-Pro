@@ -6,6 +6,7 @@ import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import { storageManager } from "./storage";
 import type { ClipboardItem, Tag, AppSettings } from "../src/types";
+import { syncAutoLaunch } from "./autoLaunch";
 
 export interface ImportSummary {
   success: boolean;
@@ -348,22 +349,7 @@ class ImportManager {
           await storageManager.saveSettings(partialSettings);
 
           if ("autoLaunch" in partialSettings) {
-            if (app.isPackaged) {
-              app.setLoginItemSettings({
-                openAtLogin: Boolean(partialSettings.autoLaunch),
-                name: "ClipMaster Pro",
-                path: app.getPath("exe"),
-                args: ["--hidden"],
-              });
-            } else {
-              // In development, actively remove/disable auto-start to avoid registering the dev electron.exe
-              app.setLoginItemSettings({
-                openAtLogin: false,
-                name: "ClipMaster Pro",
-                path: app.getPath("exe"),
-                args: ["--hidden"],
-              });
-            }
+            syncAutoLaunch(Boolean(partialSettings.autoLaunch));
           }
           importedSettings = true;
         }

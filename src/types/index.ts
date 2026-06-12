@@ -87,6 +87,8 @@ export interface ClipStore {
   popupSearchVisible: boolean;
   popupTagsMenuVisible: boolean;
   popupSearchValue: string;
+  isSearchFocused: boolean;
+  isTagSearchFocused: boolean;
 
   // Actions - Data
   loadClips: (forceLimit?: number) => Promise<void>;
@@ -120,6 +122,8 @@ export interface ClipStore {
   setPopupSearchVisible: (visible: boolean) => void;
   setPopupTagsMenuVisible: (visible: boolean) => void;
   setPopupSearchValue: (value: string) => void;
+  setIsSearchFocused: (focused: boolean) => void;
+  setIsTagSearchFocused: (focused: boolean) => void;
 }
 
 // ─── Window bridge type ───────────────────────────────────────────────────
@@ -161,6 +165,8 @@ export interface ClipAPI {
   onRefreshClips: (cb: () => void) => () => void;
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
   onCleanMemory: (cb: () => void) => () => void;
+  onHookedKey: (cb: (data: { type: "char" | "key"; value: string }) => void) => () => void;
+  onClickOutside: (cb: () => void) => () => void;
 
   // Application Updates
   getAppInfo: () => Promise<{

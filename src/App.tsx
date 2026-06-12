@@ -177,12 +177,13 @@ if (typeof window !== "undefined" && !window.clipAPI) {
     copyToClipboard: noop_p,
     pasteClip: noop_p,
     closePopup: noop,
+    updateTargetHwnd: noop,
     setSearchFocusable: noop,
     // Tags & Settings
     getTags: async () => [],
     saveTags: noop_p,
     getSettings: async () => ({
-      autoLaunch: false,
+      autoLaunch: true,
       maxEntries: 5000,
       pollingInterval: 600,
       viewMode: "list" as const,
@@ -369,6 +370,7 @@ export default function App() {
           e.preventDefault();
           storeState.setPopupSearchVisible(false);
           storeState.setFilters({ search: "" });
+          storeState.setIsSearchFocused(false);
           return;
         }
 
@@ -478,6 +480,12 @@ export default function App() {
     // Subscribe to window restore/show refresh events
     const unsubRefresh = (window.clipAPI.onRefreshClips ?? noop)(() => {
       console.log("[App] Window restored. Refreshing active clips...");
+      const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
+      if (isPopup) {
+        useClipStore.setState({ popupSearchVisible: false, isSearchFocused: false, popupSearchValue: "" });
+        useClipStore.getState().setFilters({ search: "" });
+        window.clipAPI.setSearchFocusable?.(false);
+      }
       loadClips();
     });
 
@@ -498,11 +506,170 @@ export default function App() {
       }
     });
 
+    // Subscribe to hooked key events from the main process
+    const unsubHookedKey = (window.clipAPI.onHookedKey ?? noop)((data: { type: "char" | "key"; value: string }) => {
+      const storeState = useClipStore.getState();
+      
+      // Determine target input
+      let targetInput: HTMLInputElement | null = null;
+      if (storeState.popupTagsMenuVisible) {
+        targetInput = document.querySelector('input[placeholder="Search tags..."]') as HTMLInputElement;
+      } else if (storeState.popupSearchVisible) {
+        targetInput = storeState.searchInputRef?.current || document.querySelector('input[placeholder="Search clipboard…"]') as HTMLInputElement;
+      }
+
+      if (!targetInput) return;
+
+      const { type, value } = data;
+      const setVal = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+
+      if (type === "char") {
+        const val = targetInput.value;
+        const start = targetInput.selectionStart ?? val.length;
+        const end = targetInput.selectionEnd ?? val.length;
+        const newVal = val.slice(0, start) + value + val.slice(end);
+        setVal?.call(targetInput, newVal);
+        const newCursor = start + value.length;
+        targetInput.setSelectionRange(newCursor, newCursor);
+        
+        targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+      } else if (type === "key") {
+        if (value === "Backspace") {
+          const val = targetInput.value;
+          const start = targetInput.selectionStart ?? val.length;
+          const end = targetInput.selectionEnd ?? val.length;
+          let newVal = val;
+          let newCursor = start;
+          if (start !== end) {
+            newVal = val.slice(0, start) + val.slice(end);
+            newCursor = start;
+          } else if (start > 0) {
+            newVal = val.slice(0, start - 1) + val.slice(start);
+            newCursor = start - 1;
+          }
+          setVal?.call(targetInput, newVal);
+          targetInput.setSelectionRange(newCursor, newCursor);
+          targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+        } else if (value === "Delete") {
+          const val = targetInput.value;
+          const start = targetInput.selectionStart ?? val.length;
+          const end = targetInput.selectionEnd ?? val.length;
+          let newVal = val;
+          if (start !== end) {
+            newVal = val.slice(0, start) + val.slice(end);
+          } else if (start < val.length) {
+            newVal = val.slice(0, start) + val.slice(start + 1);
+          }
+          setVal?.call(targetInput, newVal);
+          targetInput.setSelectionRange(start, start);
+          targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+        } else if (value === "Left") {
+          const start = targetInput.selectionStart ?? 0;
+          if (start > 0) {
+            targetInput.setSelectionRange(start - 1, start - 1);
+          }
+        } else if (value === "Right") {
+          const start = targetInput.selectionStart ?? 0;
+          if (start < targetInput.value.length) {
+            targetInput.setSelectionRange(start + 1, start + 1);
+          }
+        } else if (value === "Home") {
+          targetInput.setSelectionRange(0, 0);
+        } else if (value === "End") {
+          targetInput.setSelectionRange(targetInput.value.length, targetInput.value.length);
+        } else if (value === "Escape") {
+          if (storeState.popupTagsMenuVisible) {
+            storeState.setPopupTagsMenuVisible(false);
+          } else if (storeState.popupSearchVisible) {
+            storeState.setPopupSearchVisible(false);
+            storeState.setFilters({ search: "" });
+            storeState.setIsSearchFocused(false);
+          }
+        } else if (value === "Ctrl+A") {
+          targetInput.setSelectionRange(0, targetInput.value.length);
+        } else if (value === "Ctrl+C") {
+          const val = targetInput.value;
+          const start = targetInput.selectionStart ?? 0;
+          const end = targetInput.selectionEnd ?? 0;
+          if (start !== end) {
+            const selectedText = val.slice(start, end);
+            window.clipAPI.copyToClipboard(selectedText);
+          }
+        } else if (value === "Ctrl+X") {
+          const val = targetInput.value;
+          const start = targetInput.selectionStart ?? 0;
+          const end = targetInput.selectionEnd ?? 0;
+          if (start !== end) {
+            const selectedText = val.slice(start, end);
+            window.clipAPI.copyToClipboard(selectedText);
+            const newVal = val.slice(0, start) + val.slice(end);
+            setVal?.call(targetInput, newVal);
+            targetInput.setSelectionRange(start, start);
+            targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        } else if (value === "Ctrl+V") {
+          navigator.clipboard.readText().then((clipText) => {
+            const val = targetInput.value;
+            const start = targetInput.selectionStart ?? val.length;
+            const end = targetInput.selectionEnd ?? val.length;
+            const newVal = val.slice(0, start) + clipText + val.slice(end);
+            setVal?.call(targetInput, newVal);
+            const newCursor = start + clipText.length;
+            targetInput.setSelectionRange(newCursor, newCursor);
+            targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+          }).catch(() => {});
+        }
+      }
+    });
+
+    // Subscribe to click-outside events from the main process
+    const unsubClickOutside = (window.clipAPI.onClickOutside ?? noop)(() => {
+      const storeState = useClipStore.getState();
+      console.log("[App] click-outside received");
+      
+      const isPinned = storeState.settings.popupPinned === true;
+      if (!isPinned) {
+        window.clipAPI.closePopup();
+        return;
+      }
+
+      if (storeState.popupTagsMenuVisible) {
+        storeState.setPopupTagsMenuVisible(false);
+      }
+      
+      const hasSearchValue = storeState.popupSearchValue.trim() !== "";
+      
+      if (isPinned && hasSearchValue) {
+        storeState.setIsSearchFocused(false);
+        storeState.setIsTagSearchFocused(false);
+      } else {
+        storeState.setIsSearchFocused(false);
+        storeState.setIsTagSearchFocused(false);
+        if (storeState.popupSearchVisible) {
+          storeState.setPopupSearchVisible(false);
+          storeState.setFilters({ search: "" });
+          storeState.setPopupSearchValue("");
+          const input = storeState.searchInputRef?.current ||
+                        (document.querySelector('input[placeholder="Search clipboard…"]') as HTMLInputElement);
+          if (input) input.value = "";
+        }
+      }
+      
+      // Let active inputs lose focus in document
+      const tagSearchInput = document.querySelector('input[placeholder="Search tags..."]') as HTMLInputElement;
+      if (tagSearchInput) tagSearchInput.blur();
+      const searchInput = storeState.searchInputRef?.current ||
+                          (document.querySelector('input[placeholder="Search clipboard…"]') as HTMLInputElement);
+      if (searchInput) searchInput.blur();
+    });
+
     return () => {
       if (typeof unsubClips === "function") unsubClips();
       if (typeof unsubRefresh === "function") unsubRefresh();
       if (typeof unsubSettings === "function") unsubSettings();
       if (typeof unsubCleanMemory === "function") unsubCleanMemory();
+      if (typeof unsubHookedKey === "function") unsubHookedKey();
+      if (typeof unsubClickOutside === "function") unsubClickOutside();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -513,6 +680,11 @@ export default function App() {
 
     return (
       <div
+        onMouseEnter={() => {
+          if (isElectron) {
+            (window as any).clipAPI?.updateTargetHwnd();
+          }
+        }}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -586,6 +758,7 @@ export default function App() {
           >
             {/* Pin Toggle Button */}
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => saveSettings({ popupPinned: !isPinned })}
               title={isPinned ? "Unpin Window" : "Pin Window"}
               style={{
@@ -622,6 +795,7 @@ export default function App() {
             {/* Close Button */}
             {isPinned && (
               <button
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => window.clipAPI.closePopup()}
                 title="Close"
                 style={{

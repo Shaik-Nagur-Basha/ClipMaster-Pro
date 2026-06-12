@@ -27,7 +27,7 @@ const getSettingsPath = () => join(getDataDir(), "settings.json");
 
 // ─── Defaults ──────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS: AppSettings = {
-  autoLaunch: false,
+  autoLaunch: true,
   maxEntries: 5000,
   pollingInterval: 600,
   paginationEnabled: true,

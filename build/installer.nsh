@@ -52,7 +52,34 @@ FunctionEnd
 !macroend
 !endif
 
+!macro customInstall
+  DetailPrint "Configuring manual-launch scheduled task with highest privileges..."
+  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProManualLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f'
+  Pop $0
+  DetailPrint "  ├─ Manual scheduled task creation finished with status: $0"
+
+  DetailPrint "Configuring auto-launch scheduled task with highest privileges..."
+  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProAutoLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\" --hidden" /sc onlogon /rl highest /f'
+  Pop $0
+  DetailPrint "  ├─ Auto-launch scheduled task creation finished with status: $0"
+
+  DetailPrint "Re-creating UAC-free shortcuts..."
+  CreateShortcut "$DESKTOP\ClipMaster Pro.lnk" "$SYSDIR\schtasks.exe" '/run /tn "ClipMasterProManualLaunch"' "$INSTDIR\ClipMaster Pro.exe" 0
+  CreateShortcut "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk" "$SYSDIR\schtasks.exe" '/run /tn "ClipMasterProManualLaunch"' "$INSTDIR\ClipMaster Pro.exe" 0
+  DetailPrint "  └─ Shortcuts updated to run UAC-free... ✓"
+!macroend
+
 !macro customUninstall
+  DetailPrint "Removing auto-launch scheduled task..."
+  nsExec::ExecToLog 'schtasks /delete /tn "ClipMasterProAutoLaunch" /f'
+  Pop $0
+  DetailPrint "  ├─ Auto scheduled task removal finished with status: $0"
+
+  DetailPrint "Removing manual launch scheduled task..."
+  nsExec::ExecToLog 'schtasks /delete /tn "ClipMasterProManualLaunch" /f'
+  Pop $0
+  DetailPrint "  ├─ Manual scheduled task removal finished with status: $0"
+
   DetailPrint "Cleaning up system shortcuts..."
   DetailPrint "  → Deleting Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
   Delete "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"

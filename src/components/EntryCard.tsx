@@ -169,6 +169,18 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
+        onMouseDown={(e) => {
+          if (isPopupMode) {
+            const target = e.target as HTMLElement;
+            if (
+              target.tagName !== "INPUT" &&
+              target.tagName !== "TEXTAREA" &&
+              !target.closest(".allow-focus")
+            ) {
+              e.preventDefault();
+            }
+          }
+        }}
         onClick={async (e) => {
           if (isPopupMode) {
             if (isEditDialogOpen || isExpandDialogOpen) {

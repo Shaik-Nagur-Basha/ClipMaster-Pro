@@ -300,7 +300,7 @@ const Settings: React.FC = () => {
             <div className="space-y-2">
               <SettingRow
                 label="Launch at Windows startup"
-                desc="Start ClipMaster Pro automatically when you log in."
+                desc="Start ClipMaster Pro automatically with Administrator privileges on login (bypasses UAC using Task Scheduler)."
               >
                 <Toggle
                   checked={settings.autoLaunch}
