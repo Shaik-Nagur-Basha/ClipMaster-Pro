@@ -372,6 +372,16 @@ class StorageManager {
 
     // Deduplication: resurface existing item to top
     const existing = await this.clipsDb.findOneAsync({ text: trimmed, isDeleted: false });
+
+    // Enforce max entries limit
+    const maxEntries = this.settingsCache.maxEntries ?? 5000;
+    const activeCount = await this.clipsDb.countAsync({ isDeleted: false });
+
+    if (activeCount >= maxEntries && !existing) {
+      console.log(`[Storage] Max entries limit reached (${activeCount}/${maxEntries}). Clip catching stopped.`);
+      return null;
+    }
+
     if (existing) {
       const nextVersion = (existing.version ?? 0) + 1;
       const updated: ClipboardItem = {
@@ -383,18 +393,6 @@ class StorageManager {
       await this.clipsDb.updateAsync({ id: existing.id }, updated);
       createDbBackup(join(getDataDir(), "clips.db"));
       return updated;
-    }
-
-    // Enforce max entries
-    const maxEntries = this.settingsCache.maxEntries ?? 5000;
-    const active = await this.clipsDb.findAsync({ isDeleted: false }).sort({ timestamp: -1 });
-    if (active.length >= maxEntries) {
-      const nonFavorites = active.filter((c) => !c.isFavorite);
-      nonFavorites.sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-      const oldest = nonFavorites[0];
-      if (oldest) await this.permanentDelete(oldest.id);
     }
 
     const item: ClipboardItem = {

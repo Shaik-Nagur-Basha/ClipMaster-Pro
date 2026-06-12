@@ -29,6 +29,8 @@ import {
   IconRestore,
   IconArrowUp,
   IconArrowDown,
+  IconEdit,
+  IconList,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -301,6 +303,7 @@ const Settings: React.FC = () => {
               <SettingRow
                 label="Launch at Windows startup"
                 desc="Start ClipMaster Pro automatically with Administrator privileges on login (bypasses UAC using Task Scheduler)."
+                icon={<IconZap size={13} />}
               >
                 <Toggle
                   checked={settings.autoLaunch}
@@ -310,39 +313,19 @@ const Settings: React.FC = () => {
 
               <SettingRow
                 label="Max stored clips"
-                desc="Oldest non-favourite clips are removed when limit is reached."
+                desc="Clip capture is stopped when the limit is reached."
+                icon={<IconDatabase size={13} />}
               >
-                <CustomSelect
+                <MaxClipsSelector
                   value={settings.maxEntries}
-                  onChange={(v) => saveSettings({ maxEntries: Number(v) })}
-                  options={[
-                    {
-                      label: "500 clips",
-                      value: 500,
-                      icon: <IconMinimize size={14} />,
-                    },
-                    {
-                      label: "1,000 clips",
-                      value: 1000,
-                      icon: <IconLayers size={14} />,
-                    },
-                    {
-                      label: "5,000 clips",
-                      value: 5000,
-                      icon: <IconLayers size={14} />,
-                    },
-                    {
-                      label: "10,000 clips",
-                      value: 10000,
-                      icon: <IconDatabase size={14} />,
-                    },
-                  ]}
+                  onChange={(v) => saveSettings({ maxEntries: v })}
                 />
               </SettingRow>
 
               <SettingRow
                 label="Enable pagination"
                 desc="Show clips page-by-page in dashboard, favourites, and recycle bin."
+                icon={<IconLayers size={13} />}
               >
                 <Toggle
                   checked={settings.paginationEnabled}
@@ -353,6 +336,7 @@ const Settings: React.FC = () => {
               <SettingRow
                 label="Pause capturing of clips"
                 desc="Temporarily disable clipboard capture monitoring."
+                icon={<IconClock size={13} />}
               >
                 <CustomSelect
                   value={settings.pauseCaptureOption || "never"}
@@ -388,26 +372,15 @@ const Settings: React.FC = () => {
               </SettingRow>
 
               <SettingRow
-                label="Global shortcut"
-                desc="Instantly open or focus the clipboard history window from anywhere."
+                label="Global shortcut key"
+                desc="Click record and press your desired key combination (default: Ctrl + Shift + V)."
+                icon={<IconZap size={13} />}
               >
-                <Toggle
-                  checked={settings.globalShortcutEnabled !== false}
-                  onChange={(v) => saveSettings({ globalShortcutEnabled: v })}
+                <ShortcutRecorder
+                  value={settings.globalShortcutKey || "CommandOrControl+Shift+V"}
+                  onChange={(v) => saveSettings({ globalShortcutKey: v })}
                 />
               </SettingRow>
-
-              {settings.globalShortcutEnabled !== false && (
-                <SettingRow
-                  label="Global shortcut key"
-                  desc="Click record and press your desired key combination (default: Ctrl + Shift + V)."
-                >
-                  <ShortcutRecorder
-                    value={settings.globalShortcutKey || "CommandOrControl+Shift+V"}
-                    onChange={(v) => saveSettings({ globalShortcutKey: v })}
-                  />
-                </SettingRow>
-              )}
             </div>
           </Section>
 
@@ -835,20 +808,16 @@ const Settings: React.FC = () => {
                   Open Clipboard History Popup
                 </p>
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-300">
-                  {settings.globalShortcutEnabled !== false ? (
-                    (settings.globalShortcutKey || "CommandOrControl+Shift+V")
-                      .split("+")
-                      .map((k, idx) => (
-                        <React.Fragment key={k}>
-                          {idx > 0 && <span className="text-gray-500 mx-0.5">+</span>}
-                          <span className="font-semibold text-white uppercase">
-                            {k === "CommandOrControl" ? "Ctrl" : k}
-                          </span>
-                        </React.Fragment>
-                      ))
-                  ) : (
-                    <span className="text-rose-400 font-semibold text-[10px] uppercase tracking-wider">Disabled</span>
-                  )}
+                  {(settings.globalShortcutKey || "CommandOrControl+Shift+V")
+                    .split("+")
+                    .map((k, idx) => (
+                      <React.Fragment key={k}>
+                        {idx > 0 && <span className="text-gray-500 mx-0.5">+</span>}
+                        <span className="font-semibold text-white uppercase">
+                          {k === "CommandOrControl" ? "Ctrl" : k}
+                        </span>
+                      </React.Fragment>
+                    ))}
                 </div>
               </div>
               <p className="mt-2 text-[13px] leading-5 text-gray-400">
@@ -996,11 +965,13 @@ const Section: React.FC<{
 const SettingRow: React.FC<{
   label: string;
   desc?: string;
+  icon?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ label, desc, children }) => (
+}> = ({ label, desc, icon, children }) => (
   <div className="flex items-center justify-between gap-6 p-4 rounded-xl bg-surface-800 border-gray-700 hover:border-gray-600 transition-colors group">
     <div className="min-w-0 space-y-1">
-      <h4 className="text-[13px] font-medium text-gray-200 group-hover:text-white transition-colors">
+      <h4 className="flex items-center gap-2 text-[13px] font-medium text-gray-200 group-hover:text-white transition-colors">
+        {icon && <span className="opacity-60 shrink-0">{icon}</span>}
         {label}
       </h4>
       {desc && <p className="text-xs text-gray-500 leading-normal">{desc}</p>}
@@ -1192,10 +1163,174 @@ const ShortcutRecorder: React.FC<{
   );
 };
 
+const PREDEFINED_CLIPS = [500, 1000, 5000, 10000, 25000, 50000, 100000];
+
+function toIndianFormat(n: number): string {
+  const s = Math.floor(n).toString();
+  if (s.length <= 3) return s;
+  const last3 = s.slice(-3);
+  const rest = s.slice(0, -3);
+  const groups: string[] = [];
+  let i = rest.length;
+  while (i > 0) {
+    groups.unshift(rest.slice(Math.max(0, i - 2), i));
+    i -= 2;
+  }
+  return groups.join(",") + "," + last3;
+}
+
+function getClipCaption(n: number): string {
+  if (n >= 10000000) {
+    const c = n / 10000000;
+    return `${c % 1 === 0 ? c : c.toFixed(2)} Crore`;
+  }
+  if (n >= 100000) {
+    const l = n / 100000;
+    return `${l % 1 === 0 ? l : l.toFixed(2)} Lakh`;
+  }
+  return "";
+}
+
+const MaxClipsSelector: React.FC<{
+  value: number;
+  onChange: (v: number) => void;
+}> = ({ value, onChange }) => {
+  const isValueCustom = !PREDEFINED_CLIPS.includes(value);
+
+  // draft stores the FORMATTED string shown in the input (e.g. "2,00,000")
+  const [draft, setDraft] = React.useState(
+    isValueCustom ? toIndianFormat(value) : toIndianFormat(200000)
+  );
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [valueBeforeEdit, setValueBeforeEdit] = React.useState(value);
+
+  // Sync when settings load externally
+  React.useEffect(() => {
+    if (!PREDEFINED_CLIPS.includes(value) && !isEditing) {
+      setDraft(toIndianFormat(value));
+    }
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Strip commas → raw number */
+  const rawFromDraft = (d: string) => Number(d.replace(/,/g, "")) || 0;
+
+  const openEditor = () => {
+    setValueBeforeEdit(value);
+    setDraft(isValueCustom ? toIndianFormat(value) : toIndianFormat(200000));
+    setIsEditing(true);
+  };
+
+  const handleDraftChange = (raw: string) => {
+    // Keep only digits
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length > 8) return; // cap at 1,00,00,000 (8 digits)
+    setDraft(digits ? toIndianFormat(Number(digits)) : "");
+  };
+
+  const handleConfirm = () => {
+    const num = rawFromDraft(draft);
+    const clamped = Math.max(10, Math.min(10000000, num || 200000));
+    setDraft(toIndianFormat(clamped));
+    setIsEditing(false);
+    onChange(clamped);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (value !== valueBeforeEdit) onChange(valueBeforeEdit);
+    setDraft(isValueCustom ? toIndianFormat(valueBeforeEdit) : toIndianFormat(200000));
+  };
+
+  // Live hint values while editing
+  const liveNum = rawFromDraft(draft);
+  const liveDigits = liveNum > 0 ? liveNum.toString().length : 0;
+  const liveCaption = liveNum > 0 ? getClipCaption(liveNum) : "";
+
+  const caption = isValueCustom ? getClipCaption(value) : "";
+
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      {/* ── Row: dropdown  [input  ✓  ✗ while editing] ── */}
+      <div className="flex items-center gap-2">
+        <CustomSelect
+          value={isValueCustom ? "custom" : value}
+          onChange={(v) => {
+            if (v === "custom") {
+              openEditor();
+            } else {
+              setIsEditing(false);
+              onChange(Number(v));
+            }
+          }}
+          options={[
+            { label: "500 clips",              value: 500,    icon: <IconMinimize size={14} /> },
+            { label: "1,000 clips",             value: 1000,   icon: <IconList size={14} /> },
+            { label: "5,000 clips",             value: 5000,   icon: <IconLayers size={14} /> },
+            { label: "10,000 clips",            value: 10000,  icon: <IconLayers size={14} /> },
+            { label: "25,000 clips",            value: 25000,  icon: <IconDatabase size={14} /> },
+            { label: "50,000 clips",            value: 50000,  icon: <IconDatabase size={14} /> },
+            { label: "1,00,000 clips (1 Lakh)", value: 100000, icon: <IconCloud size={14} /> },
+            {
+              label: isValueCustom && !isEditing
+                ? `Custom: ${toIndianFormat(value)}`
+                : "Custom (up to 1 Crore)",
+              caption: isValueCustom && !isEditing ? caption : undefined,
+              value: "custom",
+              icon: <IconEdit size={14} />,
+            },
+          ]}
+        />
+
+        {/* Formatted text input — only while editing */}
+        {isEditing && (
+          <input
+            type="text"
+            inputMode="numeric"
+            value={draft}
+            autoFocus
+            placeholder="e.g. 2,00,000"
+            onChange={(e) => handleDraftChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConfirm();
+              if (e.key === "Escape") handleCancel();
+            }}
+            className="w-24 h-9 bg-surface-900 border border-gray-700/50 rounded-xl px-3 text-[12px] font-medium text-gray-300 focus:border-brand-500/30 focus:ring-0 focus-visible:ring-0 focus:outline-none outline-none transition-all tracking-wide"
+          />
+        )}
+
+        {/* Confirm ✓ */}
+        {isEditing && (
+          <button
+            onClick={handleConfirm}
+            title="Confirm"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-400 hover:bg-brand-500/25 hover:text-brand-300 transition-all duration-150 shrink-0"
+          >
+            <IconCheck size={14} />
+          </button>
+        )}
+
+        {/* Cancel ✗ */}
+        {isEditing && (
+          <button
+            onClick={handleCancel}
+            title="Cancel"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-150 shrink-0"
+          >
+            <IconX size={14} />
+          </button>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
+
+
 const CustomSelect: React.FC<{
   value: any;
   onChange: (v: any) => void;
-  options: { label: string; value: any; icon?: React.ReactNode }[];
+  options: { label: string; caption?: string; value: any; icon?: React.ReactNode }[];
 }> = ({ value, onChange, options }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1232,6 +1367,11 @@ const CustomSelect: React.FC<{
         <span className="text-[12px] font-medium whitespace-nowrap">
           {currentOption.label}
         </span>
+        {currentOption.caption && (
+          <span className="text-[10px] font-semibold text-brand-400/80 whitespace-nowrap">
+            {currentOption.caption}
+          </span>
+        )}
         <IconChevronDown
           size={14}
           className={`opacity-40 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -1245,7 +1385,7 @@ const CustomSelect: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full mt-1 right-0 w-48 z-[100] bg-surface-800 border-white/10 rounded-xl border overflow-hidden p-1.5"
+            className="absolute top-full mt-1 right-0 min-w-full w-max z-[100] bg-surface-800 border-white/10 rounded-xl border overflow-hidden p-1.5"
           >
             {options.map((opt) => (
               <button
@@ -1270,7 +1410,12 @@ const CustomSelect: React.FC<{
                       {opt.icon}
                     </span>
                   )}
-                  <span className="font-medium">{opt.label}</span>
+                  <span className="font-medium whitespace-nowrap">{opt.label}</span>
+                  {opt.caption && (
+                    <span className="text-[10px] font-semibold text-brand-400/70">
+                      {opt.caption}
+                    </span>
+                  )}
                 </div>
                 {value === opt.value && (
                   <IconCheck size={14} className="text-brand-400" />

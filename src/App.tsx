@@ -5,6 +5,7 @@ import { useClipStore } from "./store/useClipStore";
 import Sidebar from "./components/Sidebar";
 import { FullPageSpinner } from "./components/LoadingSpinner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import Dialog from "./components/Dialog";
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const FavoritesPage = React.lazy(() => import("./pages/FavoritesPage"));
@@ -347,7 +348,129 @@ export default function App() {
     activePage,
     settings,
     saveSettings,
+    sidebarCounts,
   } = useClipStore();
+
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [warningType, setWarningType] = useState<"yellow" | "red" | null>(null);
+
+  const checkCapacityWarning = async () => {
+    try {
+      const counts = await window.clipAPI.getCounts();
+      const state = useClipStore.getState();
+      const activeCount = counts?.active ?? 0;
+      const maxEntries = state.settings.maxEntries || 5000;
+      const ratio = activeCount / maxEntries;
+
+      console.log(`[Warning Check] activeCount=${activeCount}, maxEntries=${maxEntries}, ratio=${ratio}`);
+      if (ratio >= 1.0) {
+        setWarningType("red");
+        setShowWarningDialog(true);
+      } else if (ratio >= 0.9) {
+        setWarningType("yellow");
+        setShowWarningDialog(true);
+      } else {
+        setWarningType(null);
+        setShowWarningDialog(false);
+      }
+    } catch (e) {
+      console.error("[Warning Check] failed:", e);
+    }
+  };
+
+  const renderWarningDialog = () => {
+    const activeCount = sidebarCounts?.active ?? 0;
+    const maxEntries = settings.maxEntries || 5000;
+    return (
+      <Dialog
+        isOpen={showWarningDialog}
+        onClose={() => setShowWarningDialog(false)}
+        title={
+          warningType === "red" ? (
+            <span className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-widest">
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              CAPACITY LIMIT REACHED
+            </span>
+          ) : (
+            <span className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-widest">
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              STORAGE WARNING
+            </span>
+          )
+        }
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-[13px] leading-relaxed text-gray-300">
+            {warningType === "red" ? (
+              <>
+                Clipboard storage has reached its maximum capacity limit of{" "}
+                <span className="font-bold text-white">
+                  {maxEntries.toLocaleString()}
+                </span>{" "}
+                clips.
+                <br />
+                <br />
+                <span className="font-bold text-rose-400">
+                  New clipboard items will NOT be captured
+                </span>{" "}
+                until you increase the limit or clean up your clipboard history. Other features like viewing and copying existing clips will continue to work.
+              </>
+            ) : (
+              <>
+                Clipboard storage is almost full. You have used{" "}
+                <span className="font-bold text-white">
+                  {activeCount.toLocaleString()}
+                </span>{" "}
+                out of{" "}
+                <span className="font-bold text-white">
+                  {maxEntries.toLocaleString()}
+                </span>{" "}
+                clips (over 90%).
+                <br />
+                <br />
+                When the limit is reached, ClipMaster Pro will{" "}
+                <span className="font-bold text-amber-400">
+                  stop saving new clipboard captures
+                </span>.
+              </>
+            )}
+          </p>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-700/50">
+            <button
+              onClick={() => setShowWarningDialog(false)}
+              className="px-4 py-2 rounded-xl bg-surface-800 border border-gray-700 text-gray-300 text-xs font-semibold hover:bg-surface-700 hover:text-white transition-all"
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={() => {
+                setShowWarningDialog(false);
+                const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
+                if (isPopup) {
+                  window.clipAPI.openSettingsWindow();
+                } else {
+                  useClipStore.setState({ activePage: "settings" });
+                }
+              }}
+              className={`px-4 py-2 rounded-xl text-white text-xs font-semibold transition-all ${
+                warningType === "red"
+                  ? "bg-rose-600 hover:bg-rose-500"
+                  : "bg-amber-600 hover:bg-amber-500"
+              }`}
+            >
+              Go to Settings
+            </button>
+          </div>
+        </div>
+      </Dialog>
+    );
+  };
 
   useEffect(() => {
     // Global keyboard listener
@@ -468,17 +591,21 @@ export default function App() {
 
       // 2. Load the initial page of clips
       await loadClips();
+
+      // 3. Check capacity warning
+      await checkCapacityWarning();
     };
 
     initApp();
 
     // Subscribe to new clips pushed from the main process
-    const unsubClips = (window.clipAPI.onNewClip ?? noop)((item: any) =>
-      addClipFromMain(item),
-    );
+    const unsubClips = (window.clipAPI.onNewClip ?? noop)((item: any) => {
+      addClipFromMain(item);
+      checkCapacityWarning();
+    });
 
     // Subscribe to window restore/show refresh events
-    const unsubRefresh = (window.clipAPI.onRefreshClips ?? noop)(() => {
+    const unsubRefresh = (window.clipAPI.onRefreshClips ?? noop)(async () => {
       console.log("[App] Window restored. Refreshing active clips...");
       const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
       if (isPopup) {
@@ -486,13 +613,21 @@ export default function App() {
         useClipStore.getState().setFilters({ search: "" });
         window.clipAPI.setSearchFocusable?.(false);
       }
-      loadClips();
+      await loadClips();
+      await checkCapacityWarning();
     });
 
     // Global settings update listener
     const unsubSettings = (window.clipAPI.onSettingsUpdated ?? noop)(
       (settings: any) => {
         useClipStore.setState({ settings });
+      },
+    );
+
+    // Subscribe to navigate-to-page events from the main process
+    const unsubNavigate = (window.clipAPI.onNavigateToPage ?? noop)(
+      (page: string) => {
+        useClipStore.setState({ activePage: page as any });
       },
     );
 
@@ -670,6 +805,7 @@ export default function App() {
       if (typeof unsubCleanMemory === "function") unsubCleanMemory();
       if (typeof unsubHookedKey === "function") unsubHookedKey();
       if (typeof unsubClickOutside === "function") unsubClickOutside();
+      if (typeof unsubNavigate === "function") unsubNavigate();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -849,6 +985,7 @@ export default function App() {
             </React.Suspense>
           </ErrorBoundary>
         </main>
+        {renderWarningDialog()}
       </div>
     );
   }
@@ -884,6 +1021,7 @@ export default function App() {
           <PageView />
         </main>
       </div>
+      {renderWarningDialog()}
     </div>
   );
 }

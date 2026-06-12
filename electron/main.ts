@@ -102,7 +102,7 @@ let registeredShortcutKey: string | null = null;
 
 function registerAppShortcut(): void {
   const settings = storageManager.getSettings();
-  const enabled = settings.globalShortcutEnabled !== false;
+  const enabled = true;
   const shortcutKey = settings.globalShortcutKey || "CommandOrControl+Shift+V";
 
   if (!enabled) {
@@ -1066,6 +1066,13 @@ function showUacWarningNotification() {
 
   ipcMain.on("close-popup", () => {
     closePopupWindow();
+  });
+
+  ipcMain.on("open-settings-window", () => {
+    createWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send("navigate-to-page", "settings");
+    }
   });
 
   // ── Clipboard CRUD ───────────────────────────────────────────────────────

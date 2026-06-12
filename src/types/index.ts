@@ -145,6 +145,7 @@ export interface ClipAPI {
   copyToClipboard: (text: string) => Promise<boolean>;
   pasteClip: () => Promise<void>;
   closePopup: () => void;
+  openSettingsWindow: () => void;
   setSearchFocusable: (focusable: boolean) => void;
 
   // Tags & Settings
@@ -167,6 +168,7 @@ export interface ClipAPI {
   onCleanMemory: (cb: () => void) => () => void;
   onHookedKey: (cb: (data: { type: "char" | "key"; value: string }) => void) => () => void;
   onClickOutside: (cb: () => void) => () => void;
+  onNavigateToPage: (cb: (page: string) => void) => () => void;
 
   // Application Updates
   getAppInfo: () => Promise<{

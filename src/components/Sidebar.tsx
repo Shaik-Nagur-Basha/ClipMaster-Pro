@@ -107,10 +107,11 @@ const Sidebar: React.FC = () => {
           return (
             <button
               key={page}
-              onClick={() => {
+              onClick={(e) => {
                 setActivePage(page);
+                e.currentTarget.blur();
               }}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] transition-all duration-150 active:scale-95 group ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] duration-150 focus:outline-none focus:ring-0 focus-visible:outline-none ${
                 isActive
                   ? "bg-gray-800 text-brand-400 border-gray-700 shadow-sm"
                   : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 border-transparent"
