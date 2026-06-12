@@ -364,6 +364,59 @@ class StorageManager {
     return { active, favorites, deleted };
   }
 
+  async getFilterStats(options: {
+    isDeleted?: boolean;
+    isFavorite?: boolean | null;
+    search?: string;
+  }): Promise<{
+    minCharCount: number;
+    maxCharCount: number;
+    tagCounts: Record<string, number>;
+  }> {
+    const query: any = {};
+
+    if (options.isDeleted !== undefined) {
+      query.isDeleted = options.isDeleted;
+    }
+
+    if (options.isFavorite === true) {
+      query.isFavorite = true;
+    } else if (options.isFavorite === false) {
+      query.isFavorite = false;
+    }
+
+    if (options.search && options.search.trim()) {
+      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.text = new RegExp(escaped, "i");
+    }
+
+    const clips = await this.clipsDb.findAsync(query, { tags: 1, charCount: 1, text: 1 });
+
+    let minCharCount = 1;
+    let maxCharCount = 100;
+    const tagCounts: Record<string, number> = {};
+
+    if (clips.length > 0) {
+      const counts = clips.map(c => c.charCount ?? c.text.length);
+      minCharCount = Math.min(...counts);
+      maxCharCount = Math.max(...counts);
+
+      clips.forEach(c => {
+        if (c.tags) {
+          c.tags.forEach((tId: string) => {
+            tagCounts[tId] = (tagCounts[tId] || 0) + 1;
+          });
+        }
+      });
+    }
+
+    if (maxCharCount <= minCharCount) {
+      maxCharCount = minCharCount + 1;
+    }
+
+    return { minCharCount, maxCharCount, tagCounts };
+  }
+
   async addEntry(text: string): Promise<ClipboardItem | null> {
     const trimmed = text.trim();
     if (!trimmed) return null;

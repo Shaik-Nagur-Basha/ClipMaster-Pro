@@ -42,7 +42,7 @@ const TagBadge: React.FC<Props> = ({
       <span className="truncate max-w-[80px]" title={tag.name}>
         {tag.name}
       </span>
-      {count !== undefined && (
+      {count !== undefined && count > 0 && (
         <span className="ml-0.5 opacity-70 font-mono text-[9px] shrink-0">
           ({count})
         </span>

@@ -30,6 +30,7 @@ const clipAPI = {
   // ── Clipboard CRUD ─────────────────────────────────────────────────────
   getClips: (options?: number | any): Promise<any> => ipcRenderer.invoke("get-clips", options),
   getCounts: (): Promise<{ active: number; favorites: number; deleted: number }> => ipcRenderer.invoke("get-counts"),
+  getFilterStats: (options: any): Promise<any> => ipcRenderer.invoke("get-filter-stats", options),
   addClip: (text: string) => ipcRenderer.invoke("add-clip", text),
   updateClip: (item: ClipboardItem) => ipcRenderer.invoke("update-clip", item),
   deleteClip: (id: string) => ipcRenderer.invoke("delete-clip", id),

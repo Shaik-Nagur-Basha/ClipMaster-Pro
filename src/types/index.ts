@@ -71,6 +71,11 @@ export interface ClipStore {
   tags: Tag[];
   settings: AppSettings;
   searchInputRef: React.RefObject<HTMLInputElement> | null;
+  filterStats: {
+    minCharCount: number;
+    maxCharCount: number;
+    tagCounts: Record<string, number>;
+  };
 
   // UI State
   viewMode: ViewMode;
@@ -136,6 +141,11 @@ export interface ClipAPI {
   // Clipboard CRUD
   getClips: (options?: number | any) => Promise<any>;
   getCounts: () => Promise<{ active: number; favorites: number; deleted: number }>;
+  getFilterStats: (options: any) => Promise<{
+    minCharCount: number;
+    maxCharCount: number;
+    tagCounts: Record<string, number>;
+  }>;
   addClip: (text: string) => Promise<ClipboardItem | null>;
   updateClip: (item: ClipboardItem) => Promise<boolean>;
   deleteClip: (id: string) => Promise<boolean>;

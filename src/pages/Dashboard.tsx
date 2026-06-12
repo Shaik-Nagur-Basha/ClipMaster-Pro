@@ -6,7 +6,7 @@ import SearchBar from "../components/SearchBar";
 import ViewToggle from "../components/ViewToggle";
 import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import { IconInbox, IconTag, IconCheck, IconSearch, IconX } from "../components/Icons";
-import { ClipSkeleton } from "../components/LoadingSpinner";
+import { ClipSkeleton, FullPageSpinner } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
 import PageSizeDropdown from "../components/PageSizeDropdown";
 
@@ -458,7 +458,11 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
         }`}
       >
         {isLoading ? (
-          <ClipSkeleton count={5} hint="Loading clipboard history" />
+          paginated ? (
+            <ClipSkeleton count={5} hint="Loading clipboard history" />
+          ) : (
+            <FullPageSpinner label="Loading" subtitle="Loading clipboard history" />
+          )
         ) : isEmpty ? (
           <EmptyState />
         ) : (

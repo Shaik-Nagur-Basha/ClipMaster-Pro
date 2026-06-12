@@ -1078,6 +1078,7 @@ function showUacWarningNotification() {
   // ── Clipboard CRUD ───────────────────────────────────────────────────────
   ipcMain.handle("get-clips", async (_e, options?: any) => await storageManager.readAll(options));
   ipcMain.handle("get-counts", async () => await storageManager.getCounts());
+  ipcMain.handle("get-filter-stats", async (_e, options: any) => await storageManager.getFilterStats(options));
 
   ipcMain.handle("add-clip", async (_e, text: string) => {
     const item = await storageManager.addEntry(text);

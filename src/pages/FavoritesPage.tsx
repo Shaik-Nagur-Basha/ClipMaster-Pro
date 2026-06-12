@@ -6,7 +6,7 @@ import SearchBar from "../components/SearchBar";
 import ViewToggle from "../components/ViewToggle";
 import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import { IconStar } from "../components/Icons";
-import { ClipSkeleton } from "../components/LoadingSpinner";
+import { ClipSkeleton, FullPageSpinner } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
 import PageSizeDropdown from "../components/PageSizeDropdown";
 
@@ -92,7 +92,11 @@ const FavoritesPage: React.FC = () => {
         }`}
       >
         {isLoading ? (
-          <ClipSkeleton count={5} hint="Fetching your starred clips" />
+          paginated ? (
+            <ClipSkeleton count={5} hint="Fetching your starred clips" />
+          ) : (
+            <FullPageSpinner label="Loading" subtitle="Fetching your starred clips" />
+          )
         ) : isEmpty ? (
           <EmptyState />
         ) : (

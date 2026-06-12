@@ -10,24 +10,24 @@ const TagsPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Header Area */}
-      <div className="px-8 py-10 shrink-0 border-white/5 bg-surface-800/20">
+      <div className="px-8 py-5 shrink-0 border-white/5 bg-surface-800/20">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-brand-500/10 text-brand-400 border-brand-500/20 shadow-lg shadow-brand-500/5">
-                <IconTag size={24} />
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 border-brand-500/20 shadow-lg shadow-brand-500/5">
+                <IconTag size={20} />
               </div>
-              <h2 className="text-3xl font-bold text-white tracking-tight">Tag Management</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">Tag Management</h2>
             </div>
-            <p className="text-sm text-gray-500 max-w-md leading-relaxed ml-1">
-              Create and organize tags to categorize your clips. These tags will be available for quick filtering in the sidebar.
+            <p className="text-xs text-gray-500 max-w-md leading-relaxed ml-1">
+              Manage, color-code, and customize your tags to keep clips organized. Filter easily from the sidebar.
             </p>
           </div>
           
           <div className="hidden md:flex gap-8">
             <div className="text-center">
               <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Total Tags</p>
-              <p className="text-2xl font-mono font-bold text-white">{tags.length}</p>
+              <p className="text-xl font-mono font-bold text-white">{tags.length}</p>
             </div>
           </div>
         </div>

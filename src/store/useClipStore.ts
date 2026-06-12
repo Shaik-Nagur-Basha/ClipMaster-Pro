@@ -21,7 +21,7 @@ const DEFAULT_FILTERS: FilterState = {
   minWordCount: null,
   maxWordCount: null,
   tagMatchingMode: "or",
-  sortTagsByUsage: false,
+  sortTagsByUsage: true,
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -45,6 +45,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   tags: [],
   settings: { ...DEFAULT_SETTINGS },
   searchInputRef: null,
+  filterStats: { minCharCount: 1, maxCharCount: 100, tagCounts: {} },
   viewMode: "list",
   displayMode: "preview",
   sortMode: "newest",
@@ -66,7 +67,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   loadClips: async (forceLimit?: number) => {
     const state = get();
     const alreadyHasClips = state.clips.length > 0;
-    if (!alreadyHasClips) {
+    if (!alreadyHasClips || !state.settings.paginationEnabled) {
       set({ isLoading: true });
     }
     try {
@@ -76,12 +77,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       } else {
         const isFavorite = state.activePage === "favorites" ? true : null;
         const isDeleted = state.activePage === "recycle";
-        const pageSize = state.settings.pageSize || 10;
-        const skip = (state.currentPage - 1) * pageSize;
 
         options = {
-          limit: pageSize,
-          skip: skip,
           search: state.filters.search,
           tags: state.filters.tags,
           isFavorite,
@@ -93,6 +90,13 @@ export const useClipStore = create<ClipStore>((set, get) => ({
           maxWordCount: state.filters.maxWordCount,
           tagMatchingMode: state.filters.tagMatchingMode,
         };
+
+        if (state.settings.paginationEnabled) {
+          const pageSize = state.settings.pageSize || 10;
+          const skip = (state.currentPage - 1) * pageSize;
+          options.limit = pageSize;
+          options.skip = skip;
+        }
       }
 
       console.log("[Store] Fetching clips with options:", options);
@@ -105,9 +109,16 @@ export const useClipStore = create<ClipStore>((set, get) => ({
           isLoading: false
         });
       } else {
+        const statsOptions = {
+          isDeleted: state.activePage === "recycle",
+          isFavorite: state.activePage === "favorites" ? true : null,
+          search: state.filters.search,
+        };
+        const stats = await window.clipAPI.getFilterStats(statsOptions);
         set({
           clips: result?.clips || [],
           totalCount: result?.totalCount || 0,
+          filterStats: stats || { minCharCount: 1, maxCharCount: 100, tagCounts: {} },
           isLoading: false
         });
       }
@@ -199,8 +210,9 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       console.log("[Store] addClipFromMain prepending item directly");
       set((state) => {
         const filteredClips = state.clips.filter((c) => c.id !== item.id);
-        const pageSize = state.settings.pageSize || 10;
-        const newClips = [item, ...filteredClips].slice(0, pageSize);
+        const newClips = state.settings.paginationEnabled
+          ? [item, ...filteredClips].slice(0, state.settings.pageSize || 10)
+          : [item, ...filteredClips];
         const isDuplicate = state.clips.some((c) => c.id === item.id);
         return {
           clips: newClips,

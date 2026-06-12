@@ -7,7 +7,7 @@ import ViewToggle from "../components/ViewToggle";
 import FloatingScrollButtons from "../components/FloatingScrollButtons";
 import Dialog from "../components/Dialog";
 import { IconTrash } from "../components/Icons";
-import { ClipSkeleton } from "../components/LoadingSpinner";
+import { ClipSkeleton, FullPageSpinner } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
 import PageSizeDropdown from "../components/PageSizeDropdown";
 
@@ -186,7 +186,11 @@ const RecycleBinPage: React.FC = () => {
         }`}
       >
         {isLoading ? (
-          <ClipSkeleton count={5} />
+          paginated ? (
+            <ClipSkeleton count={5} />
+          ) : (
+            <FullPageSpinner label="Loading" subtitle="Loading deleted items" />
+          )
         ) : isEmpty ? (
           <EmptyState />
         ) : (

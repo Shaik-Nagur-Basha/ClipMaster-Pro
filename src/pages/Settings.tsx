@@ -519,8 +519,7 @@ const Settings: React.FC = () => {
       <footer className="px-6 py-4 border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
         <div className="max-w-2xl mx-auto">
           <p className="text-[11px] text-gray-500 italic">
-            Settings are saved automatically and synced from local to cloud in
-            the background.
+            Settings are saved automatically to your local device.
           </p>
         </div>
       </footer>

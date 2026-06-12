@@ -28,82 +28,21 @@ const IconBarChart = ({ size = 14 }: { size?: number }) => (
 );
 
 const FilterPanel: React.FC = () => {
-  const { filters, setFilters, resetFilters, tags, clips, activePage } =
+  const { filters, setFilters, resetFilters, tags, activePage, filterStats } =
     useClipStore();
   const [dateExpanded, setDateExpanded] = useState(true);
 
-  const isRecycleBin = activePage === "recycle";
+  const globalMin = filterStats?.minCharCount ?? 1;
+  const globalMax = filterStats?.maxCharCount ?? 100;
 
-  // Calculate min/max character counts from relevant clips (active or deleted)
-  let filteredClips = clips.filter((c) =>
-    isRecycleBin ? c.isDeleted : !c.isDeleted,
-  );
-
-  // Apply search filter
-  if (filters.search.trim()) {
-    const q = filters.search.toLowerCase();
-    filteredClips = filteredClips.filter((c) =>
-      c.text.toLowerCase().includes(q),
-    );
-  }
-
-  // Apply tag filter
-  if (filters.tags.length > 0) {
-    const matchMode = filters.tagMatchingMode ?? "or";
-    if (matchMode === "and") {
-      filteredClips = filteredClips.filter((c) =>
-        filters.tags.every((t) => c.tags.includes(t)),
-      );
-    } else {
-      filteredClips = filteredClips.filter((c) =>
-        filters.tags.some((t) => c.tags.includes(t)),
-      );
-    }
-  }
-
-  // Apply favorite filter
-  if (filters.isFavorite === true) {
-    filteredClips = filteredClips.filter((c) => c.isFavorite);
-  }
-
-  // Apply date range filter
-  if (filters.dateFrom) {
-    filteredClips = filteredClips.filter(
-      (c) => new Date(c.timestamp) >= new Date(filters.dateFrom!),
-    );
-  }
-  if (filters.dateTo) {
-    filteredClips = filteredClips.filter(
-      (c) => new Date(c.timestamp) <= new Date(filters.dateTo! + "T23:59:59"),
-    );
-  }
-
-  const charCounts = filteredClips.map((c) => c.charCount ?? c.text.length);
-  const globalMin = charCounts.length > 0 ? Math.min(...charCounts) : 1;
-  let globalMax = charCounts.length > 0 ? Math.max(...charCounts) : 100;
-
-  // Ensure max is always at least min + 1 to avoid division by zero in RangeSlider
-  if (globalMax <= globalMin) {
-    globalMax = globalMin + 1;
-  }
-
-  // Calculate usage count for each tag among active (non-deleted) clips
+  // Calculate usage count for each tag from global filterStats
   const tagCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
     tags.forEach((t) => {
-      counts[t.id] = 0;
-    });
-    clips.forEach((c) => {
-      if (!c.isDeleted && c.tags) {
-        c.tags.forEach((tagId) => {
-          if (counts[tagId] !== undefined) {
-            counts[tagId]++;
-          }
-        });
-      }
+      counts[t.id] = filterStats?.tagCounts?.[t.id] ?? 0;
     });
     return counts;
-  }, [clips, tags]);
+  }, [tags, filterStats]);
 
   // Sort tags if sortTagsByUsage is enabled
   const displayedTags = React.useMemo(() => {
