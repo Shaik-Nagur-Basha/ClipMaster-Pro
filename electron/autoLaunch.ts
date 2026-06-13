@@ -87,3 +87,76 @@ export function syncAutoLaunch(enabled: boolean): void {
     });
   }
 }
+
+/**
+ * Verifies that the ClipMaster Pro scheduled tasks exist and are healthy.
+ * If the manual-launch task is missing (deleted by Windows Update, user, or
+ * a previous clear-cache), it is recreated immediately so elevation continues
+ * to work without requiring a reinstall.
+ *
+ * Called on every app startup and after Advanced Clear Cache.
+ */
+export function verifyAndRepairScheduledTasks(autoLaunchEnabled: boolean): void {
+  if (process.platform !== "win32" || !app.isPackaged) return;
+
+  const manualTaskName = "ClipMasterProManualLaunch";
+  const autoTaskName = "ClipMasterProAutoLaunch";
+  const exePath = app.getPath("exe");
+
+  // Check if the manual-launch task exists
+  exec(`schtasks /query /tn "${manualTaskName}" /fo LIST`, (err) => {
+    if (err) {
+      // Task is missing — recreate it
+      console.log(`[AutoLaunch] Manual task '${manualTaskName}' not found. Recreating...`);
+      const manualCmd = `schtasks /create /tn "${manualTaskName}" /tr "\\"${exePath}\\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f`;
+      exec(manualCmd, (createErr, _stdout, createStderr) => {
+        if (createErr) {
+          console.error(`[AutoLaunch] Failed to recreate manual task:`, createErr, createStderr);
+        } else {
+          console.log(`[AutoLaunch] Manual task recreated successfully.`);
+          exec(
+            `powershell -Command "Set-ScheduledTask -TaskName '${manualTaskName}' -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"`,
+            (psErr) => {
+              if (psErr) {
+                console.error("[AutoLaunch] Error setting repaired manual task to Parallel:", psErr);
+              } else {
+                console.log("[AutoLaunch] Repaired manual task policy set to Parallel.");
+              }
+            }
+          );
+        }
+      });
+    } else {
+      console.log(`[AutoLaunch] Manual task '${manualTaskName}' verified OK.`);
+    }
+  });
+
+  // Check the auto-launch task only if auto-launch is enabled
+  if (autoLaunchEnabled) {
+    exec(`schtasks /query /tn "${autoTaskName}" /fo LIST`, (err) => {
+      if (err) {
+        console.log(`[AutoLaunch] Auto-launch task '${autoTaskName}' not found. Recreating...`);
+        const autoCmd = `schtasks /create /tn "${autoTaskName}" /tr "\\"${exePath}\\" --hidden" /sc onlogon /rl highest /f`;
+        exec(autoCmd, (createErr, _stdout, createStderr) => {
+          if (createErr) {
+            console.error(`[AutoLaunch] Failed to recreate auto-launch task:`, createErr, createStderr);
+          } else {
+            console.log(`[AutoLaunch] Auto-launch task recreated successfully.`);
+            exec(
+              `powershell -Command "Set-ScheduledTask -TaskName '${autoTaskName}' -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"`,
+              (psErr) => {
+                if (psErr) {
+                  console.error("[AutoLaunch] Error setting repaired auto-launch task to Parallel:", psErr);
+                } else {
+                  console.log("[AutoLaunch] Repaired auto-launch task policy set to Parallel.");
+                }
+              }
+            );
+          }
+        });
+      } else {
+        console.log(`[AutoLaunch] Auto-launch task '${autoTaskName}' verified OK.`);
+      }
+    });
+  }
+}

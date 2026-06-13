@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClipStore } from "../store/useClipStore";
 import TagBadge from "./TagBadge";
@@ -48,6 +48,10 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
     const [isExpandDialogOpen, setIsExpandDialogOpen] = useState(false);
     const [tagSearchFilter, setTagSearchFilter] = useState("");
 
+    // Refs for popup keyboard routing (WS_EX_NOACTIVATE popup needs hook-based input)
+    const entryTagSearchRef = useRef<HTMLInputElement>(null);
+    const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
     const isEditing = editingClipId === item.id;
     const tagObjects = tags.filter((t) => item.tags.includes(t.id));
 
@@ -75,19 +79,82 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       setTimeout(() => setCopied(false), 1500);
     };
 
+    // Returns true if either toolbar search or toolbar tag-filter is currently
+    // routing keyboard events — used to avoid disabling the hook when closing
+    // an entry-level input while the toolbar is still active.
+    const isPopupToolbarInputActive = () => {
+      const s = useClipStore.getState();
+      return s.isSearchFocused || s.isTagSearchFocused;
+    };
+
+    // Tag picker toggle — in popup mode, activates keyboard routing FIRST so
+    // keystrokes land in the entry tag search input without stealing OS focus
+    // from the target application that is below the popup window.
+    const handleToggleTagPicker = () => {
+      const next = !showTagPicker;
+      setShowTagPicker(next);
+      if (isPopupMode) {
+        if (next) {
+          // Tell the native hook to capture keystrokes before attempting DOM focus
+          window.clipAPI?.setSearchFocusable?.(true);
+          setTimeout(() => { entryTagSearchRef.current?.focus(); }, 60);
+          setTimeout(() => { entryTagSearchRef.current?.focus(); }, 200);
+        } else {
+          // Only stop keyboard capture if no toolbar input is still active
+          if (!isPopupToolbarInputActive()) {
+            window.clipAPI?.setSearchFocusable?.(false);
+          }
+        }
+      }
+    };
+
+    const openEditDialog = () => {
+      setEditText(item.text);
+      setIsEditDialogOpen(true);
+      if (isPopupMode) {
+        // Tell the native hook to capture keystrokes so the user can type in the
+        // edit textarea without the target application stealing the input.
+        window.clipAPI?.setSearchFocusable?.(true);
+        setTimeout(() => { editTextareaRef.current?.focus(); }, 80);
+        setTimeout(() => { editTextareaRef.current?.focus(); }, 250);
+      }
+    };
+
+    // Close edit dialog and release keyboard routing (if toolbar isn't using it)
     const handleSaveEdit = async () => {
       if (editText.trim() && editText !== item.text) {
         await updateClip({ ...item, text: editText.trim() });
       }
       setIsEditDialogOpen(false);
       setEditingClip(null);
+      if (isPopupMode && !isPopupToolbarInputActive()) {
+        window.clipAPI?.setSearchFocusable?.(false);
+      }
     };
 
     const handleCancelEdit = () => {
       setEditText(item.text);
       setIsEditDialogOpen(false);
       setEditingClip(null);
+      if (isPopupMode && !isPopupToolbarInputActive()) {
+        window.clipAPI?.setSearchFocusable?.(false);
+      }
     };
+
+    // Close tag picker on Escape key within the entry tag search input
+    useEffect(() => {
+      if (!isPopupMode || !showTagPicker) return;
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setShowTagPicker(false);
+          if (!isPopupToolbarInputActive()) {
+            window.clipAPI?.setSearchFocusable?.(false);
+          }
+        }
+      };
+      window.addEventListener("keydown", handler);
+      return () => window.removeEventListener("keydown", handler);
+    }, [isPopupMode, showTagPicker]);
 
     const openExpandDialog = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
@@ -105,10 +172,6 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       return base + extra;
     };
 
-    const openEditDialog = () => {
-      setEditText(item.text);
-      setIsEditDialogOpen(true);
-    };
 
     const handleCreateTag = async () => {
       if (!tagSearchFilter.trim()) return;
@@ -184,6 +247,19 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         onClick={async (e) => {
           if (isPopupMode) {
             if (isEditDialogOpen || isExpandDialogOpen) {
+              return;
+            }
+            // Only trigger paste when the click comes from the clip content area itself.
+            // Clicks originating from any button, input, or the quick-actions container
+            // must be fully isolated — they handle their own actions via stopPropagation.
+            const target = e.target as HTMLElement;
+            if (
+              target.closest("button") ||
+              target.closest("a") ||
+              target.closest("input") ||
+              target.closest("textarea") ||
+              target.closest(".quick-actions")
+            ) {
               return;
             }
             e.preventDefault();
@@ -279,7 +355,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
           </div>
 
           {/* Quick actions */}
-          <div className="absolute right-0 bg-black/95 rounded-lg px-1.5 py-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <div className="quick-actions absolute right-0 bg-black/95 rounded-lg px-1.5 py-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <ActionBtn
               icon={copied ? IconCheck : IconCopy}
               label="Copy"
@@ -312,7 +388,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                 <ActionBtn
                   icon={IconTag}
                   label="Tags"
-                  onClick={() => setShowTagPicker(!showTagPicker)}
+                  onClick={() => handleToggleTagPicker()}
                   active={showTagPicker}
                 />
                 <ActionBtn
@@ -359,6 +435,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                     <IconSearch size={14} />
                   </div>
                   <input
+                    ref={entryTagSearchRef}
                     type="text"
                     placeholder="Search tags…"
                     value={tagSearchFilter}
@@ -369,7 +446,9 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                       border: "none",
                       borderBottom: "1px solid #4b5563",
                     }}
-                    className="w-full bg-transparent hover:border-b hover:border-gray-600 focus:border-b focus:border-gray-500 pl-7 pr-7 py-1.5 text-[12px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+                    className={`w-full bg-transparent hover:border-b hover:border-gray-600 focus:border-b focus:border-gray-500 pl-7 pr-7 py-1.5 text-[12px] text-white/85 placeholder-gray-600 transition-colors duration-150${
+                      isPopupMode ? " popup-entry-tag-search" : ""
+                    }`}
                   />
                   {tagSearchFilter && (
                     <button
@@ -490,10 +569,13 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         >
           <div className="space-y-4">
             <textarea
-              autoFocus
+              ref={editTextareaRef}
+              autoFocus={!isPopupMode}
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
-              className="w-full min-h-[200px] max-h-[400px] bg-transparent text-gray-100 text-[13px] p-3 resize-y border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none font-mono leading-relaxed transition-colors"
+              className={`w-full min-h-[200px] max-h-[400px] bg-transparent text-gray-100 text-[13px] p-3 resize-y border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none font-mono leading-relaxed transition-colors${
+                isPopupMode ? " popup-edit-textarea" : ""
+              }`}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
                   handleSaveEdit();

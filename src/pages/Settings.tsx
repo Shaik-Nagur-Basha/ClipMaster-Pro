@@ -133,7 +133,9 @@ const Settings: React.FC = () => {
 
       // Step 4: Compacting database files
       setClearCacheStep(4);
-      const success = window.clipAPI?.clearCache
+      const success = window.clipAPI?.advancedClearCache
+        ? await window.clipAPI.advancedClearCache()
+        : window.clipAPI?.clearCache
         ? await window.clipAPI.clearCache()
         : true;
       if (!success) {
@@ -141,8 +143,12 @@ const Settings: React.FC = () => {
       }
       await delay(1000);
 
-      // Step 5: Optimizing index structures
+      // Step 5: Clearing singleton lock files & repairing startup tasks
       setClearCacheStep(5);
+      await delay(700);
+
+      // Step 6: Re-indexing clip records
+      setClearCacheStep(6);
       const store = useClipStore.getState();
       // Also reset the update store state (downloads cleared)
       useUpdateStore.getState().resetProgress();
@@ -150,7 +156,7 @@ const Settings: React.FC = () => {
       await delay(600);
 
       // Complete
-      setClearCacheStep(6);
+      setClearCacheStep(7);
       setClearCacheStatus("done");
     } catch (err: any) {
       console.error("Clear cache failed:", err);
@@ -204,10 +210,10 @@ const Settings: React.FC = () => {
             onClick={handleClearCache}
             disabled={clearingCache}
             className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
-            title="Clear downloaded versions and cache"
+            title="Advanced cache clear: removes lock files, stale state, and repairs startup tasks"
           >
             <IconTrash size={14} className="text-rose-400" />
-            <span>Clear Cache</span>
+            <span>Advanced Clear Cache</span>
           </button>
 
           {updateStatus === "downloading" ? (
@@ -591,7 +597,7 @@ const Settings: React.FC = () => {
             setClearCacheStatus("idle");
           }
         }}
-        title="Cache Clearance & Optimization"
+        title="Advanced Cache Clearance & System Repair"
         maxWidth="max-w-md"
       >
         <div className="space-y-6 py-2">
@@ -621,12 +627,14 @@ const Settings: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-emerald-400">
-                  Cache Successfully Cleared
+                  Advanced Cache Cleared Successfully
                 </h4>
                 <p className="text-xs text-gray-400 mt-1">
-                  Downloaded update setup assets and version installers were
-                  deleted. Local databases compacted and system caches cleared.
-                  Your settings, clips, and tags remain fully preserved.
+                  Singleton lock files, stale update assets, and corrupt backup
+                  files have been removed. Startup tasks have been verified and
+                  repaired. Local databases are compacted. Your clips, tags, and
+                  settings are fully preserved. If the app previously failed to
+                  launch, it will now open normally.
                 </p>
               </div>
             </div>
@@ -653,7 +661,8 @@ const Settings: React.FC = () => {
               { label: "Purging version installation files", step: 2 },
               { label: "Purging web session caches", step: 3 },
               { label: "Compacting local database files", step: 4 },
-              { label: "Re-indexing clip records", step: 5 },
+              { label: "Clearing singleton lock files & repairing startup tasks", step: 5 },
+              { label: "Re-indexing clip records", step: 6 },
             ].map((item) => {
               const isPending = clearCacheStep < item.step;
               const isCurrent = clearCacheStep === item.step;

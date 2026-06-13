@@ -14,12 +14,16 @@ const SearchBar: React.FC = () => {
     setSearchInputRef(inputRef);
     if (isPopup) {
       setIsSearchFocused(true);
+      // Tell the native hook process to enable keyboard capture BEFORE attempting
+      // DOM focus — the popup window is WS_EX_NOACTIVATE so focus() alone is not
+      // enough; the hook must be active first to route keystrokes into the input.
+      window.clipAPI?.setSearchFocusable?.(true);
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 150);
+      }, 200);
     }
     return () => {
       setSearchInputRef(null);

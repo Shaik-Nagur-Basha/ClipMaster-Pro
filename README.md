@@ -15,12 +15,27 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/01_dashboard.png" alt="Main Dashboard" width="400">
-  <img src="screenshots/02_favourites.png" alt="Favourites" width="400">
-  <img src="screenshots/03_tags.png" alt="Tags" width="400">
-  <img src="screenshots/04_recycle_bin.png" alt="Recycle Bin" width="400">
-  <img src="screenshots/05_empty_recycle_bin.png" alt="Empty Recycle Bin" width="400">
-  <img src="screenshots/06_settings_general.png" alt="General Settings" width="400">
+  <img src="screenshots/01_dashboard.png" alt="Main Dashboard" width="800">
+</p>
+
+<p align="center">
+  <img src="screenshots/02_favourites.png" alt="Favourites" width="800">
+</p>
+
+<p align="center">
+  <img src="screenshots/03_tags.png" alt="Tags" width="800">
+</p>
+
+<p align="center">
+  <img src="screenshots/04_recycle_bin.png" alt="Recycle Bin" width="800">
+</p>
+
+<p align="center">
+  <img src="screenshots/05_empty_recycle_bin.png" alt="Empty Recycle Bin" width="800">
+</p>
+
+<p align="center">
+  <img src="screenshots/06_settings_general.png" alt="General Settings" width="800">
 </p>
 
 ### Watch the Demo Video

@@ -220,6 +220,10 @@ if (typeof window !== "undefined" && !window.clipAPI) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       return true;
     },
+    advancedClearCache: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return true;
+    },
   } as any;
 }
 
@@ -645,9 +649,22 @@ export default function App() {
     const unsubHookedKey = (window.clipAPI.onHookedKey ?? noop)((data: { type: "char" | "key"; value: string }) => {
       const storeState = useClipStore.getState();
       
-      // Determine target input
-      let targetInput: HTMLInputElement | null = null;
-      if (storeState.popupTagsMenuVisible) {
+      // Determine target input — priority order:
+      //  1. Edit textarea (entry-level, highest priority when open)
+      //  2. Entry tag picker search (entry-level)
+      //  3. Toolbar tag filter
+      //  4. Toolbar clip search
+      let targetInput: HTMLInputElement | HTMLTextAreaElement | null = null;
+
+      // Check entry-level inputs first (they take priority over toolbar inputs)
+      const editTextarea = document.querySelector(".popup-edit-textarea") as HTMLTextAreaElement | null;
+      const entryTagInput = document.querySelector(".popup-entry-tag-search") as HTMLInputElement | null;
+
+      if (editTextarea) {
+        targetInput = editTextarea;
+      } else if (entryTagInput) {
+        targetInput = entryTagInput;
+      } else if (storeState.popupTagsMenuVisible) {
         targetInput = document.querySelector('input[placeholder="Search tags..."]') as HTMLInputElement;
       } else if (storeState.popupSearchVisible) {
         targetInput = storeState.searchInputRef?.current || document.querySelector('input[placeholder="Search clipboard…"]') as HTMLInputElement;
@@ -656,7 +673,11 @@ export default function App() {
       if (!targetInput) return;
 
       const { type, value } = data;
-      const setVal = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      // Use the element's own prototype so the setter works for both
+      // HTMLInputElement and HTMLTextAreaElement
+      const proto = Object.getPrototypeOf(targetInput);
+      const setVal = Object.getOwnPropertyDescriptor(proto, "value")?.set
+        ?? Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
 
       if (type === "char") {
         const val = targetInput.value;
@@ -880,6 +901,7 @@ export default function App() {
             >
               Clipboard History
             </span>
+
           </div>
 
           {/* Action Buttons */}

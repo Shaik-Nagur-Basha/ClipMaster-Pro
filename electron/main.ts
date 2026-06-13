@@ -22,7 +22,7 @@ import { getDataDir, storageManager } from "./storage";
 import type { ClipboardItem, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
 import { importManager } from "./importManager";
-import { syncAutoLaunch } from "./autoLaunch";
+import { syncAutoLaunch, verifyAndRepairScheduledTasks } from "./autoLaunch";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
@@ -50,12 +50,66 @@ function killOtherInstances() {
   }
 }
 
+/**
+ * Clears Chromium singleton lock files left behind by a crashed or force-killed
+ * instance. These files block every subsequent launch (app.requestSingleInstanceLock
+ * returns false) until they are removed.
+ *
+ * We only delete them when no other ClipMaster Pro process (besides ourselves) is
+ * running, so we never stomp on a legitimately-running instance.
+ */
+function clearStaleLocks(): void {
+  try {
+    const dataDir = getDataDir();
+    if (!fs.existsSync(dataDir)) return;
+
+    // Check if another instance is actually running (other than us)
+    const ourPid = process.pid;
+    let otherInstanceRunning = false;
+    try {
+      const res = spawnSync("powershell", [
+        "-Command",
+        `(Get-Process -Name 'ClipMaster Pro' -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne ${ourPid} }).Count`
+      ], { encoding: "utf-8" });
+      const count = parseInt((res.stdout || "0").trim(), 10);
+      otherInstanceRunning = count > 0;
+    } catch {
+      otherInstanceRunning = false;
+    }
+
+    if (otherInstanceRunning) {
+      console.log("[Locks] Another instance is running — not clearing singleton locks.");
+      return;
+    }
+
+    const lockFiles = ["SingletonLock", "SingletonCookie", "SingletonSocket"];
+    for (const lockFile of lockFiles) {
+      const lockPath = path.join(dataDir, lockFile);
+      if (fs.existsSync(lockPath)) {
+        try {
+          fs.unlinkSync(lockPath);
+          console.log(`[Locks] Cleared stale singleton lock file: ${lockFile}`);
+        } catch (unlinkErr) {
+          console.warn(`[Locks] Could not delete ${lockFile}:`, unlinkErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Locks] clearStaleLocks failed:", err);
+  }
+}
+
 // ─── UAC-Free Self-Elevation / UAC Bypass ────────────────────────────────────
+// When running as a standard user, we hand off to the Task Scheduler elevated
+// task and immediately exit. isElevating prevents app.whenReady() from firing
+// createWindow() in the brief window between app.quit() and process exit.
+let isElevating = false;
 if (app.isPackaged && process.platform === "win32" && !checkIsAdmin()) {
   console.log("[Main] Running as standard user. Relaunching elevated via Task Scheduler...");
   try {
     // Run task scheduler task to relaunch the app elevated UAC-free. Ignore stdio to avoid pipe block.
     execSync('schtasks /run /tn "ClipMasterProManualLaunch"', { stdio: "ignore" });
+    isElevating = true;
     app.quit();
     process.exit(0);
   } catch (err) {
@@ -65,13 +119,24 @@ if (app.isPackaged && process.platform === "win32" && !checkIsAdmin()) {
   }
 }
 
+// ─── Clear stale Chromium singleton locks BEFORE acquiring the lock ──────────
+// Stale SingletonLock / SingletonCookie / SingletonSocket files are left behind
+// when the app is hard-killed or crashes. They cause app.requestSingleInstanceLock()
+// to return false on every subsequent launch until the files are removed.
+clearStaleLocks();
+
 // ─── Singleton guard ────────────────────────────────────────────────────────
 let gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   if (checkIsAdmin()) {
     console.log("[Main] Elevated instance detected another running instance. Terminating standard background processes...");
     killOtherInstances();
-    spawnSync("powershell", ["-Command", "Start-Sleep -m 500"]);
+    // Proper sleep: use a synchronous busy-wait instead of spawning powershell
+    // to avoid a second pipe-block race condition
+    const waitUntil = Date.now() + 600;
+    while (Date.now() < waitUntil) { /* spin */ }
+    // Try again after clearing any remaining stale locks
+    clearStaleLocks();
     gotLock = app.requestSingleInstanceLock();
     if (!gotLock) {
       console.error("[Main] Failed to acquire lock even after killing other instances. Quitting.");
@@ -458,9 +523,8 @@ function createWindow(): void {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
-    // Force window to foreground on Windows
-    mainWindow.setAlwaysOnTop(true);
-    mainWindow.setAlwaysOnTop(false);
+    // Bring window to front without the TOPMOST flash that setAlwaysOnTop(true/false) causes
+    mainWindow.moveTop();
     return;
   }
 
@@ -502,9 +566,8 @@ function createWindow(): void {
     if (mainWindow) {
       mainWindow.show();
       mainWindow.focus();
-      // Force window to foreground on Windows when created from scratch
-      mainWindow.setAlwaysOnTop(true);
-      mainWindow.setAlwaysOnTop(false);
+      // Bring window to front on first creation without the TOPMOST z-order flash
+      mainWindow.moveTop();
     }
   });
 
@@ -1595,6 +1658,93 @@ rm "$0"
     }
   }
 
+  /**
+   * Advanced cache clear: everything in clearAppCacheAndTempData() PLUS
+   * - Chromium singleton lock files (fixes Issue 1 launch failure)
+   * - Stale NeDB .bak files (corrupt backups can prevent DB load)
+   * - ui-state.json (stale/corrupt UI state can crash the renderer)
+   * - Re-creates Task Scheduler tasks (fixes Issue 2 & 3 after a user-clear)
+   */
+  async function advancedClearAppCache(): Promise<void> {
+    // Run the existing basic clear first
+    await clearAppCacheAndTempData();
+
+    const dataDir = getDataDir();
+
+    // 5. Delete Chromium singleton lock files — the primary cause of launch failures
+    const lockFiles = ["SingletonLock", "SingletonCookie", "SingletonSocket"];
+    for (const lockFile of lockFiles) {
+      const lockPath = path.join(dataDir, lockFile);
+      if (fs.existsSync(lockPath)) {
+        try {
+          fs.unlinkSync(lockPath);
+          console.log(`[AdvancedCache] Deleted singleton lock file: ${lockFile}`);
+        } catch (err) {
+          console.warn(`[AdvancedCache] Could not delete ${lockFile}:`, err);
+        }
+      }
+    }
+
+    // 6. Delete stale NeDB .bak files (corrupt .bak can corrupt the live DB on next restart)
+    if (fs.existsSync(dataDir)) {
+      try {
+        const dataFiles = fs.readdirSync(dataDir);
+        for (const file of dataFiles) {
+          if (file.endsWith(".bak")) {
+            const bakPath = path.join(dataDir, file);
+            try {
+              fs.unlinkSync(bakPath);
+              console.log(`[AdvancedCache] Deleted stale backup file: ${file}`);
+            } catch (err) {
+              console.warn(`[AdvancedCache] Could not delete backup ${file}:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[AdvancedCache] Could not read data directory for .bak cleanup:", err);
+      }
+    }
+
+    // 7. Delete stale ui-state.json (corrupt state can freeze the renderer on launch)
+    const uiStatePath = path.join(dataDir, "ui-state.json");
+    if (fs.existsSync(uiStatePath)) {
+      try {
+        fs.unlinkSync(uiStatePath);
+        console.log("[AdvancedCache] Deleted stale ui-state.json");
+        // Reset in-memory UI state to defaults
+        uiState = {
+          activePage: "dashboard",
+          selectedClipId: null,
+          sortMode: "newest",
+          filters: {
+            search: "",
+            tags: [],
+            isFavorite: null,
+            lengthFilter: "all",
+            dateFrom: null,
+            dateTo: null,
+            minWordCount: null,
+            maxWordCount: null,
+          },
+        };
+      } catch (err) {
+        console.warn("[AdvancedCache] Could not delete ui-state.json:", err);
+      }
+    }
+
+    // 8. Re-verify and repair Task Scheduler tasks so auto-launch and elevation
+    //    work correctly after the cache was cleared
+    if (app.isPackaged && process.platform === "win32") {
+      try {
+        const settings = storageManager.getSettings();
+        verifyAndRepairScheduledTasks(Boolean(settings.autoLaunch));
+        console.log("[AdvancedCache] Task Scheduler tasks verified/repaired.");
+      } catch (err) {
+        console.warn("[AdvancedCache] Task Scheduler repair failed:", err);
+      }
+    }
+  }
+
   ipcMain.removeHandler("reset-all");
   ipcMain.handle("reset-all", async () => {
     try {
@@ -1651,6 +1801,34 @@ rm "$0"
       return false;
     }
   });
+
+  // ── Advanced Clear Cache ─────────────────────────────────────────────────
+  // Superset of clear-cache: also clears singleton lock files, stale .bak
+  // database backups, ui-state.json, and re-creates Task Scheduler tasks.
+  // Running this from Settings gives the user a one-click way to fully reset
+  // the app state without needing to reinstall.
+  ipcMain.removeHandler("advanced-clear-cache");
+  ipcMain.handle("advanced-clear-cache", async () => {
+    try {
+      console.log("[IPC] Starting advanced-clear-cache process...");
+      await advancedClearAppCache();
+
+      // Compact all databases after the advanced clear
+      const sm = storageManager as any;
+      const dbs = ["clipsDb", "tagsDb", "settingsDb", "queueDb", "syncLogsDb"];
+      for (const dbName of dbs) {
+        if (sm[dbName] && typeof sm[dbName].persistence?.compactDatafile === "function") {
+          sm[dbName].persistence.compactDatafile();
+        }
+      }
+
+      console.log("[IPC] advanced-clear-cache completed successfully.");
+      return true;
+    } catch (err) {
+      console.error("[IPC] advanced-clear-cache failed:", err);
+      return false;
+    }
+  });
 }
 
 function clearTempUpdateFiles(): void {
@@ -1686,6 +1864,11 @@ function clearTempUpdateFiles(): void {
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Guard: if we are the standard-user process that just handed off to the
+  // elevated Task Scheduler instance, do not create any window. process.exit(0)
+  // will fire momentarily — this prevents the double-open flash.
+  if (isElevating) return;
+
   // ════ 0. Clean up temp update files ════
   clearTempUpdateFiles();
 
@@ -1710,8 +1893,12 @@ app.whenReady().then(async () => {
 
   const initSettings = storageManager.getSettings();
 
-  // Synchronize startup auto launch task
+  // Synchronize startup auto launch task and verify/repair scheduled tasks
+  // on every launch so a missing or stale task is always recovered automatically.
   syncAutoLaunch(Boolean(initSettings.autoLaunch));
+  if (app.isPackaged && process.platform === "win32") {
+    verifyAndRepairScheduledTasks(Boolean(initSettings.autoLaunch));
+  }
 
   if (initSettings.pauseCaptureOption === "restart") {
     storageManager.saveSettings({

@@ -170,6 +170,7 @@ export interface ClipAPI {
   // Data Management
   resetAll: () => Promise<boolean>;
   clearCache: () => Promise<boolean>;
+  advancedClearCache: () => Promise<boolean>;
 
   openExternal: (url: string) => void;
   onNewClip: (cb: (item: ClipboardItem) => void) => () => void;

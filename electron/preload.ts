@@ -63,6 +63,7 @@ const clipAPI = {
   getAppInfo: () => ipcRenderer.invoke("get-app-info"),
   resetAll: (): Promise<boolean> => ipcRenderer.invoke("reset-all"),
   clearCache: (): Promise<boolean> => ipcRenderer.invoke("clear-cache"),
+  advancedClearCache: (): Promise<boolean> => ipcRenderer.invoke("advanced-clear-cache"),
 
   // ── Push events from main ──────────────────────────────────────────────
   onNewClip: (cb: (item: ClipboardItem) => void) => {
