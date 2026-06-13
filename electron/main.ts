@@ -17,7 +17,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as https from "https";
 import { IncomingMessage } from "http";
-import { spawn, spawnSync, ChildProcess, exec } from "child_process";
+import { spawn, spawnSync, ChildProcess, exec, execSync } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import type { ClipboardItem, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
@@ -47,6 +47,21 @@ function killOtherInstances() {
     ]);
   } catch (err) {
     console.error("Failed to kill other instances:", err);
+  }
+}
+
+// ─── UAC-Free Self-Elevation / UAC Bypass ────────────────────────────────────
+if (app.isPackaged && process.platform === "win32" && !checkIsAdmin()) {
+  console.log("[Main] Running as standard user. Relaunching elevated via Task Scheduler...");
+  try {
+    // Run task scheduler task to relaunch the app elevated UAC-free. Ignore stdio to avoid pipe block.
+    execSync('schtasks /run /tn "ClipMasterProManualLaunch"', { stdio: "ignore" });
+    app.quit();
+    process.exit(0);
+  } catch (err) {
+    // Fallback: If task scheduler task fails or is not registered, do NOT quit.
+    // Continue running in the current process (as standard user) so the app still opens.
+    console.error("[Main] Failed to run elevated task via Task Scheduler:", err);
   }
 }
 
@@ -484,8 +499,13 @@ function createWindow(): void {
   }
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      // Force window to foreground on Windows when created from scratch
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow.setAlwaysOnTop(false);
+    }
   });
 
   // Window Close Behavior:

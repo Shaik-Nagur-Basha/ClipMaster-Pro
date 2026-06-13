@@ -1,6 +1,31 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.3.0 - Fix Setup Permission Error & Clean Up Releases (Latest)
+## 🚀 v2.4.0 - Custom Popups & Performance Enhancements (Latest)
+
+**"The Popup & Performance Update"**
+
+This release introduces a brand new overlay popup window with optimized C# native paste helpers, custom limits (Lakh/Crore) formatting, smooth infinite scrolling, and multiple performance improvements, while fully retiring the MongoDB local/cloud sync feature.
+
+### 🪟 High-Performance Overlay Popup & C# Helpers
+- **Overlay Popup Window**: Sleek, borderless, always-on-top popup with customizable drag handle, tag filters, and control buttons.
+- **Native C# Executables**: Uses lightweight C# helper processes (`paster.exe` and `clipboard-listener.exe`) for near-zero idle CPU and RAM background footprint.
+- **Topmost Lock**: Employs an active window positioning loop (50ms interval) to force the popup window to stay topmost during user interactions.
+- **Smart Focus Targeting**: Captures the foreground window prior to popup activation and returns focus before running paste.
+- **"Pin & Close" Logic**: Automatically hides/closes the popup after pasting if unpinned, or keeps it open and refocused if pinned.
+
+### ♾️ Infinite Scroll & Query Optimization
+- **Infinite Scrolling**: Replaces paginated list views in All Clips, Favourites, and Recycle Bin with smooth, lag-free infinite scrolling and loading spinner when pagination is disabled.
+- **Optimized Database Queries**: Significantly optimized tags query calculations and stats calculation, yielding a much more responsive sidebar and settings interface.
+
+### ⚙️ Formatting & Settings Upgrades
+- **Custom Max Clips limit**: Allows configuring custom clip storage limits.
+- **Lakh/Crore Formatting**: Adds settings support for South Asian numbering formats.
+- **General Presence Icons**: Integrated new visual layout and settings icons.
+- **Refined Auto-Launch**: Hardened startup launch behavior for both packaged production installer environment and local development mode.
+
+---
+
+## 🚀 v2.3.0 - Fix Setup Permission Error & Clean Up Releases (Previous)
 
 **"The Permission Fix & Release Clean Update"**
 

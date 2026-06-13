@@ -56,20 +56,29 @@ FunctionEnd
   DetailPrint "Configuring manual-launch scheduled task with highest privileges..."
   nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProManualLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f'
   Pop $0
-  DetailPrint "  ├─ Manual scheduled task creation finished with status: $0"
+  DetailPrint "  ├─ Manual scheduled task creation status: $0"
+  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProManualLaunch\" -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"'
+  Pop $0
+  DetailPrint "  ├─ Manual task policy set to Parallel status: $0"
 
   DetailPrint "Configuring auto-launch scheduled task with highest privileges..."
   nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProAutoLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\" --hidden" /sc onlogon /rl highest /f'
   Pop $0
-  DetailPrint "  ├─ Auto-launch scheduled task creation finished with status: $0"
+  DetailPrint "  ├─ Auto-launch scheduled task creation status: $0"
+  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProAutoLaunch\" -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"'
+  Pop $0
+  DetailPrint "  ├─ Auto-launch task policy set to Parallel status: $0"
+
+  DetailPrint "Copying launcher executable to installation folder..."
+  CopyFiles "$INSTDIR\resources\app.asar.unpacked\out\main\launcher.exe" "$INSTDIR\launcher.exe"
 
   DetailPrint "Re-creating UAC-free shortcuts..."
-  CreateShortcut "$DESKTOP\ClipMaster Pro.lnk" "$SYSDIR\schtasks.exe" '/run /tn "ClipMasterProManualLaunch"' "$INSTDIR\ClipMaster Pro.exe" 0
-  CreateShortcut "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk" "$SYSDIR\schtasks.exe" '/run /tn "ClipMasterProManualLaunch"' "$INSTDIR\ClipMaster Pro.exe" 0
+  CreateShortcut "$DESKTOP\ClipMaster Pro.lnk" "$INSTDIR\launcher.exe" "" "$INSTDIR\ClipMaster Pro.exe" 0
+  CreateShortcut "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk" "$INSTDIR\launcher.exe" "" "$INSTDIR\ClipMaster Pro.exe" 0
   DetailPrint "  └─ Shortcuts updated to run UAC-free... ✓"
 !macroend
 
-!macro customUninstall
+!macro customUnInstall
   DetailPrint "Removing auto-launch scheduled task..."
   nsExec::ExecToLog 'schtasks /delete /tn "ClipMasterProAutoLaunch" /f'
   Pop $0
@@ -79,6 +88,9 @@ FunctionEnd
   nsExec::ExecToLog 'schtasks /delete /tn "ClipMasterProManualLaunch" /f'
   Pop $0
   DetailPrint "  ├─ Manual scheduled task removal finished with status: $0"
+
+  DetailPrint "Removing launcher executable..."
+  Delete "$INSTDIR\launcher.exe"
 
   DetailPrint "Cleaning up system shortcuts..."
   DetailPrint "  → Deleting Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
@@ -110,4 +122,5 @@ FunctionEnd
   DetailPrint "─────────────────────────────────────────────────"
   DetailPrint "✅ ClipMaster Pro has been uninstalled successfully!"
   DetailPrint "─────────────────────────────────────────────────"
+  MessageBox MB_OK|MB_ICONINFORMATION "ClipMaster Pro has been successfully uninstalled from your computer."
 !macroend

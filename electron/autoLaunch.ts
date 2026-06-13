@@ -27,13 +27,22 @@ export function syncAutoLaunch(enabled: boolean): void {
   if (isPackaged) {
     const exePath = app.getPath("exe");
     // Create or update manual task with highest privileges (/rl highest). Sc once set to past date.
+    // Points directly to exePath to avoid flashing a console window.
     const manualCmd = `schtasks /create /tn "${manualTaskName}" /tr "\\"${exePath}\\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f`;
     console.log(`[AutoLaunch] Syncing manual Task Scheduler task: ${manualCmd}`);
     exec(manualCmd, (err, stdout, stderr) => {
       if (err) {
         console.error("[AutoLaunch] Error creating manual scheduled task:", err, stderr);
       } else {
-        console.log("[AutoLaunch] Manual scheduled task synced successfully:", stdout.trim());
+        console.log("[AutoLaunch] Manual scheduled task created. Setting policy to Parallel...");
+        // Configure MultipleInstancesPolicy to Parallel to allow multiple launches to run & notify single-instance lock
+        exec(`powershell -Command "Set-ScheduledTask -TaskName '${manualTaskName}' -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"`, (psErr) => {
+          if (psErr) {
+            console.error("[AutoLaunch] Error setting manual task to Parallel:", psErr);
+          } else {
+            console.log("[AutoLaunch] Manual scheduled task policy set to Parallel successfully.");
+          }
+        });
       }
     });
   }
@@ -42,13 +51,22 @@ export function syncAutoLaunch(enabled: boolean): void {
   if (enabled && isPackaged) {
     const exePath = app.getPath("exe");
     // Create or update auto task with highest privileges (/rl highest) triggered on logon (/sc onlogon)
+    // Points directly to exePath to avoid flashing a console window.
     const autoCmd = `schtasks /create /tn "${autoTaskName}" /tr "\\"${exePath}\\" --hidden" /sc onlogon /rl highest /f`;
     console.log(`[AutoLaunch] Enabling auto Task Scheduler task: ${autoCmd}`);
     exec(autoCmd, (err, stdout, stderr) => {
       if (err) {
         console.error("[AutoLaunch] Error creating auto scheduled task:", err, stderr);
       } else {
-        console.log("[AutoLaunch] Auto scheduled task created successfully:", stdout.trim());
+        console.log("[AutoLaunch] Auto scheduled task created. Setting policy to Parallel...");
+        // Configure MultipleInstancesPolicy to Parallel
+        exec(`powershell -Command "Set-ScheduledTask -TaskName '${autoTaskName}' -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"`, (psErr) => {
+          if (psErr) {
+            console.error("[AutoLaunch] Error setting auto task to Parallel:", psErr);
+          } else {
+            console.log("[AutoLaunch] Auto scheduled task policy set to Parallel successfully.");
+          }
+        });
       }
     });
   } else {

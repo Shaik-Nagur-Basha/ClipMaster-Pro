@@ -1,6 +1,6 @@
 {
   "name": "clipmaster-pro",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "High-performance clipboard manager for Windows",
   "main": "out/main/main.js",
   "author": "ClipMaster Pro",
@@ -10,7 +10,7 @@
     "build": "electron-vite build && npm run build:listener",
     "preview": "electron-vite preview",
     "optimize": "node optimize-bundle.js",
-    "build:listener": "powershell -Command \"if (Get-Process -Name 'clipboard-listener' -ErrorAction SilentlyContinue) { Stop-Process -Name 'clipboard-listener' -Force -ErrorAction SilentlyContinue }; if (Get-Process -Name 'paster' -ErrorAction SilentlyContinue) { Stop-Process -Name 'paster' -Force -ErrorAction SilentlyContinue }; exit 0\" && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\clipboard-listener.exe electron\\clipboard-listener.cs && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\paster.exe electron\\paster.cs && powershell -Command \"if (Test-Path out\\main) { Copy-Item -Path electron\\clipboard-listener.exe -Destination out\\main\\clipboard-listener.exe -Force; Copy-Item -Path electron\\paster.exe -Destination out\\main\\paster.exe -Force }; exit 0\"",
+    "build:listener": "powershell -Command \"if (Get-Process -Name 'clipboard-listener' -ErrorAction SilentlyContinue) { Stop-Process -Name 'clipboard-listener' -Force -ErrorAction SilentlyContinue }; if (Get-Process -Name 'paster' -ErrorAction SilentlyContinue) { Stop-Process -Name 'paster' -Force -ErrorAction SilentlyContinue }; exit 0\" && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\clipboard-listener.exe electron\\clipboard-listener.cs && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:exe /out:electron\\paster.exe electron\\paster.cs && C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:winexe /out:electron\\launcher.exe electron\\launcher.cs && powershell -Command \"if (Test-Path out\\main) { Copy-Item -Path electron\\clipboard-listener.exe -Destination out\\main\\clipboard-listener.exe -Force; Copy-Item -Path electron\\paster.exe -Destination out\\main\\paster.exe -Force; Copy-Item -Path electron\\launcher.exe -Destination out\\main\\launcher.exe -Force }; exit 0\"",
     "clean": "node -e \"const {execSync}=require('child_process');try{execSync('taskkill /F /IM \\\"ClipMaster Pro.exe\\\" /T',{stdio:'ignore'})}catch(e){}const{execSync:ex}=require('child_process');['release','out'].forEach(p=>{try{ex('powershell -Command \\\"if(Test-Path '+p+'){Remove-Item -Path '+p+' -Recurse -Force -ErrorAction SilentlyContinue}\\\"',{stdio:'inherit'})}catch(e){}})\"",
     "dist": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis && npm run optimize",
     "dist:portable": "npm run clean && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && npm run optimize",
@@ -84,7 +84,7 @@
         }
       ],
       "icon": "build/icon.ico",
-      "requestedExecutionLevel": "requireAdministrator",
+      "requestedExecutionLevel": "asInvoker",
       "sign": null
     },
     "portable": {
