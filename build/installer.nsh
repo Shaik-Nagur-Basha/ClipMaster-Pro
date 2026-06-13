@@ -2,6 +2,21 @@
 !include LogicLib.nsh
 !include WinMessages.nsh
 
+
+!macro customInit
+  nsExec::Exec 'taskkill /F /IM "ClipMaster Pro.exe"'
+  nsExec::Exec 'taskkill /F /IM "clipboard-listener.exe"'
+  nsExec::Exec 'taskkill /F /IM "launcher.exe"'
+  nsExec::Exec 'taskkill /F /IM "paster.exe"'
+!macroend
+
+!macro customUnInit
+  nsExec::Exec 'taskkill /F /IM "ClipMaster Pro.exe"'
+  nsExec::Exec 'taskkill /F /IM "clipboard-listener.exe"'
+  nsExec::Exec 'taskkill /F /IM "launcher.exe"'
+  nsExec::Exec 'taskkill /F /IM "paster.exe"'
+!macroend
+
 !ifdef BUILD_UNINSTALLER
 Var DeleteUserDataCheckbox
 Var DeleteUserDataState
@@ -39,17 +54,66 @@ Function un.ConfirmPageLeave
   ${NSD_GetState} $DeleteUserDataCheckbox $DeleteUserDataState
 FunctionEnd
 
+Function un.CustomFinishPage
+  ; Set wizard header text directly (MUI_HEADER_TEXT macro not available here)
+  GetDlgItem $R0 $HWNDPARENT 1037
+  SendMessage $R0 ${WM_SETTEXT} 0 "STR:Uninstall Complete"
+  GetDlgItem $R0 $HWNDPARENT 1038
+  SendMessage $R0 ${WM_SETTEXT} 0 "STR:"
+
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+
+  ; Title label - bold and larger
+  ${NSD_CreateLabel} 0 10u 100% 16u "ClipMaster Pro has been successfully removed."
+  Pop $1
+  CreateFont $2 "MS Shell Dlg" 9 700
+  SendMessage $1 ${WM_SETFONT} $2 1
+
+  ; Dynamic detail text based on checkbox state
+  ${If} $DeleteUserDataState == ${BST_CHECKED}
+    ${NSD_CreateLabel} 0 32u 100% 40u "All application data, clipboard history, and settings have been deleted.$\r$\n$\r$\nClick Finish to close."
+  ${Else}
+    ${NSD_CreateLabel} 0 32u 100% 40u "Your clipboard history, settings, and backups have been preserved.$\r$\n$\r$\nClick Finish to close."
+  ${EndIf}
+  Pop $3
+
+  ; Change Next button text to "Finish"
+  GetDlgItem $0 $HWNDPARENT 1
+  SendMessage $0 ${WM_SETTEXT} 0 "STR:Finish"
+
+  ; Hide Back button
+  GetDlgItem $0 $HWNDPARENT 3
+  ShowWindow $0 0
+
+  ; Hide Cancel button
+  GetDlgItem $0 $HWNDPARENT 2
+  ShowWindow $0 0
+
+  nsDialogs::Show
+FunctionEnd
+
+; Skip the template's automatic MUI_UNPAGE_FINISH page (assistedInstaller.nsh line 81)
+Function un.skipFinishPage
+  Abort
+FunctionEnd
+
 !macro customUnWelcomePage
   UninstPage custom un.ConfirmPage un.ConfirmPageLeave
 !macroend
 
-Function un.SkipFinishPage
-  Abort
-FunctionEnd
-
 !macro customUninstallPage
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipFinishPage
+  ; Register our custom finish page
+  UninstPage custom un.CustomFinishPage
+
+  ; The template always inserts MUI_UNPAGE_FINISH after this macro.
+  ; Set PRE callback to skip it so only our custom page is shown.
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE un.skipFinishPage
 !macroend
+
 !endif
 
 !macro customInstall
@@ -57,7 +121,7 @@ FunctionEnd
   nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProManualLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f'
   Pop $0
   DetailPrint "  ├─ Manual scheduled task creation status: $0"
-  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProManualLaunch\" -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"'
+  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProManualLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel)"'
   Pop $0
   DetailPrint "  ├─ Manual task policy set to Parallel status: $0"
 
@@ -65,7 +129,7 @@ FunctionEnd
   nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProAutoLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\" --hidden" /sc onlogon /rl highest /f'
   Pop $0
   DetailPrint "  ├─ Auto-launch scheduled task creation status: $0"
-  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProAutoLaunch\" -Settings (New-ScheduledTaskSettingsSet -MultipleInstances Parallel)"'
+  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProAutoLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel)"'
   Pop $0
   DetailPrint "  ├─ Auto-launch task policy set to Parallel status: $0"
 
@@ -122,5 +186,4 @@ FunctionEnd
   DetailPrint "─────────────────────────────────────────────────"
   DetailPrint "✅ ClipMaster Pro has been uninstalled successfully!"
   DetailPrint "─────────────────────────────────────────────────"
-  MessageBox MB_OK|MB_ICONINFORMATION "ClipMaster Pro has been successfully uninstalled from your computer."
 !macroend
