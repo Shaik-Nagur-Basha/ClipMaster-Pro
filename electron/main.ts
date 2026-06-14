@@ -16,13 +16,14 @@ import { join } from "path";
 import * as path from "path";
 import * as fs from "fs";
 import * as https from "https";
+import * as os from "os";
 import { IncomingMessage } from "http";
 import { spawn, spawnSync, ChildProcess, exec, execSync } from "child_process";
 import { getDataDir, storageManager } from "./storage";
 import type { ClipboardItem, AppSettings } from "../src/types";
 import { exportManager } from "./exportManager";
 import { importManager } from "./importManager";
-import { syncAutoLaunch, verifyAndRepairScheduledTasks } from "./autoLaunch";
+import { syncAutoLaunch, verifyAndRepairScheduledTasks, writeInstallPathRegistry, installWatchdogService } from "./autoLaunch";
 
 // ─── Environment Setup ─────────────────────────────────────────────────────
 app.setPath("userData", getDataDir());
@@ -100,52 +101,141 @@ function clearStaleLocks(): void {
 }
 
 // ─── UAC-Free Self-Elevation / UAC Bypass ────────────────────────────────────
-// When running as a standard user, we hand off to the Task Scheduler elevated
-// task and immediately exit. isElevating prevents app.whenReady() from firing
-// createWindow() in the brief window between app.quit() and process exit.
-let isElevating = false;
+// When running as a standard user, hand off to a Task Scheduler task that runs
+// the app elevated (/rl highest) and exit BEFORE app.whenReady() fires.
+// Using app.exit(0) (synchronous) is critical: app.quit() is async and allowed
+// whenReady to fire in the old code, which caused the 2-3 second window flash.
+//
+// Flag routing: if this process was launched with --hidden (e.g. from the HKCU
+// Run key at system startup), we must hand off to the AutoLaunch task which
+// already has "--hidden" baked into its /tr argument. If launched without
+// --hidden (user clicked the desktop shortcut via launcher.exe → ManualLaunch),
+// we use ManualLaunch which opens the window normally.
+//
+// Self-heal: if the target task is missing, recreate it synchronously.
 if (app.isPackaged && process.platform === "win32" && !checkIsAdmin()) {
-  console.log("[Main] Running as standard user. Relaunching elevated via Task Scheduler...");
+  const isHiddenLaunch = process.argv.includes("--hidden");
+  // Route --hidden launches to the AutoLaunch task (has --hidden in /tr).
+  // Route normal launches to the ManualLaunch task (opens main window).
+  const taskToRun = isHiddenLaunch ? "ClipMasterProAutoLaunch" : "ClipMasterProManualLaunch";
+  console.log(`[Main] Standard user. Handing off to Task Scheduler task: ${taskToRun}`);
   try {
-    // Run task scheduler task to relaunch the app elevated UAC-free. Ignore stdio to avoid pipe block.
-    execSync('schtasks /run /tn "ClipMasterProManualLaunch"', { stdio: "ignore" });
-    isElevating = true;
-    app.quit();
+    const taskQuery = spawnSync(
+      "schtasks",
+      ["/query", "/tn", taskToRun, "/fo", "LIST"],
+      { stdio: "pipe", encoding: "utf-8" },
+    );
+
+    if (taskQuery.status !== 0) {
+      // Task missing — recreate it synchronously.
+      const exePath  = app.getPath("exe");
+      const username = process.env.USERNAME || os.userInfo().username;
+      if (isHiddenLaunch) {
+        console.log("[Main] AutoLaunch task missing — recreating...");
+        spawnSync(
+          "schtasks",
+          [
+            "/create",
+            "/tn", "ClipMasterProAutoLaunch",
+            "/tr", `"${exePath}" --hidden`,
+            "/sc", "onlogon",
+            "/rl", "highest",
+            "/ru", username,
+            "/f",
+          ],
+          { stdio: "ignore" },
+        );
+      } else {
+        console.log("[Main] ManualLaunch task missing — recreating...");
+        spawnSync(
+          "schtasks",
+          [
+            "/create",
+            "/tn", "ClipMasterProManualLaunch",
+            "/tr", `"${exePath}"`,
+            "/sc", "once",
+            "/sd", "01/01/1910",
+            "/st", "00:00",
+            "/rl", "highest",
+            "/ru", username,
+            "/f",
+          ],
+          { stdio: "ignore" },
+        );
+      }
+      const deadline = Date.now() + 1500;
+      while (Date.now() < deadline) { /* intentional synchronous wait for task registration */ }
+    }
+
+    execSync(`schtasks /run /tn "${taskToRun}"`, { stdio: "ignore" });
+    // Exit synchronously — app.whenReady() must never fire in this transient process.
+    app.exit(0);
     process.exit(0);
   } catch (err) {
-    // Fallback: If task scheduler task fails or is not registered, do NOT quit.
-    // Continue running in the current process (as standard user) so the app still opens.
-    console.error("[Main] Failed to run elevated task via Task Scheduler:", err);
+    // Fallback: Task Scheduler unavailable. Continue as standard user so the
+    // app still opens (clipboard monitoring works; paste into elevated windows may not).
+    console.error("[Main] Elevation via Task Scheduler failed — running as standard user:", err);
   }
 }
 
-// ─── Clear stale Chromium singleton locks BEFORE acquiring the lock ──────────
+// ─── Clear stale Chromium singleton locks BEFORE acquiring the lock ─────────
 // Stale SingletonLock / SingletonCookie / SingletonSocket files are left behind
-// when the app is hard-killed or crashes. They cause app.requestSingleInstanceLock()
-// to return false on every subsequent launch until the files are removed.
+// when the app is hard-killed or crashes. Pre-clearing them prevents false
+// negatives from requestSingleInstanceLock() when no process is actually alive.
 clearStaleLocks();
 
-// ─── Singleton guard ────────────────────────────────────────────────────────
+// ─── Singleton guard ──────────────────────────────────────────────────────
+// IMPORTANT: do NOT kill the running instance to steal the lock. Killing the
+// running process while the second-instance event is simultaneously opening
+// its window was the original source of the double-window flash:
+//
+//   1. Instance B starts → requestSingleInstanceLock() fires second-instance on A
+//   2. Instance A opens a window (second-instance handler)
+//   3. Instance B kills Instance A → A's window closes
+//   4. Instance B creates its own window
+//   ⇒ User sees: flash-open → close → open again
+//
+// Correct behaviour:
+//   • If a real instance is running: exit cleanly. The second-instance event
+//     already fired on it and it will open/focus its window on its own.
+//   • If the lock files are stale (crash): clear them and retry.
 let gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
-  if (checkIsAdmin()) {
-    console.log("[Main] Elevated instance detected another running instance. Terminating standard background processes...");
-    killOtherInstances();
-    // Proper sleep: use a synchronous busy-wait instead of spawning powershell
-    // to avoid a second pipe-block race condition
-    const waitUntil = Date.now() + 600;
-    while (Date.now() < waitUntil) { /* spin */ }
-    // Try again after clearing any remaining stale locks
+  // Determine whether another process is genuinely alive.
+  const ourPid = process.pid;
+  let otherInstanceRunning = false;
+  try {
+    const res = spawnSync(
+      "powershell",
+      [
+        "-Command",
+        `(Get-Process -Name 'ClipMaster Pro' -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne ${ourPid} }).Count`,
+      ],
+      { encoding: "utf-8" },
+    );
+    const count = parseInt((res.stdout || "0").trim(), 10);
+    otherInstanceRunning = !isNaN(count) && count > 0;
+  } catch {
+    otherInstanceRunning = false;
+  }
+
+  if (otherInstanceRunning) {
+    // A real instance is running. The second-instance event already fired on it
+    // and it will handle window activation. Exit cleanly — no kill needed.
+    console.log("[Main] Another instance is running — exiting (second-instance event handles window activation).");
+    app.exit(0);
+    process.exit(0);
+  } else {
+    // No live process found — lock files are stale. Clear and retry.
+    console.log("[Main] No live instance found — clearing stale singleton lock files and retrying...");
     clearStaleLocks();
     gotLock = app.requestSingleInstanceLock();
     if (!gotLock) {
-      console.error("[Main] Failed to acquire lock even after killing other instances. Quitting.");
-      app.quit();
+      console.error("[Main] Failed to acquire singleton lock even after clearing stale files. Exiting.");
+      app.exit(0);
       process.exit(0);
     }
-  } else {
-    app.quit();
-    process.exit(0);
+    console.log("[Main] Acquired singleton lock after clearing stale files.");
   }
 }
 
@@ -521,10 +611,16 @@ function createPopupWindow(): void {
 function createWindow(): void {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
+    // Briefly set always-on-top to defeat Windows' foreground lock, then release.
+    mainWindow.setAlwaysOnTop(true);
     mainWindow.show();
     mainWindow.focus();
-    // Bring window to front without the TOPMOST flash that setAlwaysOnTop(true/false) causes
-    mainWindow.moveTop();
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(false);
+        mainWindow.focus();
+      }
+    }, 500);
     return;
   }
 
@@ -564,10 +660,20 @@ function createWindow(): void {
 
   mainWindow.once("ready-to-show", () => {
     if (mainWindow) {
+      // Issue 3 fix: setAlwaysOnTop(true) forces Windows to honour z-order and
+      // places the window above any currently active foreground window. We
+      // release it after 500 ms so the window doesn't float permanently.
+      // This is the only reliable method to overcome Windows' foreground lock
+      // without resorting to a native SetForegroundWindow P/Invoke call.
+      mainWindow.setAlwaysOnTop(true);
       mainWindow.show();
       mainWindow.focus();
-      // Bring window to front on first creation without the TOPMOST z-order flash
-      mainWindow.moveTop();
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setAlwaysOnTop(false);
+          mainWindow.focus();
+        }
+      }, 500);
     }
   });
 
@@ -1864,11 +1970,6 @@ function clearTempUpdateFiles(): void {
 
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
-  // Guard: if we are the standard-user process that just handed off to the
-  // elevated Task Scheduler instance, do not create any window. process.exit(0)
-  // will fire momentarily — this prevents the double-open flash.
-  if (isElevating) return;
-
   // ════ 0. Clean up temp update files ════
   clearTempUpdateFiles();
 
@@ -1898,6 +1999,17 @@ app.whenReady().then(async () => {
   syncAutoLaunch(Boolean(initSettings.autoLaunch));
   if (app.isPackaged && process.platform === "win32") {
     verifyAndRepairScheduledTasks(Boolean(initSettings.autoLaunch));
+
+    // Write the install directory to HKLM so the watchdog service can
+    // always locate the executable, even after the app is not running.
+    const installDir = path.dirname(app.getPath("exe"));
+    writeInstallPathRegistry(installDir);
+
+    // Install the watchdog Windows Service if it is not already registered.
+    // The service runs as LocalSystem and restarts the app in the user session
+    // every 60 seconds if it is found to have stopped — the ultimate safety net
+    // against hard shutdowns, BIOS wakes, and missed Task Scheduler triggers.
+    installWatchdogService(installDir);
   }
 
   if (initSettings.pauseCaptureOption === "restart") {
@@ -1929,8 +2041,15 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("second-instance", () => {
-  createWindow();
+app.on("second-instance", (_event: Electron.Event, argv: string[]) => {
+  // If the new instance was launched with --hidden (e.g. by the watchdog service,
+  // the HKCU Run key, or the AutoLaunch task on a machine that was already
+  // running), do NOT open the main window. The singleton lock has already been
+  // acquired by us, so the second process exits after this event fires.
+  const hiddenSecond = argv.includes("--hidden");
+  if (!hiddenSecond) {
+    createWindow();
+  }
 });
 
 // Perform UI state saving on app termination

@@ -117,24 +117,61 @@ FunctionEnd
 !endif
 
 !macro customInstall
+  ; Resolve the currently logged-in user for Task Scheduler /ru principal.
+  ; USERNAME expands to the actual interactive user even when the installer runs
+  ; elevated (UAC). Without /ru, schtasks may default to SYSTEM or a wrong
+  ; principal and the tasks will silently fail to create a visible window.
+  ReadEnvStr $R9 USERNAME
+
   DetailPrint "Configuring manual-launch scheduled task with highest privileges..."
-  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProManualLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /f'
+  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProManualLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\"" /sc once /sd 01/01/1910 /st 00:00 /rl highest /ru $R9 /f'
   Pop $0
   DetailPrint "  ├─ Manual scheduled task creation status: $0"
-  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProManualLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel)"'
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Set-ScheduledTask -TaskName \"ClipMasterProManualLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel -StartWhenAvailable -ExecutionTimeLimit ([System.TimeSpan]::Zero))"'
   Pop $0
-  DetailPrint "  ├─ Manual task policy set to Parallel status: $0"
+  DetailPrint "  ├─ Manual task settings applied: $0"
+  nsExec::ExecToLog 'schtasks /change /tn "ClipMasterProManualLaunch" /enable'
+  Pop $0
 
   DetailPrint "Configuring auto-launch scheduled task with highest privileges..."
-  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProAutoLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\" --hidden" /sc onlogon /rl highest /f'
+  nsExec::ExecToLog 'schtasks /create /tn "ClipMasterProAutoLaunch" /tr "\"$INSTDIR\ClipMaster Pro.exe\" --hidden" /sc onlogon /rl highest /ru $R9 /f'
   Pop $0
   DetailPrint "  ├─ Auto-launch scheduled task creation status: $0"
-  nsExec::ExecToLog 'powershell -Command "Set-ScheduledTask -TaskName \"ClipMasterProAutoLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel)"'
+  nsExec::ExecToLog 'powershell -NoProfile -Command "Set-ScheduledTask -TaskName \"ClipMasterProAutoLaunch\" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances Parallel -StartWhenAvailable -ExecutionTimeLimit ([System.TimeSpan]::Zero))"'
   Pop $0
-  DetailPrint "  ├─ Auto-launch task policy set to Parallel status: $0"
+  DetailPrint "  ├─ Auto-launch task settings applied: $0"
+  nsExec::ExecToLog 'schtasks /change /tn "ClipMasterProAutoLaunch" /enable'
+  Pop $0
+  DetailPrint "  └─ Auto-launch task enabled. ✓"
 
-  DetailPrint "Copying launcher executable to installation folder..."
+  DetailPrint "Copying native executables to installation folder..."
   CopyFiles "$INSTDIR\resources\app.asar.unpacked\out\main\launcher.exe" "$INSTDIR\launcher.exe"
+  CopyFiles "$INSTDIR\resources\app.asar.unpacked\out\main\watchdog-service.exe" "$INSTDIR\watchdog-service.exe"
+
+  DetailPrint "Writing registry entries..."
+  ; HKLM: install path so the watchdog service can find the exe after reboots
+  WriteRegStr HKLM "SOFTWARE\ClipMaster Pro" "InstallPath" "$INSTDIR"
+  WriteRegStr HKLM "SOFTWARE\ClipMaster Pro" "ExePath"     "$INSTDIR\ClipMaster Pro.exe"
+  ; NOTE: HKCU Run key is intentionally NOT written here. The AutoLaunch Task
+  ; Scheduler task (elevated, --hidden) and the watchdog service handle all
+  ; startup scenarios. The Run key caused the main window to open silently on
+  ; system startup because it launched as a standard user and lost the --hidden
+  ; flag during the elevation handoff.
+  DetailPrint "  └─ Registry entries written. ✓"
+
+  DetailPrint "Installing ClipMaster Pro Watchdog service..."
+  ; sc create requires: binPath= (space after =), path in quotes for spaces support
+  nsExec::ExecToLog 'sc create ClipMasterProWatchdog binPath= "\"$INSTDIR\watchdog-service.exe\"" DisplayName= "ClipMaster Pro Watchdog" start= delayed-auto obj= LocalSystem'
+  Pop $0
+  DetailPrint "  ├─ Watchdog service creation status: $0"
+  nsExec::ExecToLog 'sc description ClipMasterProWatchdog "Keeps ClipMaster Pro clipboard manager running for clipboard monitoring."'
+  Pop $0
+  ; Auto-recovery: restart on failure after 5s / 10s / 30s
+  nsExec::ExecToLog 'sc failure ClipMasterProWatchdog reset= 86400 actions= restart/5000/restart/10000/restart/30000'
+  Pop $0
+  nsExec::ExecToLog 'sc start ClipMasterProWatchdog'
+  Pop $0
+  DetailPrint "  └─ Watchdog service installed and started. ✓"
 
   DetailPrint "Re-creating UAC-free shortcuts..."
   CreateShortcut "$DESKTOP\ClipMaster Pro.lnk" "$INSTDIR\launcher.exe" "" "$INSTDIR\ClipMaster Pro.exe" 0
@@ -143,6 +180,14 @@ FunctionEnd
 !macroend
 
 !macro customUnInstall
+  DetailPrint "Stopping and removing Watchdog service..."
+  nsExec::ExecToLog 'sc stop ClipMasterProWatchdog'
+  Pop $0
+  Sleep 2000
+  nsExec::ExecToLog 'sc delete ClipMasterProWatchdog'
+  Pop $0
+  DetailPrint "  └─ Watchdog service removed. ✓"
+
   DetailPrint "Removing auto-launch scheduled task..."
   nsExec::ExecToLog 'schtasks /delete /tn "ClipMasterProAutoLaunch" /f'
   Pop $0
@@ -153,8 +198,18 @@ FunctionEnd
   Pop $0
   DetailPrint "  ├─ Manual scheduled task removal finished with status: $0"
 
-  DetailPrint "Removing launcher executable..."
+  DetailPrint "Removing launcher and watchdog executables..."
   Delete "$INSTDIR\launcher.exe"
+  Delete "$INSTDIR\watchdog-service.exe"
+
+  DetailPrint "Cleaning up registry entries..."
+  ; Remove HKCU auto-start Run key
+  DeleteRegValue HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "ClipMaster Pro"
+  ; Remove HKLM install-path key written by the app and installer
+  DeleteRegKey HKLM "SOFTWARE\ClipMaster Pro"
+  ; Remove legacy Electron uninstall key if present
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipMaster Pro"
+  DetailPrint "  └─ Registry entries removed. ✓"
 
   DetailPrint "Cleaning up system shortcuts..."
   DetailPrint "  → Deleting Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
@@ -167,16 +222,16 @@ FunctionEnd
   Delete "$DESKTOP\ClipMaster Pro.lnk"
   DetailPrint "  └─ Desktop and Start Menu shortcuts removed... ✓"
 
-  DetailPrint "Cleaning up registry..."
-  DetailPrint "  → Deleting registry key: HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipMaster Pro"
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipMaster Pro"
-  DetailPrint "  └─ Registry entries removed... ✓"
-
   !ifdef BUILD_UNINSTALLER
   ${If} $DeleteUserDataState == 1 ; 1 corresponds to BST_CHECKED
     DetailPrint "Deleting user data..."
     DetailPrint "  → Removing user data directory: $APPDATA\ClipMaster Pro"
     RMDir /r "$APPDATA\ClipMaster Pro"
+    ; Remove the watchdog service log from %ProgramData%
+    ; $COMMONAPPDATA/$PROGRAMDATA are not available in NSIS 3.0.4.1 —
+    ; read the path from the environment variable directly instead.
+    ReadEnvStr $R8 PROGRAMDATA
+    RMDir /r "$R8\ClipMaster Pro"
     DetailPrint "  └─ Database, settings, and backups deleted... ✓"
   ${Else}
     DetailPrint "Skipped deleting user data (retained settings and history)."
