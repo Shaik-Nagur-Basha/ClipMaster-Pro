@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-2.4.0-blue)
+![Version](https://img.shields.io/badge/Version-2.4.2-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
@@ -44,17 +44,15 @@ A video demonstration of ClipMaster Pro in action:
 
 ---
 
-## What's New in v2.4.0 (Since v2.2.4)
+## What's New in v2.4.2 (Since v2.4.0)
 
-Here is a list of the main features and enhancements introduced from v2.2.4 up to the current version:
+Here are the main reliability, filtering, and performance improvements introduced since v2.4.0:
 
-- 🪟 **Overlay Popup Window** — A lightweight, borderless hover/overlay window with custom drag handles and quick tag filters, which doesn't steal taskbar space.
-- ⚡ **Native C# Helpers** — Replaced resource-intensive background processes with optimized native C# executables (`clipboard-listener.exe` and `paster.exe`) to achieve near-zero idle CPU and RAM overhead.
-- 📋 **Active Paste Injection** — Smart target window detection and focus switching; automatically restores focus and executes native paste operations. Supports "Pin & Close" behavior.
-- 🔄 **Topmost Persistence** — High-frequency window positioning loop to lock the popup window as topmost during user dragging and interactions.
-- ♾️ **Infinite Scroll & Loading Spinner** — Smooth, lag-free listing pages for All Clips, Favourites, and Recycle Bin with loading spinners when pagination is disabled.
-- 🔢 **Custom Storage Limits & Lakh/Crore Formatting** — Support for custom maximum clip limits with Lakh/Crore formatting options.
-- ⚙️ **Auto-Launch Optimizations** — Seamless background startup integration for both development and packaged installations.
+- **Watchdog Service & Lifecycle Reliability** — Added a native watchdog service to monitor and restart background helpers, with improved Electron startup and shutdown behavior.
+- **Installer & Auto-Launch Improvements** — Refined Windows auto-launch behavior, installer integration, packaging, and native helper binaries.
+- **Smarter Date Filters** — Date filters now use the actual minimum and maximum dates reported by page statistics.
+- **Faster Initialization** — Settings, UI state, and tags load concurrently, while sidebar counts remain synchronized before capacity checks.
+- **Lean Dependency Layout** — Reorganized runtime and development dependencies and reduced unnecessary IPC calls during capacity warning checks.
 
 ---
 
@@ -70,14 +68,14 @@ Here is a list of the main features and enhancements introduced from v2.2.4 up t
 - **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).
 - **System Integration**: Startup hidden flag (`--hidden`) and a system tray manager with quick settings toggles.
 - **Keyboard Optimization**: Native shortcut detection (like `Ctrl` clicking Delete to permanently remove entries).
-- **Milestone**: Version 2.4.0 complete with custom version switcher, native C# listener/paster helpers, overlay popup window, and infinite scroll.
+- **Milestone**: Version 2.4.2 strengthens background reliability, filtering accuracy, startup performance, and capacity checks.
 
 ## Download & Install
 - **[Setup Installer](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (85 MB) — Recommended for Windows users.
 - **[Portable Version](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (40 MB) — No installation required.
 
 ## Documentation
-- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.4.0 changelog.
+- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.4.2 changelog.
 - **[Quick Start](doc/QUICK_START.md)** — Setup in under 60 seconds.
 - **[Architecture](doc/ARCHITECTURE.md)** — Technical breakdown of the app.
 - **[Troubleshooting](doc/TROUBLESHOOTING.md)** — Common fixes and support.

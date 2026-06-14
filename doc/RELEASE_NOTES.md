@@ -1,6 +1,30 @@
 # ClipMaster Pro Release Notes
 
-## 🚀 v2.4.0 - Custom Popups & Performance Enhancements (Latest)
+## v2.4.2 - Reliability and Filter Improvements (Latest)
+
+**"Reliable Startup Update"**
+
+This release improves background reliability, Windows startup integration, date filtering, application initialization, and capacity checks.
+
+### Background Reliability
+- Added a native watchdog service that monitors and restarts background helper processes.
+- Improved Electron startup, shutdown, and helper lifecycle handling.
+- Updated native helper binaries and packaging to include the watchdog service.
+
+### Installer and Auto-Launch
+- Refined Windows auto-launch behavior for installed and packaged builds.
+- Updated the NSIS installer integration for the new service and lifecycle changes.
+
+### Filtering and Performance
+- Date filters now default to the actual minimum and maximum dates from page statistics.
+- Settings, UI state, and tags now initialize concurrently.
+- Sidebar counts are synchronized before derived capacity checks run.
+- Capacity warning checks can reuse known counts, reducing unnecessary IPC calls.
+- Runtime and development dependencies were reorganized for cleaner packaging.
+
+---
+
+## 🚀 v2.4.0 - Custom Popups & Performance Enhancements (Previous)
 
 **"The Popup & Performance Update"**
 
