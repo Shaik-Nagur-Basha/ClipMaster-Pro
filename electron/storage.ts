@@ -1,5 +1,13 @@
 import { app } from "electron";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, copyFileSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  copyFileSync,
+  unlinkSync,
+} from "fs";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import Datastore from "@seald-io/nedb";
@@ -63,7 +71,10 @@ function validateDatabaseFile(filePath: string): boolean {
     }
     return true;
   } catch (err) {
-    console.error(`[Storage] Validation failed for database file ${filePath}:`, err);
+    console.error(
+      `[Storage] Validation failed for database file ${filePath}:`,
+      err,
+    );
     return false;
   }
 }
@@ -72,18 +83,25 @@ function verifyAndRestoreDb(filePath: string): void {
   const bakPath = filePath + ".bak";
   if (!validateDatabaseFile(filePath)) {
     if (existsSync(bakPath) && validateDatabaseFile(bakPath)) {
-      console.warn(`[Storage] Database file ${filePath} is corrupted. Restoring from backup...`);
+      console.warn(
+        `[Storage] Database file ${filePath} is corrupted. Restoring from backup...`,
+      );
       try {
         copyFileSync(bakPath, filePath);
       } catch (err) {
         console.error(`[Storage] Failed to copy backup for ${filePath}:`, err);
       }
     } else {
-      console.error(`[Storage] Both database file ${filePath} and backup are corrupted or missing. Starting fresh.`);
+      console.error(
+        `[Storage] Both database file ${filePath} and backup are corrupted or missing. Starting fresh.`,
+      );
       try {
         writeFileSync(filePath, "", "utf-8");
       } catch (err) {
-        console.error(`[Storage] Failed to write empty file for ${filePath}:`, err);
+        console.error(
+          `[Storage] Failed to write empty file for ${filePath}:`,
+          err,
+        );
       }
     }
   }
@@ -124,9 +142,15 @@ class StorageManager {
     verifyAndRestoreDb(settingsDbPath);
 
     // 2. Load datastores
-    this.clipsDb = new Datastore<ClipboardItem>({ filename: clipsDbPath, autoload: true });
+    this.clipsDb = new Datastore<ClipboardItem>({
+      filename: clipsDbPath,
+      autoload: true,
+    });
     this.tagsDb = new Datastore<Tag>({ filename: tagsDbPath, autoload: true });
-    this.settingsDb = new Datastore<AppSettings>({ filename: settingsDbPath, autoload: true });
+    this.settingsDb = new Datastore<AppSettings>({
+      filename: settingsDbPath,
+      autoload: true,
+    });
 
     // Set auto-compaction intervals
     this.clipsDb.setAutocompactionInterval(60 * 60 * 1000); // 1 hour
@@ -147,7 +171,10 @@ class StorageManager {
         const count = await this.clipsDb.countAsync({});
         if (count === 0) {
           console.log("[Storage] Migrating clipboard.json to clips.db...");
-          const oldClips = this.loadFileWithBackup<ClipboardItem[]>(oldClipsPath, []);
+          const oldClips = this.loadFileWithBackup<ClipboardItem[]>(
+            oldClipsPath,
+            [],
+          );
           for (const clip of oldClips) {
             clip.version = clip.version ?? 1;
             await this.clipsDb.insertAsync(clip);
@@ -169,7 +196,10 @@ class StorageManager {
       if (tagsCount === 0) {
         if (existsSync(oldTagsPath)) {
           console.log("[Storage] Migrating tags.json to tags.db...");
-          const oldTags = this.loadFileWithBackup<Tag[]>(oldTagsPath, DEFAULT_TAGS);
+          const oldTags = this.loadFileWithBackup<Tag[]>(
+            oldTagsPath,
+            DEFAULT_TAGS,
+          );
           for (const tag of oldTags) {
             await this.tagsDb.insertAsync(tag);
           }
@@ -196,10 +226,16 @@ class StorageManager {
         let oldSettings = DEFAULT_SETTINGS;
         if (existsSync(oldSettingsPath)) {
           console.log("[Storage] Migrating settings.json to settings.db...");
-          oldSettings = this.loadFileWithBackup<any>(oldSettingsPath, DEFAULT_SETTINGS);
+          oldSettings = this.loadFileWithBackup<any>(
+            oldSettingsPath,
+            DEFAULT_SETTINGS,
+          );
           renameSync(oldSettingsPath, oldSettingsPath + ".migrated");
           if (existsSync(oldSettingsPath + ".bak")) {
-            renameSync(oldSettingsPath + ".bak", oldSettingsPath + ".bak.migrated");
+            renameSync(
+              oldSettingsPath + ".bak",
+              oldSettingsPath + ".bak.migrated",
+            );
           }
         }
         const finalSettings = { ...DEFAULT_SETTINGS, ...oldSettings };
@@ -261,20 +297,24 @@ class StorageManager {
     maxWordCount?: number | null;
     tagMatchingMode?: "and" | "or";
   }): Promise<{ clips: ClipboardItem[]; totalCount: number }>;
-  async readAll(options?: number | {
-    limit?: number;
-    skip?: number;
-    search?: string;
-    tags?: string[];
-    isFavorite?: boolean | null;
-    isDeleted?: boolean;
-    sortMode?: string;
-    dateFrom?: string | null;
-    dateTo?: string | null;
-    minWordCount?: number | null;
-    maxWordCount?: number | null;
-    tagMatchingMode?: "and" | "or";
-  }): Promise<any> {
+  async readAll(
+    options?:
+      | number
+      | {
+          limit?: number;
+          skip?: number;
+          search?: string;
+          tags?: string[];
+          isFavorite?: boolean | null;
+          isDeleted?: boolean;
+          sortMode?: string;
+          dateFrom?: string | null;
+          dateTo?: string | null;
+          minWordCount?: number | null;
+          maxWordCount?: number | null;
+          tagMatchingMode?: "and" | "or";
+        },
+  ): Promise<any> {
     if (options === undefined || typeof options === "number") {
       let cursor = this.clipsDb.findAsync({}).sort({ timestamp: -1 });
       if (options !== undefined) {
@@ -299,7 +339,7 @@ class StorageManager {
 
     // 3. search
     if (options.search && options.search.trim()) {
-      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
       query.text = new RegExp(escaped, "i");
     }
 
@@ -323,10 +363,16 @@ class StorageManager {
 
     // 6. date range
     if (options.dateFrom) {
-      query.timestamp = { ...query.timestamp, $gte: new Date(options.dateFrom).toISOString() };
+      query.timestamp = {
+        ...query.timestamp,
+        $gte: new Date(options.dateFrom).toISOString(),
+      };
     }
     if (options.dateTo) {
-      query.timestamp = { ...query.timestamp, $lte: new Date(options.dateTo + "T23:59:59").toISOString() };
+      query.timestamp = {
+        ...query.timestamp,
+        $lte: new Date(options.dateTo + "T23:59:59").toISOString(),
+      };
     }
 
     // Sorting
@@ -357,9 +403,16 @@ class StorageManager {
     return { clips, totalCount };
   }
 
-  async getCounts(): Promise<{ active: number; favorites: number; deleted: number }> {
+  async getCounts(): Promise<{
+    active: number;
+    favorites: number;
+    deleted: number;
+  }> {
     const active = await this.clipsDb.countAsync({ isDeleted: false });
-    const favorites = await this.clipsDb.countAsync({ isDeleted: false, isFavorite: true });
+    const favorites = await this.clipsDb.countAsync({
+      isDeleted: false,
+      isFavorite: true,
+    });
     const deleted = await this.clipsDb.countAsync({ isDeleted: true });
     return { active, favorites, deleted };
   }
@@ -372,6 +425,8 @@ class StorageManager {
     minCharCount: number;
     maxCharCount: number;
     tagCounts: Record<string, number>;
+    minDate?: string | null;
+    maxDate?: string | null;
   }> {
     const query: any = {};
 
@@ -386,35 +441,55 @@ class StorageManager {
     }
 
     if (options.search && options.search.trim()) {
-      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const escaped = options.search.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
       query.text = new RegExp(escaped, "i");
     }
 
-    const clips = await this.clipsDb.findAsync(query, { tags: 1, charCount: 1, text: 1 });
+    const clips = await this.clipsDb.findAsync(query, {
+      tags: 1,
+      charCount: 1,
+      text: 1,
+      timestamp: 1,
+    });
 
     let minCharCount = 1;
     let maxCharCount = 100;
     const tagCounts: Record<string, number> = {};
+    let minDate: string | null = null;
+    let maxDate: string | null = null;
 
     if (clips.length > 0) {
-      const counts = clips.map(c => c.charCount ?? c.text.length);
+      const counts = clips.map(
+        (c) => c.charCount ?? (c.text ? c.text.length : 0),
+      );
       minCharCount = Math.min(...counts);
       maxCharCount = Math.max(...counts);
 
-      clips.forEach(c => {
+      clips.forEach((c) => {
         if (c.tags) {
           c.tags.forEach((tId: string) => {
             tagCounts[tId] = (tagCounts[tId] || 0) + 1;
           });
         }
       });
+
+      const timestamps = clips
+        .map((c) => c.timestamp)
+        .filter(Boolean)
+        .map((t: string) => new Date(t).getTime());
+      if (timestamps.length > 0) {
+        const minTs = Math.min(...timestamps);
+        const maxTs = Math.max(...timestamps);
+        minDate = new Date(minTs).toISOString().slice(0, 10);
+        maxDate = new Date(maxTs).toISOString().slice(0, 10);
+      }
     }
 
     if (maxCharCount <= minCharCount) {
       maxCharCount = minCharCount + 1;
     }
 
-    return { minCharCount, maxCharCount, tagCounts };
+    return { minCharCount, maxCharCount, tagCounts, minDate, maxDate };
   }
 
   async addEntry(text: string): Promise<ClipboardItem | null> {
@@ -424,14 +499,19 @@ class StorageManager {
     const now = new Date().toISOString();
 
     // Deduplication: resurface existing item to top
-    const existing = await this.clipsDb.findOneAsync({ text: trimmed, isDeleted: false });
+    const existing = await this.clipsDb.findOneAsync({
+      text: trimmed,
+      isDeleted: false,
+    });
 
     // Enforce max entries limit
     const maxEntries = this.settingsCache.maxEntries ?? 5000;
     const activeCount = await this.clipsDb.countAsync({ isDeleted: false });
 
     if (activeCount >= maxEntries && !existing) {
-      console.log(`[Storage] Max entries limit reached (${activeCount}/${maxEntries}). Clip catching stopped.`);
+      console.log(
+        `[Storage] Max entries limit reached (${activeCount}/${maxEntries}). Clip catching stopped.`,
+      );
       return null;
     }
 
@@ -441,7 +521,7 @@ class StorageManager {
         ...existing,
         timestamp: now,
         updatedAt: now,
-        version: nextVersion
+        version: nextVersion,
       };
       await this.clipsDb.updateAsync({ id: existing.id }, updated);
       createDbBackup(join(getDataDir(), "clips.db"));
@@ -458,7 +538,7 @@ class StorageManager {
       isDeleted: false,
       wordCount: trimmed.split(/\s+/).filter(Boolean).length,
       charCount: trimmed.length,
-      version: 1
+      version: 1,
     };
 
     await this.clipsDb.insertAsync(item);
@@ -475,7 +555,7 @@ class StorageManager {
       updatedAt: new Date().toISOString(),
       wordCount: item.text.split(/\s+/).filter(Boolean).length,
       charCount: item.text.length,
-      version: nextVersion
+      version: nextVersion,
     };
 
     await this.clipsDb.updateAsync({ id: item.id }, updated);
@@ -498,7 +578,7 @@ class StorageManager {
           updatedAt: now,
           version: nextVersion,
         },
-      }
+      },
     );
     createDbBackup(join(getDataDir(), "clips.db"));
   }
@@ -519,7 +599,7 @@ class StorageManager {
           version: nextVersion,
         },
         $unset: { deletedAt: true },
-      }
+      },
     );
     createDbBackup(join(getDataDir(), "clips.db"));
   }
@@ -629,7 +709,6 @@ class StorageManager {
       console.error("[Storage] Failed to write ui_state.json:", err);
     }
   }
-
 }
 
 export const storageManager = new StorageManager();

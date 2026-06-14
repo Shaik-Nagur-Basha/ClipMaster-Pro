@@ -5,22 +5,52 @@ import { IconFilter, IconClock, IconChevronUp, IconChevronDown } from "./Icons";
 import RangeSlider from "./RangeSlider";
 
 const IconVennOr = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <circle cx="9" cy="12" r="5" fill="currentColor" fillOpacity="0.1" />
     <circle cx="15" cy="12" r="5" fill="currentColor" fillOpacity="0.1" />
   </svg>
 );
 
 const IconVennAnd = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <circle cx="9" cy="12" r="5" />
     <circle cx="15" cy="12" r="5" />
-    <path d="M12 8.16a5 5 0 0 1 3 3.84 5 5 0 0 1-3 3.84 5 5 0 0 1-3-3.84 5 5 0 0 1 3-3.84z" fill="currentColor" />
+    <path
+      d="M12 8.16a5 5 0 0 1 3 3.84 5 5 0 0 1-3 3.84 5 5 0 0 1-3-3.84 5 5 0 0 1 3-3.84z"
+      fill="currentColor"
+    />
   </svg>
 );
 
 const IconBarChart = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <line x1="18" y1="20" x2="18" y2="10" />
     <line x1="12" y1="20" x2="12" y2="4" />
     <line x1="6" y1="20" x2="6" y2="14" />
@@ -34,6 +64,8 @@ const FilterPanel: React.FC = () => {
 
   const globalMin = filterStats?.minCharCount ?? 1;
   const globalMax = filterStats?.maxCharCount ?? 100;
+  const globalMinDate = filterStats?.minDate ?? null;
+  const globalMaxDate = filterStats?.maxDate ?? null;
 
   // Calculate usage count for each tag from global filterStats
   const tagCounts = React.useMemo(() => {
@@ -47,7 +79,9 @@ const FilterPanel: React.FC = () => {
   // Sort tags if sortTagsByUsage is enabled
   const displayedTags = React.useMemo(() => {
     if (filters.sortTagsByUsage) {
-      return [...tags].sort((a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0));
+      return [...tags].sort(
+        (a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0),
+      );
     }
     return tags;
   }, [tags, filters.sortTagsByUsage, tagCounts]);
@@ -173,7 +207,7 @@ const FilterPanel: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  value={filters.dateFrom ?? ""}
+                  value={filters.dateFrom ?? globalMinDate ?? ""}
                   onChange={(e) =>
                     setFilters({ dateFrom: e.target.value || null })
                   }
@@ -186,7 +220,7 @@ const FilterPanel: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  value={filters.dateTo ?? ""}
+                  value={filters.dateTo ?? globalMaxDate ?? ""}
                   onChange={(e) =>
                     setFilters({ dateTo: e.target.value || null })
                   }
@@ -216,14 +250,20 @@ const FilterPanel: React.FC = () => {
               <button
                 onClick={() => {
                   const currentMode = filters.tagMatchingMode ?? "or";
-                  setFilters({ tagMatchingMode: currentMode === "or" ? "and" : "or" });
+                  setFilters({
+                    tagMatchingMode: currentMode === "or" ? "and" : "or",
+                  });
                 }}
                 className={`p-1 rounded-md transition-all duration-200 active:scale-95 cursor-pointer ${
                   (filters.tagMatchingMode ?? "or") === "and"
                     ? "text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30"
                     : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
-                title={(filters.tagMatchingMode ?? "or") === "and" ? "Matching logic: AND (ALL tags must match)" : "Matching logic: OR (ANY tag can match)"}
+                title={
+                  (filters.tagMatchingMode ?? "or") === "and"
+                    ? "Matching logic: AND (ALL tags must match)"
+                    : "Matching logic: OR (ANY tag can match)"
+                }
               >
                 {(filters.tagMatchingMode ?? "or") === "and" ? (
                   <IconVennAnd size={16} />
@@ -242,7 +282,11 @@ const FilterPanel: React.FC = () => {
                     ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
                     : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
-                title={filters.sortTagsByUsage ? "Sorting: By Usage Count (Counts shown)" : "Sorting: Default order"}
+                title={
+                  filters.sortTagsByUsage
+                    ? "Sorting: By Usage Count (Counts shown)"
+                    : "Sorting: Default order"
+                }
               >
                 <IconBarChart size={14} />
               </button>

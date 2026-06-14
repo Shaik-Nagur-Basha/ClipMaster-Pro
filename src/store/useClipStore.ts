@@ -45,7 +45,13 @@ export const useClipStore = create<ClipStore>((set, get) => ({
   tags: [],
   settings: { ...DEFAULT_SETTINGS },
   searchInputRef: null,
-  filterStats: { minCharCount: 1, maxCharCount: 100, tagCounts: {} },
+  filterStats: {
+    minCharCount: 1,
+    maxCharCount: 100,
+    tagCounts: {},
+    minDate: null,
+    maxDate: null,
+  },
   viewMode: "list",
   displayMode: "preview",
   sortMode: "newest",
@@ -101,12 +107,12 @@ export const useClipStore = create<ClipStore>((set, get) => ({
 
       console.log("[Store] Fetching clips with options:", options);
       const result = await window.clipAPI.getClips(options);
-      
+
       if (forceLimit !== undefined) {
         set({
           clips: result || [],
           totalCount: result ? result.length : 0,
-          isLoading: false
+          isLoading: false,
         });
       } else {
         const statsOptions = {
@@ -118,11 +124,17 @@ export const useClipStore = create<ClipStore>((set, get) => ({
         set({
           clips: result?.clips || [],
           totalCount: result?.totalCount || 0,
-          filterStats: stats || { minCharCount: 1, maxCharCount: 100, tagCounts: {} },
-          isLoading: false
+          filterStats: stats || {
+            minCharCount: 1,
+            maxCharCount: 100,
+            tagCounts: {},
+            minDate: null,
+            maxDate: null,
+          },
+          isLoading: false,
         });
       }
-      
+
       // Keep sidebar counts in sync
       get().loadSidebarCounts();
     } catch (err) {
@@ -158,13 +170,22 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     try {
       const state = await window.clipAPI.getUIState();
       if (state) {
-        const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
+        const isPopup =
+          typeof window !== "undefined" &&
+          window.location.search.includes("popup=true");
         let activePage = state.activePage ?? "dashboard";
-        if (isPopup && !["dashboard", "favorites", "recycle"].includes(activePage)) {
+        if (
+          isPopup &&
+          !["dashboard", "favorites", "recycle"].includes(activePage)
+        ) {
           activePage = "dashboard";
         }
-        const loadedFilters = state.filters ? { ...DEFAULT_FILTERS, ...state.filters } : { ...DEFAULT_FILTERS };
-        const hasSearch = !!(loadedFilters.search && loadedFilters.search.trim().length > 0);
+        const loadedFilters = state.filters
+          ? { ...DEFAULT_FILTERS, ...state.filters }
+          : { ...DEFAULT_FILTERS };
+        const hasSearch = !!(
+          loadedFilters.search && loadedFilters.search.trim().length > 0
+        );
         set({
           activePage,
           selectedClipId: state.selectedClipId ?? null,
@@ -194,8 +215,12 @@ export const useClipStore = create<ClipStore>((set, get) => ({
 
   addClipFromMain: (item: ClipboardItem) => {
     const state = get();
-    const isPopup = typeof window !== "undefined" && window.location.search.includes("popup=true");
-    console.log(`[Store] addClipFromMain isPopup=${isPopup} activePage=${state.activePage} currentPage=${state.currentPage} item=${item.id}`);
+    const isPopup =
+      typeof window !== "undefined" &&
+      window.location.search.includes("popup=true");
+    console.log(
+      `[Store] addClipFromMain isPopup=${isPopup} activePage=${state.activePage} currentPage=${state.currentPage} item=${item.id}`,
+    );
     const hasFiltersActive =
       state.filters.search.trim().length > 0 ||
       state.filters.tags.length > 0 ||
@@ -203,7 +228,11 @@ export const useClipStore = create<ClipStore>((set, get) => ({
       state.filters.dateFrom !== null ||
       state.filters.dateTo !== null;
 
-    if (hasFiltersActive || state.activePage !== "dashboard" || state.currentPage !== 1) {
+    if (
+      hasFiltersActive ||
+      state.activePage !== "dashboard" ||
+      state.currentPage !== 1
+    ) {
       console.log("[Store] addClipFromMain calling loadClips");
       get().loadClips();
     } else {
@@ -216,7 +245,7 @@ export const useClipStore = create<ClipStore>((set, get) => ({
         const isDuplicate = state.clips.some((c) => c.id === item.id);
         return {
           clips: newClips,
-          totalCount: isDuplicate ? state.totalCount : state.totalCount + 1
+          totalCount: isDuplicate ? state.totalCount : state.totalCount + 1,
         };
       });
       get().loadSidebarCounts();
@@ -293,9 +322,10 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     const res = await window.clipAPI.saveSettings(
       partial as unknown as Record<string, unknown>,
     );
-    const nextSettings: AppSettings = (res && typeof res === "object")
-      ? (res as AppSettings)
-      : { ...get().settings, ...partial };
+    const nextSettings: AppSettings =
+      res && typeof res === "object"
+        ? (res as AppSettings)
+        : { ...get().settings, ...partial };
     set({ settings: nextSettings, currentPage: 1 });
     if (partial.viewMode) set({ viewMode: partial.viewMode });
     if (partial.displayMode) set({ displayMode: partial.displayMode });
@@ -343,11 +373,14 @@ export const useClipStore = create<ClipStore>((set, get) => ({
     set({ currentPage: page });
     get().loadClips();
   },
-  setPopupSearchVisible: (visible: boolean) => set({ popupSearchVisible: visible }),
-  setPopupTagsMenuVisible: (visible: boolean) => set({ popupTagsMenuVisible: visible }),
+  setPopupSearchVisible: (visible: boolean) =>
+    set({ popupSearchVisible: visible }),
+  setPopupTagsMenuVisible: (visible: boolean) =>
+    set({ popupTagsMenuVisible: visible }),
   setPopupSearchValue: (value: string) => set({ popupSearchValue: value }),
   setIsSearchFocused: (focused: boolean) => set({ isSearchFocused: focused }),
-  setIsTagSearchFocused: (focused: boolean) => set({ isTagSearchFocused: focused }),
+  setIsTagSearchFocused: (focused: boolean) =>
+    set({ isTagSearchFocused: focused }),
 
   toggleTagOnClip: async (clipId: string, tagId: string) => {
     const clip = get().clips.find((c) => c.id === clipId);

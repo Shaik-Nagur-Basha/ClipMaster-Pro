@@ -21,7 +21,6 @@ export type Tag = {
   updatedAt?: string;
 };
 
-
 // ─── UI State Types ───────────────────────────────────────────────────────
 
 export type ViewMode = "list" | "grid" | "compact";
@@ -75,6 +74,8 @@ export interface ClipStore {
     minCharCount: number;
     maxCharCount: number;
     tagCounts: Record<string, number>;
+    minDate?: string | null;
+    maxDate?: string | null;
   };
 
   // UI State
@@ -140,11 +141,17 @@ export interface ClipAPI {
 
   // Clipboard CRUD
   getClips: (options?: number | any) => Promise<any>;
-  getCounts: () => Promise<{ active: number; favorites: number; deleted: number }>;
+  getCounts: () => Promise<{
+    active: number;
+    favorites: number;
+    deleted: number;
+  }>;
   getFilterStats: (options: any) => Promise<{
     minCharCount: number;
     maxCharCount: number;
     tagCounts: Record<string, number>;
+    minDate?: string | null;
+    maxDate?: string | null;
   }>;
   addClip: (text: string) => Promise<ClipboardItem | null>;
   updateClip: (item: ClipboardItem) => Promise<boolean>;
@@ -177,7 +184,9 @@ export interface ClipAPI {
   onRefreshClips: (cb: () => void) => () => void;
   onSettingsUpdated: (cb: (settings: AppSettings) => void) => () => void;
   onCleanMemory: (cb: () => void) => () => void;
-  onHookedKey: (cb: (data: { type: "char" | "key"; value: string }) => void) => () => void;
+  onHookedKey: (
+    cb: (data: { type: "char" | "key"; value: string }) => void,
+  ) => () => void;
   onClickOutside: (cb: () => void) => () => void;
   onNavigateToPage: (cb: (page: string) => void) => () => void;
 
@@ -209,13 +218,20 @@ export interface ClipAPI {
   // Export System
   startExport: (options: ExportOptions) => Promise<ExportSummary>;
   cancelExport: () => Promise<void>;
-  saveExportFile: (tempFilePath: string, defaultName: string) => Promise<boolean>;
+  saveExportFile: (
+    tempFilePath: string,
+    defaultName: string,
+  ) => Promise<boolean>;
   cleanupExport: () => Promise<void>;
-  onExportProgress: (cb: (progress: { step: string; percent: number }) => void) => () => void;
+  onExportProgress: (
+    cb: (progress: { step: string; percent: number }) => void,
+  ) => () => void;
 
   // Import System
   selectAndImportFile: () => Promise<any>;
-  onImportProgress: (cb: (progress: { step: string; percent: number }) => void) => () => void;
+  onImportProgress: (
+    cb: (progress: { step: string; percent: number }) => void,
+  ) => () => void;
 }
 
 export interface ExportOptions {

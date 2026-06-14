@@ -209,7 +209,7 @@ const Settings: React.FC = () => {
             type="button"
             onClick={handleClearCache}
             disabled={clearingCache}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
+            className="text-nowrap inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
             title="Advanced cache clear: removes lock files, stale state, and repairs startup tasks"
           >
             <IconTrash size={14} className="text-rose-400" />
