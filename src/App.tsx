@@ -358,9 +358,12 @@ export default function App() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [warningType, setWarningType] = useState<"yellow" | "red" | null>(null);
 
-  const checkCapacityWarning = async () => {
+  const checkCapacityWarning = async (
+    knownCounts?: { active: number; favorites: number; deleted: number },
+  ) => {
     try {
-      const counts = await window.clipAPI.getCounts();
+      const counts = knownCounts ?? await window.clipAPI.getCounts();
+      useClipStore.setState({ sidebarCounts: counts });
       const state = useClipStore.getState();
       const activeCount = counts?.active ?? 0;
       const maxEntries = state.settings.maxEntries || 5000;
@@ -588,16 +591,13 @@ export default function App() {
 
   useEffect(() => {
     const initApp = async () => {
-      // 1. Load settings & UI state first
-      await loadSettings();
-      await loadUIState();
-      await loadTags();
+      // These calls update independent store slices and can run concurrently.
+      await Promise.all([loadSettings(), loadUIState(), loadTags()]);
 
-      // 2. Load the initial page of clips
       await loadClips();
 
-      // 3. Check capacity warning
-      await checkCapacityWarning();
+      // loadClips refreshes sidebarCounts, so no extra IPC call is needed here.
+      await checkCapacityWarning(useClipStore.getState().sidebarCounts);
     };
 
     initApp();
@@ -618,7 +618,7 @@ export default function App() {
         window.clipAPI.setSearchFocusable?.(false);
       }
       await loadClips();
-      await checkCapacityWarning();
+      await checkCapacityWarning(useClipStore.getState().sidebarCounts);
     });
 
     // Global settings update listener

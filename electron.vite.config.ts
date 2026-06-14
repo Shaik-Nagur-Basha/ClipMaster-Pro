@@ -8,8 +8,7 @@ export default defineConfig({
     build: {
       lib: {
         entry: {
-          main: resolve('electron/main.ts'),
-          clipboardWorker: resolve('electron/clipboardWorker.ts')
+          main: resolve('electron/main.ts')
         }
       }
     },

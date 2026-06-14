@@ -818,7 +818,13 @@ async function handleClipboardCapture(text: string): Promise<void> {
       mainWindow.webContents.send("new-clip", newItem);
     }
 
-    if (popupWindow && !popupWindow.isDestroyed()) {
+    // The popup refreshes from storage whenever it is shown. Avoid waking its
+    // hidden renderer for every clipboard event while the app is backgrounded.
+    if (
+      popupWindow &&
+      !popupWindow.isDestroyed() &&
+      popupWindow.isVisible()
+    ) {
       popupWindow.webContents.send("new-clip", newItem);
     }
   } catch (err) {

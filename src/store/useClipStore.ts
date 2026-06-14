@@ -135,8 +135,8 @@ export const useClipStore = create<ClipStore>((set, get) => ({
         });
       }
 
-      // Keep sidebar counts in sync
-      get().loadSidebarCounts();
+      // Keep sidebar counts in sync before callers continue with derived checks.
+      await get().loadSidebarCounts();
     } catch (err) {
       console.error("[Store] loadClips failed:", err);
       set({ clips: [], totalCount: 0, isLoading: false });
@@ -195,7 +195,6 @@ export const useClipStore = create<ClipStore>((set, get) => ({
           popupSearchValue: loadedFilters.search || "",
           popupSearchVisible: hasSearch,
         });
-        await get().loadClips();
       }
     } catch (err) {
       console.error("[Store] loadUIState failed:", err);
