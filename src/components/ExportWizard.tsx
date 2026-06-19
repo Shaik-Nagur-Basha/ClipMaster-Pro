@@ -306,35 +306,10 @@ const ScopeSubFilterPanel: React.FC<{
     onChange({ ...sf, specificTags: [], specificTagsMode: null });
   };
 
-  const hasAnything =
-    sf.favourites !== null ||
-    sf.recycle !== null ||
-    sf.havingTags !== null ||
-    sf.specificTags.length > 0;
-
   return (
     <div className="space-y-4">
-      {/* Section header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Sub-filters
-          </span>
-        </div>
-        {hasAnything && (
-          <button
-            type="button"
-            onClick={() => onChange(DEFAULT_SCOPE_FILTER)}
-            className="text-[10px] text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
-
       {/* Dimension toggle rows - in horizontal row */}
-      <div className="flex flex-wrap gap-x-6 gap-y-3">
+      <div className="flex flex-wrap justify-between gap-y-3">
         {dimensions.map((dim) => (
           <div key={dim.key} className="space-y-1.5">
             <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium pl-0.5 block">
@@ -345,14 +320,12 @@ const ScopeSubFilterPanel: React.FC<{
                 label={dim.yesLabel}
                 active={sf[dim.key] === "yes"}
                 color={dim.yesColor}
-                icon={dim.yesIcon}
                 onClick={() => toggleDimension(dim.key, "yes")}
               />
               <ToggleChip
                 label={dim.noLabel}
                 active={sf[dim.key] === "no"}
                 color={dim.noColor}
-                icon={dim.noIcon}
                 onClick={() => toggleDimension(dim.key, "no")}
               />
             </div>
@@ -362,7 +335,7 @@ const ScopeSubFilterPanel: React.FC<{
 
       {/* Specific Tags picker - styled same as other specific tags containers */}
       {showSpecificTags && sortedTags.length > 0 && (
-        <div className="space-y-3 bg-surface-900/40 border border-white/5 p-4 rounded-xl">
+        <div className="space-y-3 bg-surface-900/50 border border-white/5 p-4 rounded-xl">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
@@ -446,12 +419,10 @@ const ScopeSubFilterPanel: React.FC<{
       )}
 
       {/* Level 3 combination summary */}
-      {hasAnything && (
-        <div className="mt-2.5 flex items-center gap-1.5 p-2 rounded-lg bg-indigo-950/30 text-[10.5px]">
-          <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold uppercase text-[9px] tracking-wider text-center">Target</span>
-          <span className="text-gray-300 font-medium truncate" title={buildCombinationLabel(scope, sf)}>{buildCombinationLabel(scope, sf)}</span>
-        </div>
-      )}
+      <div className="mt-2.5 flex items-center gap-1.5 p-2 rounded-lg bg-indigo-950/30 text-[10.5px]">
+        <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold uppercase text-[9px] tracking-wider text-center">Target</span>
+        <span className="text-gray-300 font-medium truncate" title={buildCombinationLabel(scope, sf)}>{buildCombinationLabel(scope, sf)}</span>
+      </div>
     </div>
   );
 };
@@ -799,8 +770,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     let active = true;
     const fetchBounds = async () => {
       try {
-        // Build query without specificTags so bounds don't narrow when tags are selected
-        const sfForBounds = { ...scopeFilter, specificTags: [], specificTagsMode: null };
+        // Build query without specificTags so bounds don't narrow when tags are selected (unless scope is 'tagged')
+        const sfForBounds = scope === "tagged" ? scopeFilter : { ...scopeFilter, specificTags: [], specificTagsMode: null };
         const query: any = { limit: 100000 };
         if (scope === "clips") query.isDeleted = false;
         else if (scope === "favorites") { query.isFavorite = true; query.isDeleted = false; }
@@ -813,6 +784,15 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
         else if (scope !== "recycle" && scope !== "clips" && sfForBounds.recycle === "no") query.isDeleted = false;
         if (scope !== "tagged" && sfForBounds.havingTags === "yes") query.hasTags = true;
         else if (scope !== "tagged" && sfForBounds.havingTags === "no") query.hasTags = false;
+        
+        if (sfForBounds.specificTags && sfForBounds.specificTags.length > 0 && sfForBounds.specificTagsMode) {
+          if (sfForBounds.specificTagsMode === "include") {
+            query.includeTags = sfForBounds.specificTags;
+          } else {
+            query.excludeTags = sfForBounds.specificTags;
+          }
+        }
+
         const res = await window.clipAPI.getClips(query);
         const clips = res?.clips ?? (Array.isArray(res) ? res : []);
         if (active) {
@@ -844,9 +824,19 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     return () => {
       active = false;
     };
-  // Exclude specificTags from deps — tag selection must NOT change date bounds
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, source, scope, scopeFilter.favourites, scopeFilter.recycle, scopeFilter.havingTags, search, minDateBound, maxDateBound]);
+  }, [
+    isOpen,
+    source,
+    scope,
+    scopeFilter.favourites,
+    scopeFilter.recycle,
+    scopeFilter.havingTags,
+    scopeFilter.specificTags,
+    scopeFilter.specificTagsMode,
+    search,
+    minDateBound,
+    maxDateBound,
+  ]);
 
   // Fetch text search preview clips (1-3 clips) toggled right below text search input
   useEffect(() => {
@@ -1053,19 +1043,14 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     return count;
   }, [showSubFilter, scopeFilter]);
 
-  const isAnyFilterActive = useMemo(() => {
+  const isSubFilterActive = useMemo(() => {
     return (
-      source !== "all" ||
-      scope !== "all" ||
-      search.trim() !== "" ||
-      (dateFrom !== "" && dateFrom !== minDateBound) ||
-      (dateTo !== "" && dateTo !== maxDateBound) ||
       scopeFilter.favourites !== null ||
       scopeFilter.recycle !== null ||
       scopeFilter.havingTags !== null ||
       scopeFilter.specificTags.length > 0
     );
-  }, [source, scope, search, dateFrom, dateTo, scopeFilter, minDateBound, maxDateBound]);
+  }, [scopeFilter]);
 
   return (
     <>
@@ -1075,16 +1060,11 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
       title="Data Export System"
       headerActionRight={
         <div className="flex items-center gap-2">
-          {isAnyFilterActive && (
+          {isSubFilterActive && (
             <button
               type="button"
               onClick={() => {
-                setSource("all");
-                setScope("all");
                 setScopeFilter(DEFAULT_SCOPE_FILTER);
-                setSearch("");
-                setDateFrom(minDateBound);
-                setDateTo(maxDateBound);
               }}
               className="text-[10px] font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-colors px-2 py-0.5 rounded-md cursor-pointer"
             >
@@ -1103,8 +1083,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
         </div>
       }
       maxWidth="max-w-xl"
-      overflowVisible={true}
-      contentClassName="!overflow-visible hide-scrollbar"
+      overflowVisible={false}
+      contentClassName="hide-scrollbar"
     >
       <div className="space-y-6 overflow-visible">
         <AnimatePresence mode="wait">
@@ -1214,101 +1194,106 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                           }}
                           className={`pt-3 ${subFilterAnimDone ? "" : "overflow-hidden"}`}
                         >
-                          <div className="rounded-xl border border-white/6 bg-surface-800/50 p-4 space-y-3.5">
-                            {/* Text & Date Filters */}
-                            <div className="space-y-3 pb-3.5 border-b border-white/5">
+                          <div className="rounded-xl bg-surface-900/40 p-4 space-y-4">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />
                                 <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                                  Text & Date Filters
+                                  Sub-filters
                                 </span>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3.5">
-                                <div className="space-y-1.5 relative">
-                                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
-                                    Search Text
+                                {activeSubFilters > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-brand-500/20 text-brand-300 text-[9px] font-bold">
+                                    {activeSubFilters} active
                                   </span>
-                                  <div className="relative flex items-center group w-full">
-                                    <div className="absolute left-3 text-gray-655 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
-                                      <IconSearch size={14} />
-                                    </div>
-                                    <input
-                                      type="text"
-                                      placeholder="Filter by text..."
-                                      value={search}
-                                      onChange={(e) => setSearch(e.target.value)}
-                                      onFocus={() => setIsSearchFocused(true)}
-                                      onBlur={() => setIsSearchFocused(false)}
-                                      className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
-                                    />
-                                    {search && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setSearch("")}
-                                        className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
-                                        title="Clear search"
-                                      >
-                                        <IconX size={12} />
-                                      </button>
-                                    )}
-                                  </div>
+                                )}
+                              </div>
+                            </div>
 
-                                  {/* Text Search Instant Matches Dropdown below the input */}
-                                  <AnimatePresence>
-                                    {isSearchFocused && search.trim() && textSearchPreviewCount > 0 && (
-                                      <motion.div
-                                        initial={{ opacity: 0, y: 4 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: 4 }}
-                                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-900 border border-white/10 rounded-lg p-2.5 shadow-2xl space-y-1.5 max-h-[160px] overflow-y-auto hide-scrollbar"
-                                      >
-                                        <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider flex justify-between">
-                                          <span>Text matches</span>
-                                          <span className="font-mono text-brand-400">{textSearchPreviewCount} clips</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                          {textSearchPreviewClips.map((c, i) => (
-                                            <div key={c.id || i} className="px-2 py-1 bg-surface-900/60 rounded text-[10px] text-gray-300 font-mono truncate border border-white/5">
-                                              {c.text || "(empty)"}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
+                            {/* Text & Date Filters */}
+                            <div className="grid grid-cols-2 gap-3.5">
+                              <div className="space-y-1.5 relative">
+                                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                                  Search Text
+                                </span>
+                                <div className="relative flex items-center group w-full">
+                                  <div className="absolute left-3 text-gray-650 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                                    <IconSearch size={14} />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    placeholder="Filter by text..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    onFocus={() => setIsSearchFocused(true)}
+                                    onBlur={() => setIsSearchFocused(false)}
+                                    className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
+                                  />
+                                  {search && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSearch("")}
+                                      className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                                      title="Clear search"
+                                    >
+                                      <IconX size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-2.5">
-                                  <div className="space-y-1.5">
-                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
-                                      Date From
-                                    </span>
-                                    <input
-                                      type="date"
-                                      value={dateFrom}
-                                      onChange={(e) => {
-                                        setDateFrom(e.target.value);
-                                      }}
-                                      min={minDateBound || undefined}
-                                      max={dateTo || maxDateBound || undefined}
-                                      className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
-                                    />
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
-                                      Date To
-                                    </span>
-                                    <input
-                                      type="date"
-                                      value={dateTo}
-                                      onChange={(e) => {
-                                        setDateTo(e.target.value);
-                                      }}
-                                      min={dateFrom || minDateBound || undefined}
-                                      max={maxDateBound || undefined}
-                                      className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
-                                    />
-                                  </div>
+
+                                {/* Text Search Instant Matches Dropdown below the input */}
+                                <AnimatePresence>
+                                  {isSearchFocused && search.trim() && textSearchPreviewCount > 0 && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: 4 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: 4 }}
+                                      className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-900 border border-white/10 rounded-lg p-2.5 shadow-2xl space-y-1.5 max-h-[160px] overflow-y-auto hide-scrollbar"
+                                    >
+                                      <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider flex justify-between">
+                                        <span>Text matches</span>
+                                        <span className="font-mono text-brand-400">{textSearchPreviewCount} clips</span>
+                                      </div>
+                                      <div className="space-y-1">
+                                        {textSearchPreviewClips.map((c, i) => (
+                                          <div key={c.id || i} className="px-2 py-1 bg-surface-900/60 rounded text-[10px] text-gray-300 font-mono truncate border border-white/5">
+                                            {c.text || "(empty)"}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2.5">
+                                <div className="space-y-1.5">
+                                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                                    Date From
+                                  </span>
+                                  <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => {
+                                      setDateFrom(e.target.value);
+                                    }}
+                                    min={minDateBound || undefined}
+                                    max={dateTo || maxDateBound || undefined}
+                                    className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                                    Date To
+                                  </span>
+                                  <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => {
+                                      setDateTo(e.target.value);
+                                    }}
+                                    min={dateFrom || minDateBound || undefined}
+                                    max={maxDateBound || undefined}
+                                    className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
+                                  />
                                 </div>
                               </div>
                             </div>
