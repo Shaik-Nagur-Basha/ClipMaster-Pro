@@ -425,3 +425,43 @@ a {
   box-shadow: none !important;
   /* border: none !important; */
 }
+
+/* ─── Hide scrollbar but keep scroll behavior ────────────────────────── */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Ensure date inputs inside the app have consistent font and styling for all datetime segments */
+input[type="date"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+input[type="date"]:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="date"]::-webkit-datetime-edit-text {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  color: inherit !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) !important;
+  opacity: 0.8 !important;
+  cursor: pointer !important;
+  transition: opacity 0.2s !important;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+}

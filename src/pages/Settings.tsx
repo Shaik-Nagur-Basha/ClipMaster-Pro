@@ -33,6 +33,8 @@ import {
   IconArrowDown,
   IconEdit,
   IconList,
+  IconStar,
+  IconTag,
 } from "../components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
@@ -428,11 +430,11 @@ const Settings: React.FC = () => {
                     <div className="space-y-1">
                       {(
                         [
-                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    dot: "bg-rose-500",    hoverBg: "hover:bg-rose-500/5 hover:border-rose-500/15"     },
-                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", dot: "bg-emerald-500", hoverBg: "hover:bg-emerald-500/5 hover:border-emerald-500/15" },
-                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   dot: "bg-amber-500",   hoverBg: "hover:bg-amber-500/5 hover:border-amber-500/15"    },
-                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  dot: "bg-violet-500",  hoverBg: "hover:bg-violet-500/5 hover:border-violet-500/15"  },
-                        ] as { value: BulkActionType; label: string; desc: string; color: string; dot: string; hoverBg: string }[]
+                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    icon: <IconTrash size={15} className="text-rose-400 shrink-0" />,    hoverBg: "hover:bg-rose-500/5"     },
+                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", icon: <IconRestore size={15} className="text-emerald-400 shrink-0" />, hoverBg: "hover:bg-emerald-500/5" },
+                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   icon: <IconStar size={15} className="text-amber-400 shrink-0" />,   hoverBg: "hover:bg-amber-500/5"    },
+                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  icon: <IconTag size={15} className="text-violet-400 shrink-0" />,  hoverBg: "hover:bg-violet-500/5"  },
+                        ] as { value: BulkActionType; label: string; desc: string; color: string; icon: React.ReactNode; hoverBg: string }[]
                       ).map((opt) => (
                         <button
                           key={opt.value}
@@ -440,7 +442,9 @@ const Settings: React.FC = () => {
                           onClick={() => setBulkActionType(opt.value)}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent ${opt.hoverBg} transition-all duration-150 cursor-pointer group/row text-left`}
                         >
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dot} opacity-50 group-hover/row:opacity-90 transition-opacity`} />
+                          <div className="opacity-70 group-hover/row:opacity-100 transition-opacity">
+                            {opt.icon}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <span className={`block text-[11px] font-semibold text-gray-300 group-hover/row:${opt.color} transition-colors leading-snug`}>
                               {opt.label}
@@ -561,7 +565,7 @@ const Settings: React.FC = () => {
           </Section>
 
           {/* ── Danger Zone ── */}
-          <div className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl border border-rose-500/15 bg-rose-500/5">
+          <div className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl bg-rose-500/5">
             <div className="flex items-center gap-3 min-w-0">
               <IconAlertCircle size={16} className="text-rose-500/60 shrink-0" />
               <div className="min-w-0">
@@ -577,7 +581,7 @@ const Settings: React.FC = () => {
                 setShowResetDialog(true);
                 setResetConfirmText("");
               }}
-              className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-500/25 bg-rose-500/8 hover:bg-rose-500/15 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
+              className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/15 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
             >
               <IconTrash size={13} />
               <span>Reset</span>

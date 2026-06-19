@@ -11,6 +11,7 @@ interface DialogProps {
   maxWidth?: string
   contentClassName?: string
   headerAction?: React.ReactNode
+  headerActionRight?: React.ReactNode
   paddingClassName?: string
   overflowVisible?: boolean
 }
@@ -23,6 +24,7 @@ const Dialog: React.FC<DialogProps> = ({
   maxWidth = 'max-w-md',
   contentClassName = 'dialog-scrollbar',
   headerAction,
+  headerActionRight,
   paddingClassName = 'px-6 py-6',
   overflowVisible = false
 }) => {
@@ -61,12 +63,15 @@ const Dialog: React.FC<DialogProps> = ({
                   )}
                   {headerAction}
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all"
-                >
-                  <IconX size={18} />
-                </button>
+                <div className="flex items-center gap-3">
+                  {headerActionRight}
+                  <button
+                    onClick={onClose}
+                    className="w-8 h-8 rounded-full bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                  >
+                    <IconX size={18} />
+                  </button>
+                </div>
               </div>
               
               {/* Content */}

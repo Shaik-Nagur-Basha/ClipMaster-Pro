@@ -12,10 +12,16 @@ import {
   IconInbox,
   IconStar,
   IconTrash,
-  IconSave
+  IconSave,
+  IconSearch,
+  IconX,
+  IconArrowUp,
+  IconArrowDown
 } from "./Icons";
 import type { ExportOptions, ExportSummary, ScopeFilter, Tag } from "../types";
 import { useClipStore } from "../store/useClipStore";
+import FormattedContent from "./FormattedContent";
+import TagBadge from "./TagBadge";
 
 interface ExportWizardProps {
   isOpen: boolean;
@@ -244,13 +250,12 @@ function getDimensions(scope: string): DimensionConfig[] {
   }
 }
 
-// Specific tags picker is shown when havingTags !== "no"
-// AND when scope isn't one where tags are impossible
+// Specific tags picker is shown ONLY when havingTags is explicitly "yes"
 function specificTagsApplicable(scope: string, sf: ScopeFilter): boolean {
   // For "tagged" scope — tags always exist, always show picker
   if (scope === "tagged") return true;
-  // For others — show only when havingTags dimension is "yes" (or not set, leaving possibility open)
-  return sf.havingTags !== "no";
+  // For others — only show when "Having Tags" is explicitly selected
+  return sf.havingTags === "yes";
 }
 
 const ScopeSubFilterPanel: React.FC<{
@@ -258,9 +263,18 @@ const ScopeSubFilterPanel: React.FC<{
   sf: ScopeFilter;
   onChange: (sf: ScopeFilter) => void;
   tags: Tag[];
-}> = ({ scope, sf, onChange, tags }) => {
+  tagCounts?: Record<string, number>;
+}> = ({ scope, sf, onChange, tags, tagCounts = {} }) => {
   const dimensions = getDimensions(scope);
   const showSpecificTags = specificTagsApplicable(scope, sf);
+  const [tagSearch, setTagSearch] = useState("");
+
+  // Sort tags by clip count descending, only those with ≥1 clip
+  const sortedTags = useMemo(() => {
+    return [...tags]
+      .filter((t) => (tagCounts[t.id] ?? 0) >= 1)
+      .sort((a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0));
+  }, [tags, tagCounts]);
 
   const toggleDimension = (key: keyof Pick<ScopeFilter, "favourites" | "recycle" | "havingTags">, value: "yes" | "no") => {
     const current = sf[key];
@@ -299,13 +313,13 @@ const ScopeSubFilterPanel: React.FC<{
     sf.specificTags.length > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Section header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Level 2 — Sub-filters
+            Sub-filters
           </span>
         </div>
         {hasAnything && (
@@ -319,50 +333,67 @@ const ScopeSubFilterPanel: React.FC<{
         )}
       </div>
 
-      {/* Dimension toggle rows */}
-      {dimensions.map((dim) => (
-        <div key={dim.key} className="space-y-1.5">
-          <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium pl-0.5">
-            {dim.key === "favourites" ? "Favourites" : dim.key === "recycle" ? "Recycle Bin" : "Tags"}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            <ToggleChip
-              label={dim.yesLabel}
-              active={sf[dim.key] === "yes"}
-              color={dim.yesColor}
-              icon={dim.yesIcon}
-              onClick={() => toggleDimension(dim.key, "yes")}
-            />
-            <ToggleChip
-              label={dim.noLabel}
-              active={sf[dim.key] === "no"}
-              color={dim.noColor}
-              icon={dim.noIcon}
-              onClick={() => toggleDimension(dim.key, "no")}
-            />
+      {/* Dimension toggle rows - in horizontal row */}
+      <div className="flex flex-wrap gap-x-6 gap-y-3">
+        {dimensions.map((dim) => (
+          <div key={dim.key} className="space-y-1.5">
+            <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium pl-0.5 block">
+              {dim.key === "favourites" ? "Favourites" : dim.key === "recycle" ? "Recycle Bin" : "Tags"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <ToggleChip
+                label={dim.yesLabel}
+                active={sf[dim.key] === "yes"}
+                color={dim.yesColor}
+                icon={dim.yesIcon}
+                onClick={() => toggleDimension(dim.key, "yes")}
+              />
+              <ToggleChip
+                label={dim.noLabel}
+                active={sf[dim.key] === "no"}
+                color={dim.noColor}
+                icon={dim.noIcon}
+                onClick={() => toggleDimension(dim.key, "no")}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      {/* Specific Tags picker — Level 3 */}
-      {showSpecificTags && tags.length > 0 && (
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between">
+      {/* Specific Tags picker - styled same as other specific tags containers */}
+      {showSpecificTags && sortedTags.length > 0 && (
+        <div className="space-y-3 bg-surface-900/40 border border-white/5 p-4 rounded-xl">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Level 3 — Specific Tags
+                Specific Tags
               </span>
             </div>
-            {sf.specificTags.length > 0 && (
-              <button
-                type="button"
-                onClick={clearSpecificTags}
-                className="text-[10px] text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
-              >
-                Clear tags
-              </button>
-            )}
+
+            {/* Dashboard styled tag search inline opposite to title */}
+            <div className="relative flex items-center group max-w-[200px] w-full">
+              <div className="absolute left-3 text-gray-600 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                <IconSearch size={12} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search tags..."
+                value={tagSearch}
+                onChange={(e) => setTagSearch(e.target.value)}
+                className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-8 pr-8 py-1 text-[11px] text-white/85 placeholder-gray-600 transition-colors duration-150"
+              />
+              {tagSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTagSearch("")}
+                  className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                  title="Clear search"
+                >
+                  <IconX size={10} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Include / Exclude mode toggle */}
@@ -384,48 +415,41 @@ const ScopeSubFilterPanel: React.FC<{
           )}
 
           {/* Tag chip grid */}
-          <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto pr-1 dialog-scrollbar">
-            {tags.map((tag) => {
-              const active = sf.specificTags.includes(tag.id);
-              return (
-                <button
+          <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1 dialog-scrollbar">
+            {sortedTags
+              .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+              .map((tag) => (
+                <TagBadge
                   key={tag.id}
-                  type="button"
+                  tag={tag}
+                  size="sm"
+                  active={sf.specificTags.includes(tag.id)}
+                  count={tagCounts[tag.id]}
                   onClick={() => toggleSpecificTag(tag.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all duration-150 cursor-pointer ${
-                    active
-                      ? "border-brand-500/50 bg-brand-500/10 text-brand-300"
-                      : "border-white/8 bg-surface-900 text-gray-400 hover:border-white/20 hover:text-gray-200"
-                  }`}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: tag.color }}
-                  />
-                  {tag.name}
-                  {active && <IconCheck size={9} className="shrink-0 text-brand-400" />}
-                </button>
-              );
-            })}
+                />
+              ))}
           </div>
 
-          {sf.specificTags.length === 0 && (
+          {sf.specificTags.length === 0 ? (
             <p className="text-[10px] text-gray-600 pl-0.5">
               Select tag(s) above then choose whether to include or exclude them.
             </p>
+          ) : (
+            <div className="flex items-center justify-between text-[10px] text-gray-500">
+              <span>{sf.specificTags.length} tag(s) selected</span>
+              <span className="hover:text-rose-400 transition-colors cursor-pointer" onClick={clearSpecificTags}>
+                Clear tags
+              </span>
+            </div>
           )}
         </div>
       )}
 
       {/* Level 3 combination summary */}
       {hasAnything && (
-        <div className="mt-2 px-3 py-2 rounded-lg bg-surface-900/60 border border-white/5">
-          <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider block mb-1">
-            Active combination
-          </span>
-          <span className="text-[11px] text-gray-300 leading-relaxed">
-            {buildCombinationLabel(scope, sf)}
-          </span>
+        <div className="mt-2.5 flex items-center gap-1.5 p-2 rounded-lg bg-indigo-950/30 text-[10.5px]">
+          <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold uppercase text-[9px] tracking-wider text-center">Target</span>
+          <span className="text-gray-300 font-medium truncate" title={buildCombinationLabel(scope, sf)}>{buildCombinationLabel(scope, sf)}</span>
         </div>
       )}
     </div>
@@ -466,9 +490,147 @@ function buildCombinationLabel(scope: string, sf: ScopeFilter): string {
   return `${base} ${parts.join(", ")}`;
 }
 
+const PreviewLimitDropdown: React.FC<{
+  value: number;
+  onChange: (v: number) => void;
+}> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <div className="flex items-center gap-1.5 normal-case font-normal">
+        <span className="text-gray-500 font-medium text-[10px]">Show:</span>
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="bg-black/95 border border-gray-700 text-gray-300 rounded-md px-2 py-0.5 hover:bg-surface-800 hover:text-white transition-colors focus:outline-none cursor-pointer text-[10px] font-semibold flex items-center gap-1 min-w-[32px] justify-center"
+        >
+          {value}
+          <span className="text-gray-500 text-[8px]">▼</span>
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            transition={{ duration: 0.1 }}
+            className="absolute left-1/2 -translate-x-1/2 z-50 min-w-[40px] bg-surface-800 border border-gray-700 rounded-md shadow-lg p-1 flex flex-col gap-1 top-full mt-1"
+          >
+            {[3, 5, 10].map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  onChange(opt);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-center px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                  value === opt
+                    ? "bg-brand-500/20 text-brand-400 border border-brand-500/30"
+                    : "text-gray-400 hover:bg-surface-700 hover:text-white border border-transparent"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const ModalScrollButtons: React.FC<{
+  containerRef: React.RefObject<HTMLDivElement>;
+}> = ({ containerRef }) => {
+  const [showTopButton, setShowTopButton] = useState(false);
+  const [showBottomButton, setShowBottomButton] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtTop = scrollTop < 20;
+      const isAtBottom = scrollTop + clientHeight > scrollHeight - 20;
+
+      setShowTopButton(!isAtTop);
+      setShowBottomButton(!isAtBottom);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    const timer = setTimeout(handleScroll, 100);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      clearTimeout(timer);
+    };
+  }, [containerRef]);
+
+  const scrollToTop = () => {
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const scrollToBottom = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  return (
+    <div className="absolute right-3 bottom-3 flex flex-col gap-2 pointer-events-none z-50">
+      <AnimatePresence>
+        {showTopButton && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.4 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.4 }}
+            onClick={scrollToTop}
+            className="pointer-events-auto w-7 h-7 rounded-md bg-black/80 hover:bg-black/95 text-gray-400 hover:text-brand-300 flex items-center justify-center transition-all duration-150 border border-white/10 backdrop-blur-sm cursor-pointer"
+          >
+            <IconArrowUp size={12} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showBottomButton && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.4 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.4 }}
+            onClick={scrollToBottom}
+            className="pointer-events-auto w-7 h-7 rounded-md bg-black/80 hover:bg-black/95 text-gray-400 hover:text-brand-300 flex items-center justify-center transition-all duration-150 border border-white/10 backdrop-blur-sm cursor-pointer"
+          >
+            <IconArrowDown size={12} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // ─── Main Export Wizard Component ─────────────────────────────────────────────
 
 export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) => {
+  const previewListRef = React.useRef<HTMLDivElement>(null);
   // Config state
   const [source, setSource] = useState<ExportOptions["source"]>("all");
   const [scope, setScope] = useState<ExportOptions["scope"]>("all");
@@ -478,6 +640,16 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [matchingCount, setMatchingCount] = useState<number | null>(null);
+  const [matchingClips, setMatchingClips] = useState<any[]>([]);
+  const [minDateBound, setMinDateBound] = useState<string>("");
+  const [maxDateBound, setMaxDateBound] = useState<string>("");
+
+  // Phase 2 addition states
+  const [showPreviewList, setShowPreviewList] = useState(false);
+  const [textSearchPreviewClips, setTextSearchPreviewClips] = useState<any[]>([]);
+  const [textSearchPreviewCount, setTextSearchPreviewCount] = useState<number>(0);
+  const [previewLimit, setPreviewLimit] = useState<number>(3);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Flow & Progress state
   const [status, setStatus] = useState<ExportStatus>("config");
@@ -493,6 +665,29 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
   // Tags from store
   const tags = useClipStore((s) => s.tags);
 
+  // tagPickerClips: fetched WITHOUT specificTags filter so the tag list stays stable
+  const [tagPickerClips, setTagPickerClips] = useState<any[]>([]);
+
+  // Live per-tag counts computed from tagPickerClips (ignores specificTags selection)
+  const liveTagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tagPickerClips.forEach((clip: any) => {
+      if (clip.tags && Array.isArray(clip.tags)) {
+        clip.tags.forEach((tagId: string) => {
+          counts[tagId] = (counts[tagId] ?? 0) + 1;
+        });
+      }
+    });
+    return counts;
+  }, [tagPickerClips]);
+
+  // Tags sorted by live count descending, only those with ≥1 clip in current context
+  const sortedTags = useMemo(() => {
+    return [...tags]
+      .filter((t) => (liveTagCounts[t.id] ?? 0) >= 1)
+      .sort((a, b) => (liveTagCounts[b.id] ?? 0) - (liveTagCounts[a.id] ?? 0));
+  }, [tags, liveTagCounts]);
+
   // Show sub-filter panel when scope is anything except "all"
   const showSubFilter = source === "clips" && scope !== "all";
 
@@ -506,12 +701,32 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
   useEffect(() => {
     setScopeFilter(DEFAULT_SCOPE_FILTER);
     setSubFilterAnimDone(false);
-    if (scope === "all") {
-      setSearch("");
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setShowPreviewList(false);
+    setTextSearchPreviewClips([]);
+    setTextSearchPreviewCount(0);
+    setPreviewLimit(3);
+  }, [scope]);
+
+  // Clear date ranges when sub-filters change so they can be re-calculated with new defaults
+  useEffect(() => {
+    if (isOpen) {
       setDateFrom("");
       setDateTo("");
     }
-  }, [scope]);
+  }, [scopeFilter]);
+
+  // Reset additional states when wizard opens
+  useEffect(() => {
+    if (isOpen) {
+      setShowPreviewList(false);
+      setTextSearchPreviewClips([]);
+      setTextSearchPreviewCount(0);
+      setPreviewLimit(3);
+    }
+  }, [isOpen]);
 
   // Subscribe to progress updates
   useEffect(() => {
@@ -525,67 +740,203 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     return undefined;
   }, [status]);
 
-  // Fetch live matching clips count for the export
+  // Helper function to build getClips query for matching/bounds
+  const buildClipsQuery = (withDates: boolean) => {
+    const query: any = { limit: 100000 };
+    if (scope === "clips") {
+      query.isDeleted = false;
+    } else if (scope === "favorites") {
+      query.isFavorite = true;
+      query.isDeleted = false;
+    } else if (scope === "recycle") {
+      query.isDeleted = true;
+    } else if (scope === "tagged") {
+      query.isDeleted = false;
+      query.hasTags = true;
+    }
+
+    if (scope !== "all") {
+      if (search.trim()) {
+        query.search = search.trim();
+      }
+      if (withDates) {
+        if (dateFrom) query.dateFrom = dateFrom;
+        if (dateTo) query.dateTo = dateTo;
+      }
+    }
+
+    if (scope !== "all") {
+      if (scope !== "favorites") {
+        if (scopeFilter.favourites === "yes") query.isFavorite = true;
+        else if (scopeFilter.favourites === "no") query.isFavorite = false;
+      }
+      if (scope !== "recycle" && scope !== "clips") {
+        if (scopeFilter.recycle === "yes") query.isDeleted = true;
+        else if (scopeFilter.recycle === "no") query.isDeleted = false;
+      }
+      if (scope !== "tagged") {
+        if (scopeFilter.havingTags === "yes") query.hasTags = true;
+        else if (scopeFilter.havingTags === "no") query.hasTags = false;
+      }
+      if (scopeFilter.specificTags && scopeFilter.specificTags.length > 0 && scopeFilter.specificTagsMode) {
+        if (scopeFilter.specificTagsMode === "include") {
+          query.includeTags = scopeFilter.specificTags;
+        } else {
+          query.excludeTags = scopeFilter.specificTags;
+        }
+      }
+    }
+    return query;
+  };
+
+  // Fetch dynamic bounds — based on base context only, NOT specific tags or dates
+  useEffect(() => {
+    if (!isOpen || source !== "clips") {
+      setMinDateBound("");
+      setMaxDateBound("");
+      return;
+    }
+    let active = true;
+    const fetchBounds = async () => {
+      try {
+        // Build query without specificTags so bounds don't narrow when tags are selected
+        const sfForBounds = { ...scopeFilter, specificTags: [], specificTagsMode: null };
+        const query: any = { limit: 100000 };
+        if (scope === "clips") query.isDeleted = false;
+        else if (scope === "favorites") { query.isFavorite = true; query.isDeleted = false; }
+        else if (scope === "recycle") query.isDeleted = true;
+        else if (scope === "tagged") { query.isDeleted = false; query.hasTags = true; }
+        if (search.trim()) query.search = search.trim();
+        if (scope !== "favorites" && sfForBounds.favourites === "yes") query.isFavorite = true;
+        else if (scope !== "favorites" && sfForBounds.favourites === "no") query.isFavorite = false;
+        if (scope !== "recycle" && scope !== "clips" && sfForBounds.recycle === "yes") query.isDeleted = true;
+        else if (scope !== "recycle" && scope !== "clips" && sfForBounds.recycle === "no") query.isDeleted = false;
+        if (scope !== "tagged" && sfForBounds.havingTags === "yes") query.hasTags = true;
+        else if (scope !== "tagged" && sfForBounds.havingTags === "no") query.hasTags = false;
+        const res = await window.clipAPI.getClips(query);
+        const clips = res?.clips ?? (Array.isArray(res) ? res : []);
+        if (active) {
+          const timestamps = clips
+            .map((c: any) => c.timestamp || c.createdAt)
+            .filter(Boolean)
+            .map((t: string) => new Date(t).getTime());
+          if (timestamps.length > 0) {
+            const minTime = Math.min(...timestamps);
+            const maxTime = Math.max(...timestamps);
+            const minStr = new Date(minTime).toISOString().split("T")[0];
+            const maxStr = new Date(maxTime).toISOString().split("T")[0];
+            const oldMin = minDateBound;
+            const oldMax = maxDateBound;
+            setMinDateBound(minStr);
+            setMaxDateBound(maxStr);
+            setDateFrom((prev) => (prev === oldMin || !prev ? minStr : prev));
+            setDateTo((prev) => (prev === oldMax || !prev ? maxStr : prev));
+          } else {
+            setMinDateBound("");
+            setMaxDateBound("");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchBounds();
+    return () => {
+      active = false;
+    };
+  // Exclude specificTags from deps — tag selection must NOT change date bounds
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, source, scope, scopeFilter.favourites, scopeFilter.recycle, scopeFilter.havingTags, search, minDateBound, maxDateBound]);
+
+  // Fetch text search preview clips (1-3 clips) toggled right below text search input
+  useEffect(() => {
+    if (!isOpen || source !== "clips" || !search.trim()) {
+      setTextSearchPreviewClips([]);
+      setTextSearchPreviewCount(0);
+      return;
+    }
+    let active = true;
+    const fetchTextPreview = async () => {
+      try {
+        const query = buildClipsQuery(false); // excluding dates
+        const res = await window.clipAPI.getClips(query);
+        const clips = res?.clips ?? (Array.isArray(res) ? res : []);
+        if (active) {
+          setTextSearchPreviewClips(clips.slice(0, 3));
+          setTextSearchPreviewCount(clips.length);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchTextPreview();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, source, scope, scopeFilter, search]);
+
+  // Reset count immediately when scopeFilter changes so UI reflects change
+  useEffect(() => {
+    if (isOpen && source === "clips") {
+      setMatchingCount(null);
+      setMatchingClips([]);
+    }
+  }, [scopeFilter]);
+
+  // Fetch tag picker clips WITHOUT specificTags or date filters
+  // Tag availability must not change when tags are selected or dates are adjusted
+  useEffect(() => {
+    if (!isOpen || source !== "clips") {
+      setTagPickerClips([]);
+      return;
+    }
+    let active = true;
+    const fetchPickerClips = async () => {
+      try {
+        // No specificTags, no dates — show all tags for the base scope context
+        const sfForPicker = { ...scopeFilter, specificTags: [], specificTagsMode: null };
+        const query: any = { limit: 100000 };
+        if (scope === "clips") query.isDeleted = false;
+        else if (scope === "favorites") { query.isFavorite = true; query.isDeleted = false; }
+        else if (scope === "recycle") query.isDeleted = true;
+        else if (scope === "tagged") { query.isDeleted = false; query.hasTags = true; }
+        if (search.trim()) query.search = search.trim();
+        if (scope !== "favorites" && sfForPicker.favourites === "yes") query.isFavorite = true;
+        else if (scope !== "favorites" && sfForPicker.favourites === "no") query.isFavorite = false;
+        if (scope !== "recycle" && scope !== "clips" && sfForPicker.recycle === "yes") query.isDeleted = true;
+        else if (scope !== "recycle" && scope !== "clips" && sfForPicker.recycle === "no") query.isDeleted = false;
+        if (scope !== "tagged" && sfForPicker.havingTags === "yes") query.hasTags = true;
+        else if (scope !== "tagged" && sfForPicker.havingTags === "no") query.hasTags = false;
+        const res = await window.clipAPI.getClips(query);
+        const clips = res?.clips ?? (Array.isArray(res) ? res : []);
+        if (active) setTagPickerClips(clips);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchPickerClips();
+    return () => { active = false; };
+  // No date deps, no specificTags deps — tag list must remain stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, source, scope, scopeFilter.favourites, scopeFilter.recycle, scopeFilter.havingTags, search]);
+
+  // Fetch live matching clips count and preview list for the export
   useEffect(() => {
     if (!isOpen || source !== "clips") {
       setMatchingCount(null);
+      setMatchingClips([]);
       return;
     }
 
     let active = true;
     const fetchCount = async () => {
       try {
-        const query: any = { limit: 100000 };
-
-        // Scope
-        if (scope === "clips") {
-          query.isDeleted = false;
-        } else if (scope === "favorites") {
-          query.isFavorite = true;
-          query.isDeleted = false;
-        } else if (scope === "recycle") {
-          query.isDeleted = true;
-        } else if (scope === "tagged") {
-          query.isDeleted = false;
-          query.hasTags = true;
-        }
-
-        // Search text & date range (only if scope !== "all")
-        if (scope !== "all") {
-          if (search.trim()) {
-            query.search = search.trim();
-          }
-          if (dateFrom) query.dateFrom = dateFrom;
-          if (dateTo) query.dateTo = dateTo;
-        }
-
-        // Sub-filters
-        if (scope !== "all") {
-          if (scope !== "favorites") {
-            if (scopeFilter.favourites === "yes") query.isFavorite = true;
-            else if (scopeFilter.favourites === "no") query.isFavorite = false;
-          }
-          if (scope !== "recycle" && scope !== "clips") {
-            if (scopeFilter.recycle === "yes") query.isDeleted = true;
-            else if (scopeFilter.recycle === "no") query.isDeleted = false;
-          }
-          if (scope !== "tagged") {
-            if (scopeFilter.havingTags === "yes") query.hasTags = true;
-            else if (scopeFilter.havingTags === "no") query.hasTags = false;
-          }
-          if (scopeFilter.specificTags && scopeFilter.specificTags.length > 0 && scopeFilter.specificTagsMode) {
-            if (scopeFilter.specificTagsMode === "include") {
-              query.includeTags = scopeFilter.specificTags;
-            } else {
-              query.excludeTags = scopeFilter.specificTags;
-            }
-          }
-        }
-
+        const query = buildClipsQuery(true);
         const res = await window.clipAPI.getClips(query);
         const clips = res?.clips ?? (Array.isArray(res) ? res : []);
         if (active) {
           setMatchingCount(clips.length);
+          setMatchingClips(clips);
         }
       } catch (err) {
         console.error(err);
@@ -610,6 +961,9 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     setDateFrom("");
     setDateTo("");
     setMatchingCount(null);
+    setMatchingClips([]);
+    setMinDateBound("");
+    setMaxDateBound("");
     setFormat("json");
     setSummary(null);
     setIsSaved(false);
@@ -699,14 +1053,58 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     return count;
   }, [showSubFilter, scopeFilter]);
 
+  const isAnyFilterActive = useMemo(() => {
+    return (
+      source !== "all" ||
+      scope !== "all" ||
+      search.trim() !== "" ||
+      (dateFrom !== "" && dateFrom !== minDateBound) ||
+      (dateTo !== "" && dateTo !== maxDateBound) ||
+      scopeFilter.favourites !== null ||
+      scopeFilter.recycle !== null ||
+      scopeFilter.havingTags !== null ||
+      scopeFilter.specificTags.length > 0
+    );
+  }, [source, scope, search, dateFrom, dateTo, scopeFilter, minDateBound, maxDateBound]);
+
   return (
-    <Dialog
+    <>
+      <Dialog
       isOpen={isOpen}
       onClose={status === "progress" ? () => {} : handleClose}
       title="Data Export System"
+      headerActionRight={
+        <div className="flex items-center gap-2">
+          {isAnyFilterActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setSource("all");
+                setScope("all");
+                setScopeFilter(DEFAULT_SCOPE_FILTER);
+                setSearch("");
+                setDateFrom(minDateBound);
+                setDateTo(maxDateBound);
+              }}
+              className="text-[10px] font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-colors px-2 py-0.5 rounded-md cursor-pointer"
+            >
+              Clear All
+            </button>
+          )}
+          {source === "clips" && matchingCount !== null && (
+            <button
+              type="button"
+              onClick={() => setShowPreviewList(true)}
+              className="text-[11px] font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 hover:bg-brand-500/20 transition-colors px-2.5 py-0.5 rounded-md font-mono cursor-pointer"
+            >
+              {matchingCount} clips
+            </button>
+          )}
+        </div>
+      }
       maxWidth="max-w-xl"
       overflowVisible={true}
-      contentClassName="!overflow-visible"
+      contentClassName="!overflow-visible hide-scrollbar"
     >
       <div className="space-y-6 overflow-visible">
         <AnimatePresence mode="wait">
@@ -766,7 +1164,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                     }}
                     className={`pt-1 ${scopeAnimDone ? "" : "overflow-hidden"}`}
                   >
-                    {/* ── Level 1: Primary scope dropdown ─────────────── */}
+                    {/* ── Primary scope dropdown ─────────────── */}
                     <div className={`flex items-center justify-between rounded-xl bg-surface-800 transition-colors group relative ${
                       openDropdown === "scope" ? "z-30" : "z-10"
                     }`}>
@@ -801,7 +1199,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                       </div>
                     </div>
 
-                    {/* ── Level 2 + 3: Sub-filter panel (including Text & Date Filters) ────────────────── */}
+                    {/* ── Sub-filter panel (including Text & Date Filters) ────────────────── */}
                     <AnimatePresence>
                       {showSubFilter && (
                         <motion.div
@@ -827,17 +1225,58 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                               </div>
 
                               <div className="grid grid-cols-2 gap-3.5">
-                                <div className="space-y-1.5">
+                                <div className="space-y-1.5 relative">
                                   <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
                                     Search Text
                                   </span>
-                                  <input
-                                    type="text"
-                                    placeholder="Filter by text..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand-500"
-                                  />
+                                  <div className="relative flex items-center group w-full">
+                                    <div className="absolute left-3 text-gray-655 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                                      <IconSearch size={14} />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      placeholder="Filter by text..."
+                                      value={search}
+                                      onChange={(e) => setSearch(e.target.value)}
+                                      onFocus={() => setIsSearchFocused(true)}
+                                      onBlur={() => setIsSearchFocused(false)}
+                                      className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
+                                    />
+                                    {search && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSearch("")}
+                                        className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                                        title="Clear search"
+                                      >
+                                        <IconX size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Text Search Instant Matches Dropdown below the input */}
+                                  <AnimatePresence>
+                                    {isSearchFocused && search.trim() && textSearchPreviewCount > 0 && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 4 }}
+                                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-900 border border-white/10 rounded-lg p-2.5 shadow-2xl space-y-1.5 max-h-[160px] overflow-y-auto hide-scrollbar"
+                                      >
+                                        <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider flex justify-between">
+                                          <span>Text matches</span>
+                                          <span className="font-mono text-brand-400">{textSearchPreviewCount} clips</span>
+                                        </div>
+                                        <div className="space-y-1">
+                                          {textSearchPreviewClips.map((c, i) => (
+                                            <div key={c.id || i} className="px-2 py-1 bg-surface-900/60 rounded text-[10px] text-gray-300 font-mono truncate border border-white/5">
+                                              {c.text || "(empty)"}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2.5">
                                   <div className="space-y-1.5">
@@ -847,8 +1286,12 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                                     <input
                                       type="date"
                                       value={dateFrom}
-                                      onChange={(e) => setDateFrom(e.target.value)}
-                                      className="w-full bg-surface-900 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-brand-500"
+                                      onChange={(e) => {
+                                        setDateFrom(e.target.value);
+                                      }}
+                                      min={minDateBound || undefined}
+                                      max={dateTo || maxDateBound || undefined}
+                                      className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
                                     />
                                   </div>
                                   <div className="space-y-1.5">
@@ -858,8 +1301,12 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                                     <input
                                       type="date"
                                       value={dateTo}
-                                      onChange={(e) => setDateTo(e.target.value)}
-                                      className="w-full bg-surface-900 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-brand-500"
+                                      onChange={(e) => {
+                                        setDateTo(e.target.value);
+                                      }}
+                                      min={dateFrom || minDateBound || undefined}
+                                      max={maxDateBound || undefined}
+                                      className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
                                     />
                                   </div>
                                 </div>
@@ -870,7 +1317,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                               scope={scope}
                               sf={scopeFilter}
                               onChange={setScopeFilter}
-                              tags={tags}
+                              tags={sortedTags}
+                              tagCounts={liveTagCounts}
                             />
                           </div>
                         </motion.div>
@@ -880,7 +1328,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                 )}
               </AnimatePresence>
 
-              {/* Export Format Row */}
+              {/* Export Format Dropdown */}
               <div className={`flex items-center justify-between rounded-xl bg-surface-800 transition-colors group relative ${
                 openDropdown === "format" ? "z-30" : "z-10"
               }`}>
@@ -922,7 +1370,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                   onClick={handleStartExport}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-500/20 transition-all active:scale-95 cursor-pointer"
                 >
-                  Proceed Export {source === "clips" && matchingCount !== null ? `(${matchingCount} clips)` : ""}
+                  Proceed Export
                 </button>
               </div>
             </motion.div>
@@ -1097,6 +1545,74 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
           )}
         </AnimatePresence>
       </div>
-    </Dialog>
+      </Dialog>
+      
+      {/* Filtered clips preview Dialog */}
+      <Dialog
+        isOpen={showPreviewList}
+        onClose={() => setShowPreviewList(false)}
+        title={
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-white uppercase tracking-widest">
+              Preview ({matchingCount && matchingCount > 3 ? `3 of ${matchingCount}` : matchingCount})
+            </span>
+          </div>
+        }
+        maxWidth="max-w-md"
+        paddingClassName="px-4 py-4"
+      >
+        <div className="relative space-y-4 w-full h-[350px]">
+          <div
+            ref={previewListRef}
+            className="w-full h-full overflow-y-auto space-y-2 hide-scrollbar-thumb pr-1 pt-1"
+          >
+            {matchingClips.slice(0, 3).map((c, i) => {
+              const wordCount = c.text ? c.text.trim().split(/\s+/).filter(Boolean).length : 0;
+              const charCount = c.text ? c.text.length : 0;
+              const formatPreviewDate = (ts: any) => {
+                if (!ts) return "";
+                const d = new Date(ts);
+                const day = String(d.getDate()).padStart(2, "0");
+                const month = String(d.getMonth() + 1).padStart(2, "0");
+                const year = d.getFullYear();
+                const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+                return `${day}-${month}-${year}, ${time}`;
+              };
+              return (
+                <div
+                  key={c.id || i}
+                  className="w-full p-3 bg-surface-900/60 rounded-xl border border-white/5 space-y-2 hover:bg-surface-900/90 transition-colors"
+                >
+                  <FormattedContent content={c.text} displayMode="preview" className="text-gray-300 min-h-0 text-[11px]" />
+                  <div className="flex items-center justify-between select-none border-t border-white/5 pt-1.5 text-[9px] text-gray-500 font-mono">
+                    <div className="flex items-center gap-2">
+                      <span>{wordCount}w</span>
+                      <span>{charCount}ch</span>
+                      {c.tags && c.tags.length > 0 && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <span>tags:</span>
+                          {c.tags.map((tid: string) => {
+                            const tagObj = tags.find((t) => t.id === tid);
+                            if (!tagObj) return null;
+                            return (
+                              <span key={tid} className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }}>
+                                {tagObj.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {c.timestamp && (
+                      <span>{formatPreviewDate(c.timestamp)}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Dialog>
+    </>
   );
 };
