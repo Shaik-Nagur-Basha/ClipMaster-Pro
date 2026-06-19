@@ -288,6 +288,9 @@ class StorageManager {
     skip?: number;
     search?: string;
     tags?: string[];
+    hasTags?: boolean | null;
+    includeTags?: string[];
+    excludeTags?: string[];
     isFavorite?: boolean | null;
     isDeleted?: boolean;
     sortMode?: string;
@@ -305,6 +308,9 @@ class StorageManager {
           skip?: number;
           search?: string;
           tags?: string[];
+          hasTags?: boolean | null;
+          includeTags?: string[];
+          excludeTags?: string[];
           isFavorite?: boolean | null;
           isDeleted?: boolean;
           sortMode?: string;
@@ -343,7 +349,13 @@ class StorageManager {
       query.text = new RegExp(escaped, "i");
     }
 
-    // 4. tags
+    // 4. tags / hasTags / includeTags / excludeTags
+    if (options.hasTags === true) {
+      query["tags.0"] = { $exists: true };
+    } else if (options.hasTags === false) {
+      query.tags = [];
+    }
+
     if (options.tags && options.tags.length > 0) {
       const matchMode = options.tagMatchingMode ?? "or";
       if (matchMode === "and") {
@@ -351,6 +363,14 @@ class StorageManager {
       } else {
         query.tags = { $in: options.tags };
       }
+    }
+
+    if (options.includeTags && options.includeTags.length > 0) {
+      query.tags = { ...query.tags, $in: options.includeTags };
+    }
+
+    if (options.excludeTags && options.excludeTags.length > 0) {
+      query.tags = { ...query.tags, $nin: options.excludeTags };
     }
 
     // 5. word count / character count (filtering by length)

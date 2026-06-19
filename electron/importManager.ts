@@ -384,6 +384,405 @@ class ImportManager {
     }
   }
 
+  public async selectAndParseImportFile(
+    browserWindow: BrowserWindow
+  ): Promise<{
+    success: boolean;
+    clips: any[];
+    tags: any[];
+    settings: any;
+    error?: string;
+  }> {
+    // 1. Show file selection dialog
+    const result = await dialog.showOpenDialog(browserWindow, {
+      title: "Import ClipMaster Pro Data",
+      filters: [
+        { name: "ClipMaster Backup Files (*.json, *.zip)", extensions: ["json", "zip"] }
+      ],
+      properties: ["openFile"]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return {
+        success: false,
+        clips: [],
+        tags: [],
+        settings: null,
+        error: "Import cancelled by user."
+      };
+    }
+
+    const filePath = result.filePaths[0];
+    const isZip = filePath.toLowerCase().endsWith(".zip");
+    const tempDir = join(app.getPath("temp"), `clipmaster-import-${Date.now()}`);
+    this.activeTempDirs.push(tempDir);
+    
+    let jsonFiles: { name: string; content: string }[] = [];
+
+    try {
+      if (isZip) {
+        fs.mkdirSync(tempDir, { recursive: true });
+        const zip = new AdmZip(filePath);
+        zip.extractAllTo(tempDir, true);
+        
+        const files = fs.readdirSync(tempDir);
+        for (const file of files) {
+          if (file.toLowerCase().endsWith(".json")) {
+            const fileContent = fs.readFileSync(join(tempDir, file), "utf-8");
+            jsonFiles.push({ name: file, content: fileContent });
+          }
+        }
+      } else {
+        const fileContent = fs.readFileSync(filePath, "utf-8");
+        jsonFiles.push({ name: path.basename(filePath), content: fileContent });
+      }
+
+      if (jsonFiles.length === 0) {
+        throw new Error("No valid JSON data files found in the selected backup.");
+      }
+
+      let clipsToImport: any[] = [];
+      let tagsToImport: any[] = [];
+      let settingsToImport: any = null;
+
+      // Parse and group the file contents
+      for (const file of jsonFiles) {
+        const parsed = JSON.parse(file.content);
+        if (Array.isArray(parsed)) {
+          if (parsed.length > 0) {
+            const first = parsed[0];
+            if (first && typeof first === "object") {
+              if ("text" in first) {
+                clipsToImport.push(...parsed);
+              } else if ("name" in first && "color" in first) {
+                tagsToImport.push(...parsed);
+              } else {
+                if (file.name.toLowerCase().includes("clips")) {
+                  clipsToImport.push(...parsed);
+                } else if (file.name.toLowerCase().includes("tags")) {
+                  tagsToImport.push(...parsed);
+                }
+              }
+            }
+          }
+        } else if (parsed && typeof parsed === "object") {
+          if ("clips" in parsed && Array.isArray(parsed.clips)) {
+            clipsToImport.push(...parsed.clips);
+          }
+          if ("tags" in parsed && Array.isArray(parsed.tags)) {
+            tagsToImport.push(...parsed.tags);
+          }
+          if ("settings" in parsed && parsed.settings && typeof parsed.settings === "object") {
+            settingsToImport = parsed.settings;
+          }
+
+          if (!("clips" in parsed) && !("tags" in parsed) && !("settings" in parsed)) {
+            const hasSettingsKeys = ["maxEntries", "pollingInterval", "autoLaunch", "viewMode", "displayMode"].some(
+              (k) => k in parsed
+            );
+            if (hasSettingsKeys) {
+              settingsToImport = parsed;
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        clips: clipsToImport,
+        tags: tagsToImport,
+        settings: settingsToImport
+      };
+    } catch (err: any) {
+      console.error("[ImportManager] Parsing error:", err);
+      return {
+        success: false,
+        clips: [],
+        tags: [],
+        settings: null,
+        error: err.message || "An unexpected error occurred during backup file parsing."
+      };
+    } finally {
+      this.cleanupTempDir(tempDir);
+    }
+  }
+
+  public async executeCustomImport(
+    options: {
+      clips: any[];
+      tags: any[];
+      settings: any;
+      clipConflictResolution: "keep-existing" | "keep-new";
+      tagConflictResolution: "keep-existing" | "keep-new";
+    },
+    onProgress: (step: string, percent: number) => void
+  ): Promise<ImportSummary> {
+    const { clips, tags, settings, clipConflictResolution, tagConflictResolution } = options;
+
+    try {
+      onProgress("processing", 10);
+
+      // 1. Resolve tags
+      const existingTags = await storageManager.getTags();
+      const existingTagIds = new Set(existingTags.map((t) => t.id));
+      const existingTagNames = new Set(existingTags.map((t) => t.name.toLowerCase().trim()));
+
+      const tagMapping = new Map<string, string>();
+      existingTags.forEach((t) => {
+        tagMapping.set(t.id, t.id);
+        tagMapping.set(t.name.toLowerCase().trim(), t.id);
+      });
+
+      let importedTags = 0;
+      let skippedTags = 0;
+
+      onProgress("processing", 30);
+
+      for (const rawTag of tags) {
+        if (!rawTag || typeof rawTag !== "object") {
+          skippedTags++;
+          continue;
+        }
+
+        const name = typeof rawTag.name === "string" ? rawTag.name.trim() : "";
+        if (!name) {
+          skippedTags++;
+          continue;
+        }
+
+        const id = typeof rawTag.id === "string" && rawTag.id.trim() ? rawTag.id.trim() : uuidv4();
+        let color = typeof rawTag.color === "string" ? rawTag.color.trim() : "";
+        if (!color || !/^#([0-9A-F]{3}){1,2}$/i.test(color)) {
+          color = "#6366f1";
+        }
+
+        const nameLower = name.toLowerCase();
+
+        // Conflict check
+        const matchingTag = existingTags.find(
+          (t) => t.id === id || t.name.toLowerCase().trim() === nameLower
+        );
+
+        if (matchingTag) {
+          if (tagConflictResolution === "keep-existing") {
+            skippedTags++;
+            tagMapping.set(id, matchingTag.id);
+            tagMapping.set(nameLower, matchingTag.id);
+          } else {
+            // keep-new / overwrite
+            const updatedTag: Tag = { ...matchingTag, name, color };
+            if (rawTag.updatedAt) updatedTag.updatedAt = rawTag.updatedAt;
+            
+            await storageManager.tagsDb.updateAsync({ id: matchingTag.id }, updatedTag);
+            
+            const index = existingTags.findIndex(t => t.id === matchingTag.id);
+            if (index !== -1) existingTags[index] = updatedTag;
+
+            tagMapping.set(id, matchingTag.id);
+            tagMapping.set(nameLower, matchingTag.id);
+            importedTags++;
+          }
+          continue;
+        }
+
+        const newTag: Tag = { id, name, color };
+        if (rawTag.updatedAt) {
+          newTag.updatedAt = rawTag.updatedAt;
+        }
+
+        await storageManager.tagsDb.insertAsync(newTag);
+        existingTags.push(newTag);
+        existingTagIds.add(id);
+        existingTagNames.add(nameLower);
+        tagMapping.set(id, id);
+        tagMapping.set(nameLower, id);
+        importedTags++;
+      }
+
+      onProgress("generating", 50);
+
+      // 2. Resolve clips
+      const allClips = await storageManager.readAll();
+      const existingClipTexts = new Set(allClips.map((c) => c.text.trim()));
+      const existingClipIds = new Set(allClips.map((c) => c.id));
+
+      let importedClips = 0;
+      let skippedClips = 0;
+
+      const totalClips = clips.length;
+      let clipIdx = 0;
+
+      for (const rawClip of clips) {
+        clipIdx++;
+        if (clipIdx % 10 === 0 || clipIdx === totalClips) {
+          const pct = 50 + Math.floor((clipIdx / totalClips) * 40);
+          onProgress("generating", pct);
+        }
+
+        if (!rawClip || typeof rawClip !== "object") {
+          skippedClips++;
+          continue;
+        }
+
+        const text = typeof rawClip.text === "string" ? rawClip.text.trim() : "";
+        if (!text) {
+          skippedClips++;
+          continue;
+        }
+
+        const id = typeof rawClip.id === "string" && rawClip.id.trim() ? rawClip.id.trim() : uuidv4();
+
+        const hasIdConflict = existingClipIds.has(id);
+        const matchingByText = allClips.find(c => c.text.trim() === text);
+        const matchingById = allClips.find(c => c.id === id);
+
+        if (hasIdConflict || matchingByText) {
+          const targetClip = matchingById || matchingByText;
+          if (clipConflictResolution === "keep-existing") {
+            skippedClips++;
+            continue;
+          } else {
+            // overwrite
+            if (targetClip) {
+              const nextVersion = (targetClip.version ?? 0) + 1;
+              const updatedClip: ClipboardItem = {
+                ...targetClip,
+                text,
+                timestamp: rawClip.timestamp || targetClip.timestamp,
+                updatedAt: new Date().toISOString(),
+                isFavorite: rawClip.isFavorite !== undefined ? Boolean(rawClip.isFavorite) : targetClip.isFavorite,
+                isDeleted: rawClip.isDeleted !== undefined ? Boolean(rawClip.isDeleted) : targetClip.isDeleted,
+                tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : targetClip.tags,
+                version: nextVersion
+              };
+              await storageManager.clipsDb.updateAsync({ id: targetClip.id }, updatedClip);
+              importedClips++;
+            } else {
+              // Should not happen, but fallback
+              const now = new Date().toISOString();
+              const timestamp = typeof rawClip.timestamp === "string" && Date.parse(rawClip.timestamp) ? rawClip.timestamp : now;
+              const updatedAt = typeof rawClip.updatedAt === "string" && Date.parse(rawClip.updatedAt) ? rawClip.updatedAt : timestamp;
+              const wordCount = typeof rawClip.wordCount === "number" ? rawClip.wordCount : text.split(/\s+/).filter(Boolean).length;
+              const charCount = typeof rawClip.charCount === "number" ? rawClip.charCount : text.length;
+
+              const clipItem: ClipboardItem = {
+                id,
+                text,
+                timestamp,
+                updatedAt,
+                tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : [],
+                isFavorite: Boolean(rawClip.isFavorite),
+                isDeleted: Boolean(rawClip.isDeleted),
+                wordCount,
+                charCount,
+                version: 1
+              };
+              await storageManager.clipsDb.insertAsync(clipItem);
+              importedClips++;
+            }
+            continue;
+          }
+        }
+
+        const now = new Date().toISOString();
+        const timestamp = typeof rawClip.timestamp === "string" && Date.parse(rawClip.timestamp) ? rawClip.timestamp : now;
+        const updatedAt = typeof rawClip.updatedAt === "string" && Date.parse(rawClip.updatedAt) ? rawClip.updatedAt : timestamp;
+        const wordCount = typeof rawClip.wordCount === "number" ? rawClip.wordCount : text.split(/\s+/).filter(Boolean).length;
+        const charCount = typeof rawClip.charCount === "number" ? rawClip.charCount : text.length;
+
+        const clipItem: ClipboardItem = {
+          id,
+          text,
+          timestamp,
+          updatedAt,
+          tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : [],
+          isFavorite: Boolean(rawClip.isFavorite),
+          isDeleted: Boolean(rawClip.isDeleted),
+          wordCount,
+          charCount,
+          version: 1
+        };
+
+        await storageManager.clipsDb.insertAsync(clipItem);
+        existingClipIds.add(id);
+        existingClipTexts.add(text);
+        importedClips++;
+      }
+
+      onProgress("generating", 90);
+
+      // 3. Import Settings
+      let importedSettings = false;
+      if (settings && typeof settings === "object") {
+        const partialSettings: Partial<AppSettings> = {};
+
+        const assignBool = (key: keyof AppSettings) => {
+          if (key in settings && typeof settings[key] === "boolean") {
+            partialSettings[key] = settings[key] as any;
+          }
+        };
+
+        const assignNumber = (key: keyof AppSettings, minVal?: number) => {
+          if (key in settings && typeof settings[key] === "number") {
+            const val = settings[key] as number;
+            if (minVal === undefined || val >= minVal) {
+              partialSettings[key] = val as any;
+            }
+          }
+        };
+
+        const assignString = (key: keyof AppSettings, allowedValues?: string[]) => {
+          if (key in settings && typeof settings[key] === "string") {
+            const val = settings[key] as string;
+            if (!allowedValues || allowedValues.includes(val)) {
+              partialSettings[key] = val as any;
+            }
+          }
+        };
+
+        assignBool("autoLaunch");
+        assignNumber("maxEntries", 10);
+        assignNumber("pollingInterval", 100);
+        assignBool("paginationEnabled");
+        assignNumber("pageSize", 1);
+        assignString("viewMode", ["list", "grid", "compact"]);
+        assignString("displayMode", ["preview", "full"]);
+        assignString("pauseCaptureOption", ["never", "15mins", "30mins", "1hour", "restart"]);
+
+        if (Object.keys(partialSettings).length > 0) {
+          await storageManager.saveSettings(partialSettings);
+
+          if ("autoLaunch" in partialSettings) {
+            syncAutoLaunch(Boolean(partialSettings.autoLaunch));
+          }
+          importedSettings = true;
+        }
+      }
+
+      onProgress("complete", 100);
+
+      return {
+        success: true,
+        importedClips,
+        skippedClips,
+        importedTags,
+        skippedTags,
+        importedSettings
+      };
+    } catch (err: any) {
+      console.error("[ImportManager] executeCustomImport error:", err);
+      return {
+        success: false,
+        importedClips: 0,
+        skippedClips: 0,
+        importedTags: 0,
+        skippedTags: 0,
+        importedSettings: false,
+        error: err.message || "An unexpected error occurred during database import execution."
+      };
+    }
+  }
+
   private cleanupTempDir(dir: string): void {
     try {
       if (fs.existsSync(dir)) {

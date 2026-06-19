@@ -11,6 +11,7 @@ import {
   IconCheck,
   IconSearch,
   IconX,
+  IconTrash,
 } from "../components/Icons";
 import { ClipSkeleton, FullPageSpinner } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
@@ -32,6 +33,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
     isTagSearchFocused,
     setIsTagSearchFocused,
   } = store;
+
 
   if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
     console.log(

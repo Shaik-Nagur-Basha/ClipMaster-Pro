@@ -5,6 +5,8 @@ import { useUpdateStore } from "../store/useUpdateStore";
 import { UpdateSettings } from "../components/UpdateSettings";
 import { ExportWizard } from "../components/ExportWizard";
 import { ImportWizard } from "../components/ImportWizard";
+import { BulkActionWizard } from "../components/BulkActionWizard";
+import type { BulkActionType } from "../components/BulkActionWizard";
 import { APP_VERSION, APP_NAME, APP_BUILD_TYPE } from "../constants";
 import { FullPageSpinner } from "../components/LoadingSpinner";
 import {
@@ -49,6 +51,7 @@ const Settings: React.FC = () => {
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const [showExportWizard, setShowExportWizard] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<BulkActionType | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
   const [clearCacheStep, setClearCacheStep] = useState(0);
   const [clearCacheStatus, setClearCacheStatus] = useState<
@@ -398,87 +401,128 @@ const Settings: React.FC = () => {
             title="Data Management"
             icon={<IconAlertCircle size={14} className="text-rose-500/60" />}
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-              {/* Export System */}
-              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
+            <div className="space-y-4 pt-1">
+
+              {/* ── ROW 1: Bulk Actions (1/2) + Export + Import ── */}
+              <div className="flex gap-4 items-stretch">
+
+                {/* LEFT: Bulk Actions — half width */}
+                <div className="w-1/2 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                        <IconLayers size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
+                          Bulk Actions
+                        </h4>
+                        <p className="text-[10px] text-gray-600 mt-0.5">
+                          Batch-operate on filtered clips
+                        </p>
+                      </div>
                     </div>
-                    <h4 className="text-sm font-semibold text-white group-hover:text-brand-300 transition-colors">
-                      Export Data
-                    </h4>
+
+                    <div className="h-px bg-white/5" />
+
+                    <div className="space-y-1">
+                      {(
+                        [
+                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    dot: "bg-rose-500",    hoverBg: "hover:bg-rose-500/5 hover:border-rose-500/15"     },
+                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", dot: "bg-emerald-500", hoverBg: "hover:bg-emerald-500/5 hover:border-emerald-500/15" },
+                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   dot: "bg-amber-500",   hoverBg: "hover:bg-amber-500/5 hover:border-amber-500/15"    },
+                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  dot: "bg-violet-500",  hoverBg: "hover:bg-violet-500/5 hover:border-violet-500/15"  },
+                        ] as { value: BulkActionType; label: string; desc: string; color: string; dot: string; hoverBg: string }[]
+                      ).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setBulkActionType(opt.value)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent ${opt.hoverBg} transition-all duration-150 cursor-pointer group/row text-left`}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dot} opacity-50 group-hover/row:opacity-90 transition-opacity`} />
+                          <div className="flex-1 min-w-0">
+                            <span className={`block text-[11px] font-semibold text-gray-300 group-hover/row:${opt.color} transition-colors leading-snug`}>
+                              {opt.label}
+                            </span>
+                            <span className="block text-[10px] text-gray-600 group-hover/row:text-gray-500 transition-colors leading-tight mt-0.5 truncate">
+                              {opt.desc}
+                            </span>
+                          </div>
+                          <svg className="w-3.5 h-3.5 shrink-0 opacity-0 group-hover/row:opacity-30 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Export clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files.
+
+                  <p className="mt-4 text-[10px] text-gray-700 text-center">
+                    Click an action to open its wizard
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowExportWizard(true)}
-                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer"
-                >
-                  <IconArrowUp size={14} />
-                  <span>Start Export</span>
-                </button>
+
+                {/* RIGHT: Export + Import stacked */}
+                <div className="flex-1 flex flex-col gap-4">
+
+                  {/* Export System */}
+                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          </svg>
+                        </div>
+                        <h4 className="text-sm font-semibold text-white group-hover:text-brand-300 transition-colors">
+                          Export Data
+                        </h4>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        Export clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowExportWizard(true)}
+                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <IconArrowUp size={14} />
+                      <span>Start Export</span>
+                    </button>
+                  </div>
+
+                  {/* Import System */}
+                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </div>
+                        <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                          Import Data
+                        </h4>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        Restore clips, tags, and settings from a JSON or ZIP backup package.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowImportWizard(true)}
+                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <IconArrowDown size={14} />
+                      <span>Start Import</span>
+                    </button>
+                  </div>
+
+                </div>
               </div>
 
-              {/* Import System */}
-              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    </div>
-                    <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
-                      Import Data
-                    </h4>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Restore clips, tags, and settings from a JSON or ZIP backup package.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowImportWizard(true)}
-                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer"
-                >
-                  <IconArrowDown size={14} />
-                  <span>Start Import</span>
-                </button>
-              </div>
-
-              {/* Clear All Data */}
-              <div className="flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                      <IconAlertCircle size={20} />
-                    </div>
-                    <h4 className="text-sm font-semibold text-white group-hover:text-rose-300 transition-colors">
-                      Reset System
-                    </h4>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Permanently delete all clipboard history, tags, and settings. This cannot be undone.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowResetDialog(true);
-                    setResetConfirmText("");
-                  }}
-                  className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
-                >
-                  <IconTrash size={14} />
-                  <span>Reset Database</span>
-                </button>
-              </div>
             </div>
           </Section>
+
 
           {/* About */}
           <Section
@@ -516,8 +560,32 @@ const Settings: React.FC = () => {
             </div>
           </Section>
 
+          {/* ── Danger Zone ── */}
+          <div className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl border border-rose-500/15 bg-rose-500/5">
+            <div className="flex items-center gap-3 min-w-0">
+              <IconAlertCircle size={16} className="text-rose-500/60 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-rose-400/80">Reset Database</p>
+                <p className="text-[10px] text-gray-600 mt-0.5 truncate">
+                  Permanently erases all clips, tags &amp; settings — cannot be undone.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowResetDialog(true);
+                setResetConfirmText("");
+              }}
+              className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-500/25 bg-rose-500/8 hover:bg-rose-500/15 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
+            >
+              <IconTrash size={13} />
+              <span>Reset</span>
+            </button>
+          </div>
+
           {/* Footer Spacer */}
-          <div className="h-12" />
+          <div className="h-6" />
         </div>
       </main>
 
@@ -941,6 +1009,15 @@ const Settings: React.FC = () => {
         isOpen={showImportWizard}
         onClose={() => setShowImportWizard(false)}
       />
+
+      {/* Bulk Action Wizard */}
+      {bulkActionType && (
+        <BulkActionWizard
+          isOpen={!!bulkActionType}
+          actionType={bulkActionType}
+          onClose={() => setBulkActionType(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1668,6 +1668,40 @@ rm "$0"
   });
 
   // ── Import System IPC ──────────────────────────────────────────────────
+  ipcMain.removeHandler("select-and-parse-import-file");
+  ipcMain.handle("select-and-parse-import-file", async (event) => {
+    try {
+      if (!mainWindow) throw new Error("Main window not available.");
+      stopClipboardListener();
+      const data = await importManager.selectAndParseImportFile(mainWindow);
+      startClipboardListener();
+      return data;
+    } catch (err: any) {
+      console.error("[IPC] select-and-parse-import-file failed:", err);
+      startClipboardListener();
+      throw err;
+    }
+  });
+
+  ipcMain.removeHandler("execute-custom-import");
+  ipcMain.handle("execute-custom-import", async (event, options) => {
+    try {
+      stopClipboardListener();
+      const summary = await importManager.executeCustomImport(options, (step, percent) => {
+        event.sender.send("import-progress", { step, percent });
+      });
+      startClipboardListener();
+      if (summary.success && summary.importedSettings) {
+        broadcastSettingsUpdated(storageManager.getSettings());
+      }
+      return summary;
+    } catch (err: any) {
+      console.error("[IPC] execute-custom-import failed:", err);
+      startClipboardListener();
+      throw err;
+    }
+  });
+
   ipcMain.removeHandler("select-and-import-file");
   ipcMain.handle("select-and-import-file", async (event) => {
     try {

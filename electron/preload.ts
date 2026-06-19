@@ -136,6 +136,8 @@ const clipAPI = {
 
   // ── Import System ──────────────────────────────────────────────────────
   selectAndImportFile: (): Promise<any> => ipcRenderer.invoke("select-and-import-file"),
+  selectAndParseImportFile: (): Promise<any> => ipcRenderer.invoke("select-and-parse-import-file"),
+  executeCustomImport: (options: any): Promise<any> => ipcRenderer.invoke("execute-custom-import", options),
   onImportProgress: (cb: (progress: { step: string; percent: number }) => void) => {
     const h = (_e: any, p: { step: string; percent: number }) => cb(p);
     return registerSingleListener("import-progress", h);

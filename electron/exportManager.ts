@@ -7,10 +7,22 @@ import AdmZip from "adm-zip";
 import { storageManager } from "./storage";
 import type { ClipboardItem, Tag, AppSettings } from "../src/types";
 
+export interface ScopeFilter {
+  favourites: "yes" | "no" | null;
+  recycle: "yes" | "no" | null;
+  havingTags: "yes" | "no" | null;
+  specificTags: string[];
+  specificTagsMode: "include" | "exclude" | null;
+}
+
 export interface ExportOptions {
   source: "all" | "clips" | "tags" | "settings";
   scope: "all" | "clips" | "favorites" | "recycle" | "tagged";
+  scopeFilter?: ScopeFilter;
   format: "raw" | "json" | "excel" | "pdf";
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface ExportProgress {
@@ -65,6 +77,7 @@ class ExportManager {
       // Filter clips based on scope
       let filteredClips = [...rawClips];
       if (options.source === "clips" || options.source === "all") {
+        // ── Level 1: Primary scope ───────────────────────────────────────
         if (options.scope === "clips") {
           filteredClips = rawClips.filter((c) => !c.isDeleted);
         } else if (options.scope === "favorites") {
@@ -73,6 +86,80 @@ class ExportManager {
           filteredClips = rawClips.filter((c) => c.isDeleted);
         } else if (options.scope === "tagged") {
           filteredClips = rawClips.filter((c) => !c.isDeleted && c.tags && c.tags.length > 0);
+        }
+
+        // ── Level 0: Text and Date Filters ──────────────────────────────
+        if (options.search && options.search.trim()) {
+          const s = options.search.trim().toLowerCase();
+          filteredClips = filteredClips.filter((c) => c.text && c.text.toLowerCase().includes(s));
+        }
+        if (options.dateFrom) {
+          const fromTime = new Date(options.dateFrom).getTime();
+          filteredClips = filteredClips.filter((c) => {
+            if (!c.timestamp) return false;
+            return new Date(c.timestamp).getTime() >= fromTime;
+          });
+        }
+        if (options.dateTo) {
+          const toTime = new Date(options.dateTo + "T23:59:59").getTime();
+          filteredClips = filteredClips.filter((c) => {
+            if (!c.timestamp) return false;
+            return new Date(c.timestamp).getTime() <= toTime;
+          });
+        }
+
+        // ── Level 2 + 3: Sub-filters (applied on top of primary scope) ──
+        const sf = options.scopeFilter;
+        if (sf && options.scope !== "all") {
+          // Favourites dimension
+          // (skip if primary scope already fixed this: Only Favorites)
+          if (options.scope !== "favorites") {
+            if (sf.favourites === "yes") {
+              filteredClips = filteredClips.filter((c) => c.isFavorite);
+            } else if (sf.favourites === "no") {
+              filteredClips = filteredClips.filter((c) => !c.isFavorite);
+            }
+          }
+
+          // Recycle Bin dimension
+          // (skip if primary scope already fixed this: Only Recycle Bin / Only Clips)
+          if (options.scope !== "recycle" && options.scope !== "clips") {
+            if (sf.recycle === "yes") {
+              filteredClips = filteredClips.filter((c) => c.isDeleted);
+            } else if (sf.recycle === "no") {
+              filteredClips = filteredClips.filter((c) => !c.isDeleted);
+            }
+          }
+
+          // Having Tags dimension
+          // (skip if primary scope already fixed this: Only Having Tags)
+          if (options.scope !== "tagged") {
+            if (sf.havingTags === "yes") {
+              filteredClips = filteredClips.filter((c) => c.tags && c.tags.length > 0);
+            } else if (sf.havingTags === "no") {
+              filteredClips = filteredClips.filter((c) => !c.tags || c.tags.length === 0);
+            }
+          }
+
+          // Specific Tags dimension
+          // Only applicable when having tags is not "no" (i.e. tags can exist)
+          const tagsApplicable =
+            options.scope === "tagged" ||
+            (sf.havingTags !== "no" && sf.specificTags && sf.specificTags.length > 0);
+
+          if (tagsApplicable && sf.specificTags && sf.specificTags.length > 0 && sf.specificTagsMode) {
+            if (sf.specificTagsMode === "include") {
+              // From selection — clips that have at least one of the selected tags
+              filteredClips = filteredClips.filter(
+                (c) => c.tags && c.tags.some((t) => sf.specificTags.includes(t))
+              );
+            } else if (sf.specificTagsMode === "exclude") {
+              // Not from selection — clips that have none of the selected tags
+              filteredClips = filteredClips.filter(
+                (c) => !c.tags || !c.tags.some((t) => sf.specificTags.includes(t))
+              );
+            }
+          }
         }
       }
 
@@ -189,7 +276,7 @@ class ExportManager {
 
       return {
         totalRecords,
-        exportType: this.getReadableExportType(options.source, options.scope),
+        exportType: this.getReadableExportType(options.source, options.scope, options.scopeFilter),
         format: this.getReadableFormat(options.format),
         fileCount: isZip ? generatedFiles.length : 1,
         finalFileSize,
@@ -284,24 +371,45 @@ class ExportManager {
     }
   }
 
-  private getReadableExportType(source: string, scope: string): string {
+  private getReadableExportType(source: string, scope: string, sf?: ScopeFilter): string {
     if (source === "all") return "All Data (Backup Package)";
     if (source === "tags") return "Tags Only";
     if (source === "settings") return "Settings Only";
-    switch (scope) {
-      case "all":
-        return "Clips Only (All Clip Data)";
-      case "clips":
-        return "Clips Only (Active Clips)";
-      case "favorites":
-        return "Clips Only (Favorites Only)";
-      case "recycle":
-        return "Clips Only (Recycle Bin)";
-      case "tagged":
-        return "Clips Only (Clips Having Tags)";
-      default:
-        return "Clips Only";
+
+    const scopeLabel = ((): string => {
+      switch (scope) {
+        case "all":      return "All Clip Data";
+        case "clips":    return "Not Recycle Bin";
+        case "favorites":return "Only Favorites";
+        case "recycle":  return "Only Recycle Bin";
+        case "tagged":   return "Only Having Tags";
+        default:         return scope;
+      }
+    })();
+
+    if (!sf || scope === "all") return `Clips — ${scopeLabel}`;
+
+    const parts: string[] = [];
+    if (scope !== "favorites") {
+      if (sf.favourites === "yes") parts.push("Only Favorites");
+      else if (sf.favourites === "no") parts.push("Not Favorites");
     }
+    if (scope !== "recycle" && scope !== "clips") {
+      if (sf.recycle === "yes") parts.push("In Recycle Bin");
+      else if (sf.recycle === "no") parts.push("Not In Recycle Bin");
+    }
+    if (scope !== "tagged") {
+      if (sf.havingTags === "yes") parts.push("Having Tags");
+      else if (sf.havingTags === "no") parts.push("No Tags");
+    }
+    if (sf.specificTags && sf.specificTags.length > 0 && sf.specificTagsMode) {
+      const tagCount = sf.specificTags.length;
+      if (sf.specificTagsMode === "include") parts.push(`From ${tagCount} Tag(s)`);
+      else parts.push(`Excluding ${tagCount} Tag(s)`);
+    }
+
+    const subLabel = parts.length > 0 ? ` + ${parts.join(" · ")}` : "";
+    return `Clips — ${scopeLabel}${subLabel}`;
   }
 
   private getReadableFormat(format: string): string {

@@ -227,17 +227,30 @@ export interface ClipAPI {
     cb: (progress: { step: string; percent: number }) => void,
   ) => () => void;
 
-  // Import System
   selectAndImportFile: () => Promise<any>;
+  selectAndParseImportFile: () => Promise<any>;
+  executeCustomImport: (options: any) => Promise<any>;
   onImportProgress: (
     cb: (progress: { step: string; percent: number }) => void,
   ) => () => void;
 }
 
+export interface ScopeFilter {
+  favourites: "yes" | "no" | null;          // Only Favourites / Not Favourites / not set
+  recycle: "yes" | "no" | null;             // Only Recycle Bin / Not Recycle Bin / not set
+  havingTags: "yes" | "no" | null;          // Only Having Tags / Not Having Tags / not set
+  specificTags: string[];                   // tag IDs for specific tag selection
+  specificTagsMode: "include" | "exclude" | null; // From selection / Not from selection
+}
+
 export interface ExportOptions {
   source: "all" | "clips" | "tags" | "settings";
   scope: "all" | "clips" | "favorites" | "recycle" | "tagged";
+  scopeFilter?: ScopeFilter;
   format: "raw" | "json" | "excel" | "pdf";
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface ExportProgress {
