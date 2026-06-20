@@ -68,9 +68,28 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredTags = store.tags.filter((tag) =>
-    tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase()),
-  );
+  const filteredTags = store.tags
+    .filter((tag) =>
+      tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase()),
+    )
+    .filter((tag) => {
+      if (isPopup) {
+        return (store.filterStats?.tagCounts?.[tag.id] ?? 0) >= 1;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const aSel = store.filters.tags.includes(a.id);
+      const bSel = store.filters.tags.includes(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      if (isPopup) {
+        const aCount = store.filterStats?.tagCounts?.[a.id] ?? 0;
+        const bCount = store.filterStats?.tagCounts?.[b.id] ?? 0;
+        return bCount - aCount;
+      }
+      return 0;
+    });
 
   const handleTagSearchMouseDown = () => {
     if (isPopup && !isTagSearchFocused) {
@@ -331,7 +350,10 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                               className="text-[9px] font-bold text-gray-500 bg-white/5 px-1 py-0.2 rounded select-none"
                               title="Selected / Total tags"
                             >
-                              {store.filters.tags.length}/{store.tags.length}
+                              {store.filters.tags.length}/
+                              {isPopup
+                                ? store.tags.filter((t) => (store.filterStats?.tagCounts?.[t.id] ?? 0) >= 1).length
+                                : store.tags.length}
                             </span>
                             {store.filters.tags.length > 0 && (
                               <button
@@ -397,6 +419,11 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
                                     <span className="font-medium truncate">
                                       {tag.name}
                                     </span>
+                                    {isPopup && (
+                                      <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
+                                        ({store.filterStats?.tagCounts?.[tag.id] ?? 0})
+                                      </span>
+                                    )}
                                   </div>
                                   {isSelected && (
                                     <IconCheck

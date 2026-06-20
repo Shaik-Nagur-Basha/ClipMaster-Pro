@@ -17,6 +17,7 @@ import {
   IconCheck,
   IconEye,
   IconSearch,
+  IconTrashX,
 } from "./Icons";
 
 interface Props {
@@ -377,7 +378,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                   onClick={() => restoreClip(item.id)}
                 />
                 <ActionBtn
-                  icon={IconX}
+                  icon={IconTrashX}
                   label="Delete Forever"
                   onClick={() => permanentDelete(item.id)}
                   danger
@@ -473,6 +474,13 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
                           .toLowerCase()
                           .includes(tagSearchFilter.toLowerCase()),
                       )
+                      .sort((a, b) => {
+                        const aSel = item.tags.includes(a.id);
+                        const bSel = item.tags.includes(b.id);
+                        if (aSel && !bSel) return -1;
+                        if (!aSel && bSel) return 1;
+                        return 0;
+                      })
                       .map((tag) => {
                         const isSelected = item.tags.includes(tag.id);
                         return (

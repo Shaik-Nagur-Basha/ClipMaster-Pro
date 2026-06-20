@@ -46,6 +46,8 @@ const clipAPI = {
   updateTargetHwnd: () => ipcRenderer.send("update-target-hwnd"),
   setSearchFocusable: (focusable: boolean) =>
     ipcRenderer.send("set-search-focusable", focusable),
+  resizePopup: (width: number, height: number) =>
+    ipcRenderer.send("resize-popup", width, height),
 
   // ── Tags & Settings ────────────────────────────────────────────────────
   getTags: (): Promise<Tag[]> => ipcRenderer.invoke("get-tags"),

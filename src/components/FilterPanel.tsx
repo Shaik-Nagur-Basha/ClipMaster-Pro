@@ -76,15 +76,17 @@ const FilterPanel: React.FC = () => {
     return counts;
   }, [tags, filterStats]);
 
-  // Sort tags if sortTagsByUsage is enabled
+  // Sort tags by usage count and filter to only show tags with at least 1 clip count
   const displayedTags = React.useMemo(() => {
-    if (filters.sortTagsByUsage) {
-      return [...tags].sort(
-        (a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0),
-      );
-    }
-    return tags;
-  }, [tags, filters.sortTagsByUsage, tagCounts]);
+    const activeTags = tags.filter((t) => (tagCounts[t.id] ?? 0) >= 1);
+    return [...activeTags].sort((a, b) => {
+      const aSel = filters.tags.includes(a.id);
+      const bSel = filters.tags.includes(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0);
+    });
+  }, [tags, tagCounts, filters.tags]);
 
   const hasActiveFilters =
     filters.search ||
@@ -241,7 +243,7 @@ const FilterPanel: React.FC = () => {
               <p className="text-[11px] text-gray-300 font-semibold uppercase tracking-tight">
                 Active Tags{" "}
                 <span className="text-gray-500/50">
-                  ({filters.tags.length}/{tags.length})
+                  ({filters.tags.length}/{displayedTags.length})
                 </span>
               </p>
             </div>
@@ -272,24 +274,13 @@ const FilterPanel: React.FC = () => {
                 )}
               </button>
 
-              {/* Toggle sortTagsByUsage */}
-              <button
-                onClick={() => {
-                  setFilters({ sortTagsByUsage: !filters.sortTagsByUsage });
-                }}
-                className={`p-1 rounded-md transition-all duration-200 active:scale-95 cursor-pointer ${
-                  filters.sortTagsByUsage
-                    ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
-                }`}
-                title={
-                  filters.sortTagsByUsage
-                    ? "Sorting: By Usage Count (Counts shown)"
-                    : "Sorting: Default order"
-                }
+              {/* Non-clickable sort icon without border */}
+              <span
+                className="p-1 rounded-md text-amber-400 bg-amber-500/20"
+                title="Sorted by usage count"
               >
                 <IconBarChart size={14} />
-              </button>
+              </span>
             </div>
           </div>
           <div className="flex flex-wrap ml-2 gap-1.5">
@@ -299,7 +290,7 @@ const FilterPanel: React.FC = () => {
                 tag={tag}
                 size="sm"
                 active={filters.tags.includes(tag.id)}
-                count={filters.sortTagsByUsage ? tagCounts[tag.id] : undefined}
+                count={tagCounts[tag.id]}
                 onClick={() => {
                   const newTags = filters.tags.includes(tag.id)
                     ? filters.tags.filter((t) => t !== tag.id)

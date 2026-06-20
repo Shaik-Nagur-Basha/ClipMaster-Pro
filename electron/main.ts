@@ -414,16 +414,16 @@ function startHookProcess(): void {
     hookProcess.stdout?.on("data", (data) => {
       const lines = data.toString().split(/\r?\n/);
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        console.log(`[Paster Output] ${trimmed}`);
-        if (trimmed.startsWith("CHAR:")) {
-          const val = trimmed.substring(5);
+        if (!line) continue;
+        const cleanLine = line.replace(/[\r\n]/g, "");
+        console.log(`[Paster Output] ${cleanLine}`);
+        if (cleanLine.startsWith("CHAR:")) {
+          const val = cleanLine.substring(5);
           popupWindow?.webContents.send("hooked-key", { type: "char", value: val });
-        } else if (trimmed.startsWith("KEY:")) {
-          const val = trimmed.substring(4);
+        } else if (cleanLine.startsWith("KEY:")) {
+          const val = cleanLine.substring(4);
           popupWindow?.webContents.send("hooked-key", { type: "key", value: val });
-        } else if (trimmed === "CLICK_OUTSIDE") {
+        } else if (cleanLine === "CLICK_OUTSIDE") {
           console.log("[Popup] Detected mouse click outside popup. Hiding search/tag focus...");
           popupWindow?.webContents.send("click-outside");
         }
@@ -458,8 +458,9 @@ function closePopupWindow(): void {
 }
 
 function createPopupWindow(): void {
-  const width = 420;
-  const height = 550;
+  const settings = storageManager.getSettings();
+  const width = settings.popupWidth || 400;
+  const height = settings.popupHeight || 520;
 
   const cursorPoint = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursorPoint);
@@ -499,7 +500,9 @@ function createPopupWindow(): void {
     x: x,
     y: y,
     frame: false,
-    resizable: false,
+    resizable: true,
+    minWidth: 400,
+    minHeight: 520,
     show: false,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -515,6 +518,18 @@ function createPopupWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  let resizeTimeout: NodeJS.Timeout | null = null;
+  popupWindow.on("resize", () => {
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(async () => {
+      if (popupWindow && !popupWindow.isDestroyed()) {
+        const [w, h] = popupWindow.getSize();
+        await storageManager.saveSettings({ popupWidth: w, popupHeight: h } as any);
+        broadcastSettingsUpdated(storageManager.getSettings());
+      }
+    }, 500);
   });
 
   const popupUrl = !app.isPackaged && process.env["ELECTRON_RENDERER_URL"]
@@ -1261,6 +1276,12 @@ function showUacWarningNotification() {
 
   ipcMain.on("close-popup", () => {
     closePopupWindow();
+  });
+
+  ipcMain.on("resize-popup", (_e, width, height) => {
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      popupWindow.setSize(width, height);
+    }
   });
 
   ipcMain.on("open-settings-window", () => {

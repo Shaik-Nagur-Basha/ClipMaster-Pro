@@ -60,6 +60,8 @@ export interface AppSettings {
   globalShortcutEnabled?: boolean;
   globalShortcutKey?: string;
   popupPinned?: boolean;
+  popupWidth?: number;
+  popupHeight?: number;
 }
 
 // ─── Store State Types ────────────────────────────────────────────────────

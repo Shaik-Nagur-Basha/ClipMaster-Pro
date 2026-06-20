@@ -606,6 +606,38 @@ class ImportManager {
       const existingClipTexts = new Set(allClips.map((c) => c.text.trim()));
       const existingClipIds = new Set(allClips.map((c) => c.id));
 
+      // Helper to resolve tag IDs / Names with case-insensitivity and dynamic creation
+      const resolveClipTags = async (rawTags: any, fallbackTags: string[] = []): Promise<string[]> => {
+        if (!Array.isArray(rawTags)) return fallbackTags;
+        const resolved: string[] = [];
+        for (const t of rawTags) {
+          if (typeof t !== "string") continue;
+          const trimmed = t.trim();
+          if (!trimmed) continue;
+          const lower = trimmed.toLowerCase();
+          if (tagMapping.has(trimmed)) {
+            resolved.push(tagMapping.get(trimmed)!);
+          } else if (tagMapping.has(lower)) {
+            resolved.push(tagMapping.get(lower)!);
+          } else {
+            // Create missing tag dynamically
+            const newTagId = uuidv4();
+            const newTagName = trimmed;
+            const newTagColor = "#6366f1";
+            const newTag: Tag = { id: newTagId, name: newTagName, color: newTagColor };
+            await storageManager.tagsDb.insertAsync(newTag);
+            existingTags.push(newTag);
+            existingTagIds.add(newTagId);
+            existingTagNames.add(newTagName.toLowerCase().trim());
+            tagMapping.set(newTagId, newTagId);
+            tagMapping.set(newTagName.toLowerCase().trim(), newTagId);
+            resolved.push(newTagId);
+            importedTags++;
+          }
+        }
+        return resolved;
+      };
+
       let importedClips = 0;
       let skippedClips = 0;
 
@@ -652,7 +684,7 @@ class ImportManager {
                 updatedAt: new Date().toISOString(),
                 isFavorite: rawClip.isFavorite !== undefined ? Boolean(rawClip.isFavorite) : targetClip.isFavorite,
                 isDeleted: rawClip.isDeleted !== undefined ? Boolean(rawClip.isDeleted) : targetClip.isDeleted,
-                tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : targetClip.tags,
+                tags: await resolveClipTags(rawClip.tags, targetClip.tags),
                 version: nextVersion
               };
               await storageManager.clipsDb.updateAsync({ id: targetClip.id }, updatedClip);
@@ -670,7 +702,7 @@ class ImportManager {
                 text,
                 timestamp,
                 updatedAt,
-                tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : [],
+                tags: await resolveClipTags(rawClip.tags),
                 isFavorite: Boolean(rawClip.isFavorite),
                 isDeleted: Boolean(rawClip.isDeleted),
                 wordCount,
@@ -695,7 +727,7 @@ class ImportManager {
           text,
           timestamp,
           updatedAt,
-          tags: Array.isArray(rawClip.tags) ? rawClip.tags.map((t: string) => tagMapping.get(t) || t) : [],
+          tags: await resolveClipTags(rawClip.tags),
           isFavorite: Boolean(rawClip.isFavorite),
           isDeleted: Boolean(rawClip.isDeleted),
           wordCount,

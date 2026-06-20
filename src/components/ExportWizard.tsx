@@ -309,8 +309,14 @@ const ScopeSubFilterPanel: React.FC<{
   const sortedTags = useMemo(() => {
     return [...tags]
       .filter((t) => (tagCounts[t.id] ?? 0) >= 1)
-      .sort((a, b) => (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0));
-  }, [tags, tagCounts]);
+      .sort((a, b) => {
+        const aSel = sf.specificTags.includes(a.id);
+        const bSel = sf.specificTags.includes(b.id);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+        return (tagCounts[b.id] ?? 0) - (tagCounts[a.id] ?? 0);
+      });
+  }, [tags, tagCounts, sf.specificTags]);
 
   const toggleDimension = (key: keyof Pick<ScopeFilter, "favourites" | "recycle" | "havingTags">, value: "yes" | "no") => {
     const current = sf[key];
@@ -692,8 +698,14 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
   const sortedTags = useMemo(() => {
     return [...tags]
       .filter((t) => (liveTagCounts[t.id] ?? 0) >= 1)
-      .sort((a, b) => (liveTagCounts[b.id] ?? 0) - (liveTagCounts[a.id] ?? 0));
-  }, [tags, liveTagCounts]);
+      .sort((a, b) => {
+        const aSel = scopeFilter.specificTags.includes(a.id);
+        const bSel = scopeFilter.specificTags.includes(b.id);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+        return (liveTagCounts[b.id] ?? 0) - (liveTagCounts[a.id] ?? 0);
+      });
+  }, [tags, liveTagCounts, scopeFilter.specificTags]);
 
   // Show sub-filter panel when scope is anything except "all"
   const showSubFilter = source === "clips" && scope !== "all";
@@ -1611,16 +1623,31 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
                       <span>{charCount}ch</span>
                       {c.tags && c.tags.length > 0 && (
                         <div className="flex items-center gap-1 ml-2">
-                          <span>tags:</span>
-                          {c.tags.map((tid: string) => {
-                            const tagObj = tags.find((t) => t.id === tid);
-                            if (!tagObj) return null;
+                          {(() => {
+                            const resolvedTags = c.tags
+                              .map((tid: string) => tags.find((t: any) => t.id === tid))
+                              .filter((t: any): t is any => !!t);
+                            
+                            const maxVisible = 2;
+                            const visibleTags = resolvedTags.slice(0, maxVisible);
+                            const remainingCount = resolvedTags.length - maxVisible;
+                            const remainingNames = resolvedTags.slice(maxVisible).map((t: any) => t.name).join(", ");
+
                             return (
-                              <span key={tid} className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }}>
-                                {tagObj.name}
-                              </span>
+                              <>
+                                {visibleTags.map((tagObj: any) => (
+                                  <span key={tagObj.id} className="px-1.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap inline-flex items-center max-w-[80px]" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }} title={tagObj.name}>
+                                    <span className="truncate">{tagObj.name}</span>
+                                  </span>
+                                ))}
+                                {remainingCount > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/10 text-gray-400 cursor-help" title={remainingNames}>
+                                    +{remainingCount}
+                                  </span>
+                                )}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
                       )}
                     </div>

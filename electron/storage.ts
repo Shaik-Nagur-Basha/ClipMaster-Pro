@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   globalShortcutEnabled: true,
   globalShortcutKey: "CommandOrControl+Shift+V",
   popupPinned: false,
+  popupWidth: 400,
+  popupHeight: 520,
 };
 
 const DEFAULT_TAGS: Tag[] = [
@@ -160,6 +162,7 @@ class StorageManager {
     // Ensure Indexes
     await this.clipsDb.ensureIndexAsync({ fieldName: "id", unique: true });
     await this.clipsDb.ensureIndexAsync({ fieldName: "timestamp" });
+    await this.clipsDb.ensureIndexAsync({ fieldName: "updatedAt" });
 
     // 3. Migrate old JSON data if present
     const oldClipsPath = getClipsPath();
@@ -322,7 +325,7 @@ class StorageManager {
         },
   ): Promise<any> {
     if (options === undefined || typeof options === "number") {
-      let cursor = this.clipsDb.findAsync({}).sort({ timestamp: -1 });
+      let cursor = this.clipsDb.findAsync({}).sort({ updatedAt: -1, timestamp: -1 });
       if (options !== undefined) {
         cursor = cursor.limit(options);
       }
@@ -396,15 +399,15 @@ class StorageManager {
     }
 
     // Sorting
-    let sortQuery: any = { timestamp: -1 };
+    let sortQuery: any = { updatedAt: -1, timestamp: -1 };
     if (options.sortMode === "oldest") {
-      sortQuery = { timestamp: 1 };
+      sortQuery = { updatedAt: 1, timestamp: 1 };
     } else if (options.sortMode === "longest") {
       sortQuery = { charCount: -1 };
     } else if (options.sortMode === "shortest") {
       sortQuery = { charCount: 1 };
     } else if (options.sortMode === "newest") {
-      sortQuery = { timestamp: -1 };
+      sortQuery = { updatedAt: -1, timestamp: -1 };
     }
 
     // Fetch total count matching query

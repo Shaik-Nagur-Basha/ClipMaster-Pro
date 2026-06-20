@@ -953,6 +953,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
         return countId >= 1 || countName >= 1;
       })
       .sort((a: any, b: any) => {
+        const aSel = l2SpecificTags.has(a.id);
+        const bSel = l2SpecificTags.has(b.id);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+
         const idKeyA = (a.id || "").toLowerCase().trim();
         const nameKeyA = (a.name || "").toLowerCase().trim();
         const countIdA = parsedTagCounts[a.id] ?? parsedTagCounts[idKeyA] ?? 0;
@@ -967,7 +972,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
 
         return countB - countA;
       });
-  }, [parsedData, parsedTagCounts]);
+  }, [parsedData, parsedTagCounts, l2SpecificTags]);
 
   // Calculate filtered list of clips (scope + text + date + sub-filters)
   const filteredClips = useMemo(() => {
@@ -1425,16 +1430,18 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
         isOpen={isOpen}
         onClose={status === "progress" ? () => {} : handleClose}
         title={
-          <div className="flex flex-col text-left">
-            <span className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-widest">
-              <IconZap className="w-4 h-4 text-brand-400 shrink-0" />
-              Advanced Data Import System
-            </span>
-            {getSubtitle() && (
-              <span className="text-[10px] text-gray-400 font-medium mt-0.5 pl-6">
-                {getSubtitle()}
+          <div className="flex items-center gap-3 text-left">
+            <IconZap size={20} className="text-brand-400 shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-white uppercase tracking-widest leading-none">
+                Advanced Data Import System
               </span>
-            )}
+              {getSubtitle() && (
+                <span className="text-[10px] text-gray-400 font-medium mt-1">
+                  {getSubtitle()}
+                </span>
+              )}
+            </div>
           </div>
         }
         headerActionRight={
@@ -2166,6 +2173,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                     {[...parsedData.tags]
                       .filter((t) => t.name.toLowerCase().includes(backupTagsSearch.toLowerCase()))
                       .sort((a, b) => {
+                        const aSel = selectedTags.has(a.id);
+                        const bSel = selectedTags.has(b.id);
+                        if (aSel && !bSel) return -1;
+                        if (!aSel && bSel) return 1;
+
                         const aMatch = localTags.some(
                           (lt) =>
                             lt.id === a.id || lt.name.toLowerCase().trim() === a.name.toLowerCase().trim()
@@ -2803,17 +2815,41 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                     <span>{charCount}ch</span>
                     {c.tags && c.tags.length > 0 && (
                       <div className="flex items-center gap-1 ml-2">
-                        <span>tags:</span>
-                        {c.tags.map((tid: string) => {
-                          // Note: since this is parsedData from backup, tags are in parsedData.tags
-                          const tagObj = parsedData?.tags?.find((t) => t.id === tid);
-                          if (!tagObj) return null;
+                        {(() => {
+                          const resolvedTags = c.tags
+                            .map((tid: string) => {
+                              return parsedData?.tags?.find(
+                                (t: any) =>
+                                  t.id === tid ||
+                                  t.name.toLowerCase().trim() === tid.toLowerCase().trim()
+                              ) || localTags.find(
+                                (t: any) =>
+                                  t.id === tid ||
+                                  t.name.toLowerCase().trim() === tid.toLowerCase().trim()
+                              );
+                            })
+                            .filter((t: any): t is any => !!t);
+
+                          const maxVisible = 2;
+                          const visibleTags = resolvedTags.slice(0, maxVisible);
+                          const remainingCount = resolvedTags.length - maxVisible;
+                          const remainingNames = resolvedTags.slice(maxVisible).map((t: any) => t.name).join(", ");
+
                           return (
-                            <span key={tid} className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }}>
-                              {tagObj.name}
-                            </span>
+                            <>
+                              {visibleTags.map((tagObj: any, idx: number) => (
+                                <span key={tagObj.id || idx} className="px-1.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap inline-flex items-center max-w-[80px]" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }} title={tagObj.name}>
+                                  <span className="truncate">{tagObj.name}</span>
+                                </span>
+                              ))}
+                              {remainingCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/10 text-gray-400 cursor-help" title={remainingNames}>
+                                  +{remainingCount}
+                                </span>
+                              )}
+                            </>
                           );
-                        })}
+                        })()}
                       </div>
                     )}
                   </div>

@@ -40,12 +40,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "../components/Dialog";
 
 const Settings: React.FC = () => {
-  const {
-    settings,
-    saveSettings,
-    loadSettings,
-    clips,
-  } = useClipStore();
+  const { settings, saveSettings, loadSettings, clips } = useClipStore();
 
   const { updateStatus, downloadProgress } = useUpdateStore();
   const [showUpdatesDialog, setShowUpdatesDialog] = useState(false);
@@ -53,15 +48,15 @@ const Settings: React.FC = () => {
   const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
   const [showExportWizard, setShowExportWizard] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<BulkActionType | null>(null);
+  const [bulkActionType, setBulkActionType] = useState<BulkActionType | null>(
+    null,
+  );
   const [clearingCache, setClearingCache] = useState(false);
   const [clearCacheStep, setClearCacheStep] = useState(0);
   const [clearCacheStatus, setClearCacheStatus] = useState<
     "idle" | "running" | "done" | "error"
   >("idle");
   const [clearCacheError, setClearCacheError] = useState("");
-
-
 
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -100,7 +95,6 @@ const Settings: React.FC = () => {
           // Reset UI state
           store.resetFilters();
           store.setActivePage("dashboard");
-
         }, 500);
       }
     } catch (e) {
@@ -141,8 +135,8 @@ const Settings: React.FC = () => {
       const success = window.clipAPI?.advancedClearCache
         ? await window.clipAPI.advancedClearCache()
         : window.clipAPI?.clearCache
-        ? await window.clipAPI.clearCache()
-        : true;
+          ? await window.clipAPI.clearCache()
+          : true;
       if (!success) {
         throw new Error("Failed to clear cache in main process");
       }
@@ -313,7 +307,7 @@ const Settings: React.FC = () => {
             <div className="space-y-2">
               <SettingRow
                 label="Launch at Windows startup"
-                desc="Start ClipMaster Pro automatically with Administrator privileges on login (bypasses UAC using Task Scheduler)."
+                desc="Start ClipMaster Pro automatically with admin rights on login via Task Scheduler."
                 icon={<IconZap size={13} />}
               >
                 <Toggle
@@ -388,13 +382,14 @@ const Settings: React.FC = () => {
                 icon={<IconZap size={13} />}
               >
                 <ShortcutRecorder
-                  value={settings.globalShortcutKey || "CommandOrControl+Shift+V"}
+                  value={
+                    settings.globalShortcutKey || "CommandOrControl+Shift+V"
+                  }
                   onChange={(v) => saveSettings({ globalShortcutKey: v })}
                 />
               </SettingRow>
             </div>
           </Section>
-
 
           {/* End Sync Status Overlay */}
 
@@ -404,10 +399,8 @@ const Settings: React.FC = () => {
             icon={<IconAlertCircle size={14} className="text-rose-500/60" />}
           >
             <div className="space-y-4 pt-1">
-
               {/* ── ROW 1: Bulk Actions (1/2) + Export + Import ── */}
               <div className="flex gap-4 items-stretch">
-
                 {/* LEFT: Bulk Actions — half width */}
                 <div className="w-1/2 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
                   <div className="space-y-4">
@@ -430,32 +423,113 @@ const Settings: React.FC = () => {
                     <div className="space-y-1">
                       {(
                         [
-                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    icon: <IconTrash size={15} className="text-rose-400 shrink-0" />,    hoverBg: "hover:bg-rose-500/5",     delayClass: "shiny-delay-1", shinyColor: "244, 63, 94" },
-                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", icon: <IconRestore size={15} className="text-emerald-400 shrink-0" />, hoverBg: "hover:bg-emerald-500/5", delayClass: "shiny-delay-2", shinyColor: "16, 185, 129" },
-                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   icon: <IconStar size={15} className="text-amber-400 shrink-0" />,   hoverBg: "hover:bg-amber-500/5",    delayClass: "shiny-delay-3", shinyColor: "245, 158, 11" },
-                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  icon: <IconTag size={15} className="text-violet-400 shrink-0" />,  hoverBg: "hover:bg-violet-500/5",  delayClass: "shiny-delay-4", shinyColor: "139, 92, 246" },
-                        ] as { value: BulkActionType; label: string; desc: string; color: string; icon: React.ReactNode; hoverBg: string; delayClass: string; shinyColor: string }[]
+                          {
+                            value: "move-to-recycle",
+                            label: "Move to Recycle Bin",
+                            desc: "Soft-delete active clips",
+                            color: "text-rose-400",
+                            icon: (
+                              <IconTrash
+                                size={15}
+                                className="text-rose-400 shrink-0"
+                              />
+                            ),
+                            hoverBg: "hover:bg-rose-500/5",
+                            delayClass: "shiny-delay-1",
+                            shinyColor: "244, 63, 94",
+                          },
+                          {
+                            value: "restore-from-recycle",
+                            label: "Restore From Recycle Bin",
+                            desc: "Recover deleted clips",
+                            color: "text-emerald-400",
+                            icon: (
+                              <IconRestore
+                                size={15}
+                                className="text-emerald-400 shrink-0"
+                              />
+                            ),
+                            hoverBg: "hover:bg-emerald-500/5",
+                            delayClass: "shiny-delay-2",
+                            shinyColor: "16, 185, 129",
+                          },
+                          {
+                            value: "move-to-favourites",
+                            label: "Move to Favourites",
+                            desc: "Star clips in bulk",
+                            color: "text-amber-400",
+                            icon: (
+                              <IconStar
+                                size={15}
+                                className="text-amber-400 shrink-0"
+                              />
+                            ),
+                            hoverBg: "hover:bg-amber-500/5",
+                            delayClass: "shiny-delay-3",
+                            shinyColor: "245, 158, 11",
+                          },
+                          {
+                            value: "attach-tags",
+                            label: "Attach Tag(s)",
+                            desc: "Bulk-tag a clip selection",
+                            color: "text-violet-400",
+                            icon: (
+                              <IconTag
+                                size={15}
+                                className="text-violet-400 shrink-0"
+                              />
+                            ),
+                            hoverBg: "hover:bg-violet-500/5",
+                            delayClass: "shiny-delay-4",
+                            shinyColor: "139, 92, 246",
+                          },
+                        ] as {
+                          value: BulkActionType;
+                          label: string;
+                          desc: string;
+                          color: string;
+                          icon: React.ReactNode;
+                          hoverBg: string;
+                          delayClass: string;
+                          shinyColor: string;
+                        }[]
                       ).map((opt) => (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setBulkActionType(opt.value)}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent ${opt.hoverBg} transition-all duration-150 cursor-pointer group/row text-left shiny-card-effect ${opt.delayClass}`}
-                          style={{ "--shiny-color": opt.shinyColor } as React.CSSProperties}
+                          style={
+                            {
+                              "--shiny-color": opt.shinyColor,
+                            } as React.CSSProperties
+                          }
                         >
                           <div className="opacity-70 group-hover/row:opacity-100 transition-opacity">
                             {opt.icon}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className={`block text-[11px] font-semibold text-gray-300 group-hover/row:${opt.color} transition-colors leading-snug`}>
+                            <span
+                              className={`block text-[11px] font-semibold text-gray-300 group-hover/row:${opt.color} transition-colors leading-snug`}
+                            >
                               {opt.label}
                             </span>
                             <span className="block text-[10px] text-gray-600 group-hover/row:text-gray-500 transition-colors leading-tight mt-0.5 truncate">
                               {opt.desc}
                             </span>
                           </div>
-                          <svg className="w-3.5 h-3.5 shrink-0 opacity-0 group-hover/row:opacity-30 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          <svg
+                            className="w-3.5 h-3.5 shrink-0 opacity-0 group-hover/row:opacity-30 transition-opacity"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 5l7 7-7 7"
+                            />
                           </svg>
                         </button>
                       ))}
@@ -469,14 +543,23 @@ const Settings: React.FC = () => {
 
                 {/* RIGHT: Export + Import stacked */}
                 <div className="flex-1 flex flex-col gap-4">
-
                   {/* Export System */}
                   <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                            />
                           </svg>
                         </div>
                         <h4 className="text-sm font-semibold text-white group-hover:text-brand-300 transition-colors">
@@ -484,13 +567,18 @@ const Settings: React.FC = () => {
                         </h4>
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        Export clipboard entries, tags, and settings to Excel, JSON, PDF, or Raw files.
+                        Export clipboard entries, tags, and settings to Excel,
+                        JSON, PDF, or Raw files.
                       </p>
                     </div>
                     <button
                       onClick={() => setShowExportWizard(true)}
                       className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer shiny-card-effect"
-                      style={{ "--shiny-color": "99, 102, 241" } as React.CSSProperties}
+                      style={
+                        {
+                          "--shiny-color": "99, 102, 241",
+                        } as React.CSSProperties
+                      }
                     >
                       <IconArrowUp size={14} />
                       <span>Start Export</span>
@@ -502,8 +590,18 @@ const Settings: React.FC = () => {
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
                           </svg>
                         </div>
                         <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
@@ -511,25 +609,27 @@ const Settings: React.FC = () => {
                         </h4>
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        Restore clips, tags, and settings from a JSON or ZIP backup package.
+                        Restore clips, tags, and settings from a JSON or ZIP
+                        backup package.
                       </p>
                     </div>
                     <button
                       onClick={() => setShowImportWizard(true)}
                       className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer shiny-card-effect"
-                      style={{ "--shiny-color": "99, 102, 241" } as React.CSSProperties}
+                      style={
+                        {
+                          "--shiny-color": "99, 102, 241",
+                        } as React.CSSProperties
+                      }
                     >
                       <IconArrowDown size={14} />
                       <span>Start Import</span>
                     </button>
                   </div>
-
                 </div>
               </div>
-
             </div>
           </Section>
-
 
           {/* About */}
           <Section
@@ -570,11 +670,17 @@ const Settings: React.FC = () => {
           {/* ── Danger Zone ── */}
           <div className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl bg-rose-500/5">
             <div className="flex items-center gap-3 min-w-0">
-              <IconAlertCircle size={16} className="text-rose-500/60 shrink-0" />
+              <IconAlertCircle
+                size={16}
+                className="text-rose-500/60 shrink-0"
+              />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-rose-400/80">Reset Database</p>
+                <p className="text-xs font-semibold text-rose-400/80">
+                  Reset Database
+                </p>
                 <p className="text-[10px] text-gray-600 mt-0.5 truncate">
-                  Permanently erases all clips, tags &amp; settings — cannot be undone.
+                  Permanently erases all clips, tags &amp; settings — cannot be
+                  undone.
                 </p>
               </div>
             </div>
@@ -587,7 +693,7 @@ const Settings: React.FC = () => {
               className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/15 text-xs font-semibold text-rose-400 active:scale-95 transition-all cursor-pointer"
             >
               <IconTrash size={13} />
-              <span>Reset</span>
+              <span>Reset All</span>
             </button>
           </div>
 
@@ -736,7 +842,11 @@ const Settings: React.FC = () => {
               { label: "Purging version installation files", step: 2 },
               { label: "Purging web session caches", step: 3 },
               { label: "Compacting local database files", step: 4 },
-              { label: "Clearing singleton lock files & repairing startup tasks", step: 5 },
+              {
+                label:
+                  "Clearing singleton lock files & repairing startup tasks",
+                step: 5,
+              },
               { label: "Re-indexing clip records", step: 6 },
             ].map((item) => {
               const isPending = clearCacheStep < item.step;
@@ -852,7 +962,8 @@ const Settings: React.FC = () => {
               </li>
               <li>
                 <span className="font-semibold text-gray-200">Data Safety</span>
-                : Your clipboard history and personalized configurations are fully preserved during updates.
+                : Your clipboard history and personalized configurations are
+                fully preserved during updates.
               </li>
               <li>
                 <span className="font-semibold text-gray-200">
@@ -895,7 +1006,9 @@ const Settings: React.FC = () => {
                     .split("+")
                     .map((k, idx) => (
                       <React.Fragment key={k}>
-                        {idx > 0 && <span className="text-gray-500 mx-0.5">+</span>}
+                        {idx > 0 && (
+                          <span className="text-gray-500 mx-0.5">+</span>
+                        )}
                         <span className="font-semibold text-white uppercase">
                           {k === "CommandOrControl" ? "Ctrl" : k}
                         </span>
@@ -904,7 +1017,12 @@ const Settings: React.FC = () => {
                 </div>
               </div>
               <p className="mt-2 text-[13px] leading-5 text-gray-400">
-                Press this global hotkey to instantly display a lightweight clipboard history window on top of any active application. This popup shows your 10 most recent clips, filters, custom options, and search features. Clicking any clip automatically copies it and pastes it directly into the active input field of other applications.
+                Press this global hotkey to instantly display a lightweight
+                clipboard history window on top of any active application. This
+                popup shows your 10 most recent clips, filters, custom options,
+                and search features. Clicking any clip automatically copies it
+                and pastes it directly into the active input field of other
+                applications.
               </p>
             </div>
           </div>
@@ -1048,7 +1166,13 @@ const Section: React.FC<{
       </div>
       {badge}
     </header>
-    <div className={contentClassName ? `p-5 rounded-2xl ${contentClassName} space-y-4` : "px-1 space-y-1"}>
+    <div
+      className={
+        contentClassName
+          ? `p-5 rounded-2xl ${contentClassName} space-y-4`
+          : "px-1 space-y-1"
+      }
+    >
       {children}
     </div>
   </section>
@@ -1177,10 +1301,14 @@ const ShortcutRecorder: React.FC<{
     const handleKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       const hasModifiers = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
-      const hasMainKey = recordedKeys.length > 0 && !["Ctrl", "Alt", "Shift"].includes(recordedKeys[recordedKeys.length - 1]);
-      
+      const hasMainKey =
+        recordedKeys.length > 0 &&
+        !["Ctrl", "Alt", "Shift"].includes(
+          recordedKeys[recordedKeys.length - 1],
+        );
+
       if (hasMainKey || (!hasModifiers && recordedKeys.length > 0)) {
         saveShortcut();
       }
@@ -1196,7 +1324,9 @@ const ShortcutRecorder: React.FC<{
 
   const saveShortcut = () => {
     if (recordedKeys.length > 0) {
-      const hasModifier = recordedKeys.some(k => ["Ctrl", "Alt", "Shift"].includes(k));
+      const hasModifier = recordedKeys.some((k) =>
+        ["Ctrl", "Alt", "Shift"].includes(k),
+      );
       const mainKey = recordedKeys[recordedKeys.length - 1];
       const isFunctionKey = /^F[1-9][0-2]?$/.test(mainKey);
 
@@ -1214,7 +1344,11 @@ const ShortcutRecorder: React.FC<{
     setRecordedKeys([]);
   };
 
-  const keysToDisplay = isRecording ? recordedKeys : (value ? value.split("+").map(k => k === "CommandOrControl" ? "Ctrl" : k) : []);
+  const keysToDisplay = isRecording
+    ? recordedKeys
+    : value
+      ? value.split("+").map((k) => (k === "CommandOrControl" ? "Ctrl" : k))
+      : [];
 
   return (
     <div className="flex items-center gap-3" ref={containerRef}>
@@ -1222,14 +1356,18 @@ const ShortcutRecorder: React.FC<{
         {keysToDisplay.length > 0 ? (
           keysToDisplay.map((k, idx) => (
             <React.Fragment key={k}>
-              {idx > 0 && <span className="text-gray-600 text-xs font-sans">+</span>}
+              {idx > 0 && (
+                <span className="text-gray-600 text-xs font-sans">+</span>
+              )}
               <kbd className="inline-block px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-[10px] font-bold text-gray-200 shadow-[0_2px_4px_rgba(0,0,0,0.15)] leading-none uppercase">
                 {k}
               </kbd>
             </React.Fragment>
           ))
         ) : (
-          <span className="text-xs text-gray-500 font-sans italic">None configured</span>
+          <span className="text-xs text-gray-500 font-sans italic">
+            None configured
+          </span>
         )}
       </div>
 
@@ -1291,7 +1429,7 @@ const MaxClipsSelector: React.FC<{
 
   // draft stores the FORMATTED string shown in the input (e.g. "2,00,000")
   const [draft, setDraft] = React.useState(
-    isValueCustom ? toIndianFormat(value) : toIndianFormat(200000)
+    isValueCustom ? toIndianFormat(value) : toIndianFormat(200000),
   );
   const [isEditing, setIsEditing] = React.useState(false);
   const [valueBeforeEdit, setValueBeforeEdit] = React.useState(value);
@@ -1330,7 +1468,9 @@ const MaxClipsSelector: React.FC<{
   const handleCancel = () => {
     setIsEditing(false);
     if (value !== valueBeforeEdit) onChange(valueBeforeEdit);
-    setDraft(isValueCustom ? toIndianFormat(valueBeforeEdit) : toIndianFormat(200000));
+    setDraft(
+      isValueCustom ? toIndianFormat(valueBeforeEdit) : toIndianFormat(200000),
+    );
   };
 
   // Live hint values while editing
@@ -1355,17 +1495,42 @@ const MaxClipsSelector: React.FC<{
             }
           }}
           options={[
-            { label: "500 clips",              value: 500,    icon: <IconMinimize size={14} /> },
-            { label: "1,000 clips",             value: 1000,   icon: <IconList size={14} /> },
-            { label: "5,000 clips",             value: 5000,   icon: <IconLayers size={14} /> },
-            { label: "10,000 clips",            value: 10000,  icon: <IconLayers size={14} /> },
-            { label: "25,000 clips",            value: 25000,  icon: <IconDatabase size={14} /> },
-            { label: "50,000 clips",            value: 50000,  icon: <IconDatabase size={14} /> },
-            { label: "1,00,000 clips (1 Lakh)", value: 100000, icon: <IconCloud size={14} /> },
             {
-              label: isValueCustom && !isEditing
-                ? `Custom: ${toIndianFormat(value)}`
-                : "Custom (up to 1 Crore)",
+              label: "500 clips",
+              value: 500,
+              icon: <IconMinimize size={14} />,
+            },
+            { label: "1,000 clips", value: 1000, icon: <IconList size={14} /> },
+            {
+              label: "5,000 clips",
+              value: 5000,
+              icon: <IconLayers size={14} />,
+            },
+            {
+              label: "10,000 clips",
+              value: 10000,
+              icon: <IconLayers size={14} />,
+            },
+            {
+              label: "25,000 clips",
+              value: 25000,
+              icon: <IconDatabase size={14} />,
+            },
+            {
+              label: "50,000 clips",
+              value: 50000,
+              icon: <IconDatabase size={14} />,
+            },
+            {
+              label: "1,00,000 clips (1 Lakh)",
+              value: 100000,
+              icon: <IconCloud size={14} />,
+            },
+            {
+              label:
+                isValueCustom && !isEditing
+                  ? `Custom: ${toIndianFormat(value)}`
+                  : "Custom (up to 1 Crore)",
               caption: isValueCustom && !isEditing ? caption : undefined,
               value: "custom",
               icon: <IconEdit size={14} />,
@@ -1412,17 +1577,19 @@ const MaxClipsSelector: React.FC<{
           </button>
         )}
       </div>
-
     </div>
   );
 };
 
-
-
 const CustomSelect: React.FC<{
   value: any;
   onChange: (v: any) => void;
-  options: { label: string; caption?: string; value: any; icon?: React.ReactNode }[];
+  options: {
+    label: string;
+    caption?: string;
+    value: any;
+    icon?: React.ReactNode;
+  }[];
 }> = ({ value, onChange, options }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1502,7 +1669,9 @@ const CustomSelect: React.FC<{
                       {opt.icon}
                     </span>
                   )}
-                  <span className="font-medium whitespace-nowrap">{opt.label}</span>
+                  <span className="font-medium whitespace-nowrap">
+                    {opt.label}
+                  </span>
                   {opt.caption && (
                     <span className="text-[10px] font-semibold text-brand-400/70">
                       {opt.caption}

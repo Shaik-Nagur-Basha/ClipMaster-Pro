@@ -10,6 +10,7 @@ import {
   IconX,
   IconArrowUp,
   IconArrowDown,
+  IconRestore,
 } from "./Icons";
 import type { Tag, ScopeFilter } from "../types";
 import { useClipStore } from "../store/useClipStore";
@@ -102,7 +103,7 @@ function getActionMeta(actionType: BulkActionType) {
       return {
         title: "Move to Recycle Bin",
         subtitle: "Choose which active clips to soft-delete.",
-        icon: <IconTrash size={16} className="text-rose-400" />,
+        icon: <IconTrash size={20} className="text-rose-400" />,
         accentClass: "bg-rose-500 hover:bg-rose-600 shadow-rose-500/20",
         progressLabel: "Moving clips to recycle bin…",
         doneLabel: "Moved to Recycle Bin",
@@ -113,11 +114,7 @@ function getActionMeta(actionType: BulkActionType) {
       return {
         title: "Restore From Recycle Bin",
         subtitle: "Choose which deleted clips to restore.",
-        icon: (
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-emerald-400">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-          </svg>
-        ),
+        icon: <IconRestore size={20} className="text-emerald-400" />,
         accentClass: "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20",
         progressLabel: "Restoring clips…",
         doneLabel: "Clips Restored",
@@ -128,7 +125,7 @@ function getActionMeta(actionType: BulkActionType) {
       return {
         title: "Move to Favourites",
         subtitle: "Choose which non-favourite clips to mark as favourite.",
-        icon: <IconStar size={16} className="text-amber-400" />,
+        icon: <IconStar size={20} className="text-amber-400" />,
         accentClass: "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20",
         progressLabel: "Marking clips as favourite…",
         doneLabel: "Marked as Favourite",
@@ -139,7 +136,7 @@ function getActionMeta(actionType: BulkActionType) {
       return {
         title: "Attach Tags",
         subtitle: "Choose clips and tags to attach.",
-        icon: <IconTag size={16} className="text-brand-400" />,
+        icon: <IconTag size={20} className="text-brand-400" />,
         accentClass: "bg-brand-500 hover:bg-brand-600 shadow-brand-500/20",
         progressLabel: "Attaching tags to clips…",
         doneLabel: "Tags Attached",
@@ -498,8 +495,14 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
   const liveTagsSorted = useMemo(() => {
     return [...tags]
       .filter((t) => (liveTagCounts[t.id] ?? 0) >= 1)
-      .sort((a, b) => (liveTagCounts[b.id] ?? 0) - (liveTagCounts[a.id] ?? 0));
-  }, [tags, liveTagCounts]);
+      .sort((a, b) => {
+        const aSel = sf.specificTags.includes(a.id);
+        const bSel = sf.specificTags.includes(b.id);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+        return (liveTagCounts[b.id] ?? 0) - (liveTagCounts[a.id] ?? 0);
+      });
+  }, [tags, liveTagCounts, sf.specificTags]);
 
   // Unfiltered base clips for the current action type (to compute stable tag counts & order)
   const [baseActionClips, setBaseActionClips] = useState<any[]>([]);
@@ -540,8 +543,14 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
   // All system tags sorted by base count descending
   const allTagsSortedByBaseCount = useMemo(() => {
     return [...tags]
-      .sort((a, b) => (baseTagCounts[b.id] ?? 0) - (baseTagCounts[a.id] ?? 0));
-  }, [tags, baseTagCounts]);
+      .sort((a, b) => {
+        const aSel = attachTagIds.includes(a.id);
+        const bSel = attachTagIds.includes(b.id);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+        return (baseTagCounts[b.id] ?? 0) - (baseTagCounts[a.id] ?? 0);
+      });
+  }, [tags, baseTagCounts, attachTagIds]);
 
   // Clear date ranges when sub-filters change so they can be re-calculated with new defaults
   useEffect(() => {
@@ -1369,16 +1378,31 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
                     <span>{charCount}ch</span>
                     {c.tags && c.tags.length > 0 && (
                       <div className="flex items-center gap-1 ml-2">
-                        <span>tags:</span>
-                        {c.tags.map((tid: string) => {
-                          const tagObj = tags.find((t) => t.id === tid);
-                          if (!tagObj) return null;
+                        {(() => {
+                          const resolvedTags = c.tags
+                            .map((tid: string) => tags.find((t: any) => t.id === tid))
+                            .filter((t: any): t is any => !!t);
+                          
+                          const maxVisible = 2;
+                          const visibleTags = resolvedTags.slice(0, maxVisible);
+                          const remainingCount = resolvedTags.length - maxVisible;
+                          const remainingNames = resolvedTags.slice(maxVisible).map((t: any) => t.name).join(", ");
+
                           return (
-                            <span key={tid} className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }}>
-                              {tagObj.name}
-                            </span>
+                            <>
+                              {visibleTags.map((tagObj: any) => (
+                                <span key={tagObj.id} className="px-1.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap inline-flex items-center max-w-[80px]" style={{ backgroundColor: tagObj.color + "20", color: tagObj.color }} title={tagObj.name}>
+                                  <span className="truncate">{tagObj.name}</span>
+                                </span>
+                              ))}
+                              {remainingCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/10 text-gray-400 cursor-help" title={remainingNames}>
+                                  +{remainingCount}
+                                </span>
+                              )}
+                            </>
                           );
-                        })}
+                        })()}
                       </div>
                     )}
                   </div>

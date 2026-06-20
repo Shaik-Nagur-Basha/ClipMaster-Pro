@@ -832,6 +832,40 @@ export default function App() {
 
   const isPopupMode = typeof window !== "undefined" && window.location.search.includes("popup=true");
 
+  // Suppress native browser tooltips in popup mode since they display behind the always-on-top window
+  useEffect(() => {
+    if (!isPopupMode) return;
+
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && typeof target.hasAttribute === "function" && target.hasAttribute("title")) {
+        const title = target.getAttribute("title");
+        if (title) {
+          target.setAttribute("data-title", title);
+          target.removeAttribute("title");
+        }
+      }
+    };
+
+    const handleMouseOut = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && typeof target.hasAttribute === "function" && target.hasAttribute("data-title")) {
+        const title = target.getAttribute("data-title");
+        if (title) {
+          target.setAttribute("title", title);
+          target.removeAttribute("data-title");
+        }
+      }
+    };
+
+    window.addEventListener("mouseover", handleMouseOver, true);
+    window.addEventListener("mouseout", handleMouseOut, true);
+    return () => {
+      window.removeEventListener("mouseover", handleMouseOver, true);
+      window.removeEventListener("mouseout", handleMouseOut, true);
+    };
+  }, [isPopupMode]);
+
   if (isPopupMode) {
     const isPinned = settings.popupPinned === true;
 
@@ -852,6 +886,7 @@ export default function App() {
           fontFamily: "Inter, system-ui, sans-serif",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           boxSizing: "border-box",
+          position: "relative",
         }}
       >
         {/* Draggable Header Bar */}
@@ -1008,6 +1043,60 @@ export default function App() {
           </ErrorBoundary>
         </main>
         {renderWarningDialog()}
+
+        {/* Visual Resize Grip in the bottom-right corner */}
+        <div
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startWidth = window.innerWidth;
+            const startHeight = window.innerHeight;
+            const handleMouseMove = (moveEvent: MouseEvent) => {
+              const deltaX = moveEvent.clientX - startX;
+              const deltaY = moveEvent.clientY - startY;
+              const newWidth = Math.max(400, startWidth + deltaX);
+              const newHeight = Math.max(520, startHeight + deltaY);
+              if (window.clipAPI && (window.clipAPI as any).resizePopup) {
+                (window.clipAPI as any).resizePopup(newWidth, newHeight);
+              }
+            };
+            const handleMouseUp = () => {
+              window.removeEventListener("mousemove", handleMouseMove);
+              window.removeEventListener("mouseup", handleMouseUp);
+            };
+            window.addEventListener("mousemove", handleMouseMove);
+            window.addEventListener("mouseup", handleMouseUp);
+          }}
+          style={{
+            position: "absolute",
+            right: 2,
+            bottom: 2,
+            width: 16,
+            height: 16,
+            cursor: "se-resize",
+            /* @ts-ignore */
+            WebkitAppRegion: "no-drag",
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "flex-end",
+            opacity: 0.5,
+            color: "rgba(255, 255, 255, 0.6)",
+            zIndex: 9999,
+          }}
+          className="hover:opacity-100 transition-opacity"
+        >
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor">
+            {/* Classic 6-dot resize grip (diagonal layout) */}
+            <circle cx="10" cy="10" r="1.2" />
+            <circle cx="10" cy="6" r="1.2" />
+            <circle cx="10" cy="2" r="1.2" />
+            <circle cx="6" cy="10" r="1.2" />
+            <circle cx="6" cy="6" r="1.2" />
+            <circle cx="2" cy="10" r="1.2" />
+          </svg>
+        </div>
       </div>
     );
   }
