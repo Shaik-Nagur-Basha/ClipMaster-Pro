@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import { FullPageSpinner } from "./components/LoadingSpinner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Dialog from "./components/Dialog";
+import { LiquidGlassSphere } from "./components/LiquidGlassSphere";
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const FavoritesPage = React.lazy(() => import("./pages/FavoritesPage"));
@@ -62,15 +63,7 @@ function TitleBar() {
           cursor: "default",
         }}
       >
-        <span
-          className="rotating-gradient-dot"
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            flexShrink: 0,
-          }}
-        />
+        <LiquidGlassSphere size={16} />
         <span
           style={{
             fontSize: 11,
@@ -916,15 +909,7 @@ export default function App() {
               userSelect: "none",
             }}
           >
-            <span
-              className="rotating-gradient-dot"
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                flexShrink: 0,
-              }}
-            />
+            <LiquidGlassSphere size={14} />
             <span
               style={{
                 fontSize: 10,
