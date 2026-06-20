@@ -430,17 +430,18 @@ const Settings: React.FC = () => {
                     <div className="space-y-1">
                       {(
                         [
-                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    icon: <IconTrash size={15} className="text-rose-400 shrink-0" />,    hoverBg: "hover:bg-rose-500/5"     },
-                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", icon: <IconRestore size={15} className="text-emerald-400 shrink-0" />, hoverBg: "hover:bg-emerald-500/5" },
-                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   icon: <IconStar size={15} className="text-amber-400 shrink-0" />,   hoverBg: "hover:bg-amber-500/5"    },
-                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  icon: <IconTag size={15} className="text-violet-400 shrink-0" />,  hoverBg: "hover:bg-violet-500/5"  },
-                        ] as { value: BulkActionType; label: string; desc: string; color: string; icon: React.ReactNode; hoverBg: string }[]
+                          { value: "move-to-recycle",      label: "Move to Recycle Bin",     desc: "Soft-delete active clips",    color: "text-rose-400",    icon: <IconTrash size={15} className="text-rose-400 shrink-0" />,    hoverBg: "hover:bg-rose-500/5",     delayClass: "shiny-delay-1", shinyColor: "244, 63, 94" },
+                          { value: "restore-from-recycle", label: "Restore From Recycle Bin", desc: "Recover deleted clips",        color: "text-emerald-400", icon: <IconRestore size={15} className="text-emerald-400 shrink-0" />, hoverBg: "hover:bg-emerald-500/5", delayClass: "shiny-delay-2", shinyColor: "16, 185, 129" },
+                          { value: "move-to-favourites",   label: "Move to Favourites",       desc: "Star clips in bulk",           color: "text-amber-400",   icon: <IconStar size={15} className="text-amber-400 shrink-0" />,   hoverBg: "hover:bg-amber-500/5",    delayClass: "shiny-delay-3", shinyColor: "245, 158, 11" },
+                          { value: "attach-tags",          label: "Attach Tag(s)",            desc: "Bulk-tag a clip selection",    color: "text-violet-400",  icon: <IconTag size={15} className="text-violet-400 shrink-0" />,  hoverBg: "hover:bg-violet-500/5",  delayClass: "shiny-delay-4", shinyColor: "139, 92, 246" },
+                        ] as { value: BulkActionType; label: string; desc: string; color: string; icon: React.ReactNode; hoverBg: string; delayClass: string; shinyColor: string }[]
                       ).map((opt) => (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setBulkActionType(opt.value)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent ${opt.hoverBg} transition-all duration-150 cursor-pointer group/row text-left`}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent ${opt.hoverBg} transition-all duration-150 cursor-pointer group/row text-left shiny-card-effect ${opt.delayClass}`}
+                          style={{ "--shiny-color": opt.shinyColor } as React.CSSProperties}
                         >
                           <div className="opacity-70 group-hover/row:opacity-100 transition-opacity">
                             {opt.icon}
@@ -488,7 +489,8 @@ const Settings: React.FC = () => {
                     </div>
                     <button
                       onClick={() => setShowExportWizard(true)}
-                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer"
+                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-xs font-semibold text-brand-400 active:scale-95 transition-all cursor-pointer shiny-card-effect"
+                      style={{ "--shiny-color": "99, 102, 241" } as React.CSSProperties}
                     >
                       <IconArrowUp size={14} />
                       <span>Start Export</span>
@@ -514,7 +516,8 @@ const Settings: React.FC = () => {
                     </div>
                     <button
                       onClick={() => setShowImportWizard(true)}
-                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer"
+                      className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-xs font-semibold text-indigo-400 active:scale-95 transition-all cursor-pointer shiny-card-effect"
+                      style={{ "--shiny-color": "99, 102, 241" } as React.CSSProperties}
                     >
                       <IconArrowDown size={14} />
                       <span>Start Import</span>

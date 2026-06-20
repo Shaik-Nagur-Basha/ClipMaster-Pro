@@ -465,3 +465,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1 !important;
 }
+
+/* ─── Fancy shining effect for cards ────────────────────────── */
+@keyframes shimmer-shine {
+  0% {
+    left: -150%;
+  }
+  30% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.shiny-card-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shiny-card-effect::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(var(--shiny-color, 255, 255, 255), 0) 48%,
+    rgba(var(--shiny-color, 255, 255, 255), 0.16) 50%,
+    rgba(var(--shiny-color, 255, 255, 255), 0) 52%
+  );
+  transform: rotate(30deg);
+  pointer-events: none;
+  opacity: 1;
+  animation: shimmer-shine-hover 12s ease-in-out infinite;
+}
+
+@keyframes shimmer-shine-hover {
+  0% {
+    left: -150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.shiny-card-effect:hover::after {
+  animation: shimmer-shine-hover 6s ease-in-out infinite;
+  animation-delay: 0s !important;
+}
+
+.shiny-delay-1::after {
+  animation-delay: 0s;
+}
+.shiny-delay-2::after {
+  animation-delay: 1.5s;
+}
+.shiny-delay-3::after {
+  animation-delay: 3s;
+}
+.shiny-delay-4::after {
+  animation-delay: 4.5s;
+}

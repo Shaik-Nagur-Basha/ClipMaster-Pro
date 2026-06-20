@@ -61,8 +61,8 @@ type ChipColor = "brand" | "star" | "rose" | "emerald" | "violet";
 const DIM_FAVOURITES: DimConfig = {
   key: "favourites",
   label: "Favourites",
-  yesLabel: "Only Favourites",
-  noLabel: "Not Favourites",
+  yesLabel: "Only favourites",
+  noLabel: "Not favourites",
   yesColor: "star",
   noColor: "brand",
 };
@@ -70,7 +70,7 @@ const DIM_RECYCLE: DimConfig = {
   key: "recycle",
   label: "Recycle Bin",
   yesLabel: "In Recycle Bin",
-  noLabel: "Not In Recycle Bin",
+  noLabel: "Not in Recycle Bin",
   yesColor: "rose",
   noColor: "emerald",
 };
@@ -1250,8 +1250,8 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
               exit={{ opacity: 0 }}
               className="space-y-5"
             >
-              <div className={`flex items-center gap-3 p-4 rounded-xl border ${meta.doneBg}`}>
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 shrink-0">
+              <div className={`flex items-center gap-3 p-4 rounded-xl ${meta.doneBg}`}>
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border-white/10 shrink-0">
                   <IconCheck size={18} className={meta.doneColor} />
                 </div>
                 <div>
@@ -1491,7 +1491,7 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={() => setShowConfirmDialog(false)}
-            className="flex-1 py-2.5 rounded-xl bg-surface-800 hover:bg-surface-750 border border-white/8 text-gray-300 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl bg-surface-800 hover:bg-surface-750 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
           >
             Cancel
           </button>

@@ -247,8 +247,8 @@ interface DimensionConfig {
 function getDimensions(scope: string): DimensionConfig[] {
   const fav: DimensionConfig = {
     key: "favourites",
-    yesLabel: "Only Favourites",
-    noLabel: "Not Favourites",
+    yesLabel: "Only favourites",
+    noLabel: "Not favourites",
     yesColor: "star",
     noColor: "brand",
     yesIcon: <IconStar size={11} />,
@@ -257,7 +257,7 @@ function getDimensions(scope: string): DimensionConfig[] {
   const rec: DimensionConfig = {
     key: "recycle",
     yesLabel: "In Recycle Bin",
-    noLabel: "Not Recycle Bin",
+    noLabel: "Not in Recycle Bin",
     yesColor: "rose",
     noColor: "emerald",
     yesIcon: <IconTrash size={11} />,

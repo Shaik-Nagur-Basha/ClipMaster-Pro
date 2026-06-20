@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "./Dialog";
 import { useClipStore } from "../store/useClipStore";
@@ -26,6 +26,7 @@ interface ImportWizardProps {
 
 type ImportStatus =
   | "config"
+  | "preview"
   | "clips-config"
   | "tags-config"
   | "settings-config"
@@ -51,7 +52,8 @@ const CustomSelect: React.FC<{
   setIsOpen: (isOpen: boolean) => void;
   className?: string;
   disabled?: boolean;
-}> = ({ value, onChange, options, isOpen, setIsOpen, className = "", disabled = false }) => {
+  borderless?: boolean;
+}> = ({ value, onChange, options, isOpen, setIsOpen, className = "", disabled = false, borderless = false }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const currentOption = options.find((opt) => opt.value === value) || options[0];
 
@@ -71,27 +73,27 @@ const CustomSelect: React.FC<{
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-3 h-10 w-full px-4 rounded-xl transition-all duration-200 cursor-pointer border ${
+        className={`inline-flex items-center gap-2.5 h-9 px-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
           disabled
-            ? "bg-surface-900/50 border-gray-800 text-gray-600 cursor-not-allowed"
+            ? `bg-surface-900/50 text-gray-600 cursor-not-allowed ${borderless ? "border-0" : "border border-gray-800"}`
             : isOpen
-            ? "bg-surface-700 border-brand-500/30 text-brand-400 shadow-lg shadow-brand-500/5"
-            : "bg-surface-900 border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200"
+            ? `bg-surface-700 text-brand-400 shadow-lg shadow-brand-500/5 ${borderless ? "border-0" : "border border-brand-500/30"}`
+            : `bg-surface-900 text-gray-400 hover:text-gray-200 ${borderless ? "border-0" : "border border-gray-700/50 hover:border-gray-500"}`
         }`}
       >
-        <span className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="text-[12px] font-medium whitespace-nowrap">
           {currentOption.label}
         </span>
         <svg
-          width={14}
-          height={14}
+          width={12}
+          height={12}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`opacity-40 transition-transform duration-200 shrink-0 ${isOpen ? "rotate-180 text-brand-400" : ""}`}
+          className={`opacity-50 transition-transform duration-200 shrink-0 ${isOpen ? "rotate-180 text-brand-400" : ""}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -104,7 +106,7 @@ const CustomSelect: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full left-0 right-0 mt-1.5 z-[1001] w-full bg-surface-800 border border-white/10 rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+            className="absolute top-full right-0 mt-1.5 z-[1001] min-w-full w-max bg-surface-800 border border-white/10 rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
           >
             {options.map((opt) => (
               <button
@@ -114,14 +116,14 @@ const CustomSelect: React.FC<{
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between my-0.5 px-4 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                className={`w-full flex items-center justify-between gap-8 my-0.5 px-3.5 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer ${
                   value === opt.value
                     ? "bg-brand-500/10 text-brand-400 font-semibold"
                     : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                 }`}
               >
-                <span className="text-[12px]">{opt.label}</span>
-                {value === opt.value && <IconCheck size={14} className="text-brand-400 shrink-0" />}
+                <span className="text-[12px] whitespace-nowrap">{opt.label}</span>
+                {value === opt.value && <IconCheck size={13} className="text-brand-400 shrink-0" />}
               </button>
             ))}
           </motion.div>
@@ -268,6 +270,216 @@ const ModalScrollButtons: React.FC<{
   );
 };
 
+const colorMap: Record<"brand" | "star" | "rose" | "emerald" | "violet", { on: string; off: string }> = {
+  brand:   { on: "bg-brand-500/15 border-brand-500/50 text-brand-300",     off: "bg-surface-900 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200" },
+  star:    { on: "bg-amber-500/15 border-amber-500/50 text-amber-300",      off: "bg-surface-900 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200" },
+  rose:    { on: "bg-rose-500/15 border-rose-500/50 text-rose-300",         off: "bg-surface-900 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200" },
+  emerald: { on: "bg-emerald-500/15 border-emerald-500/50 text-emerald-300", off: "bg-surface-900 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200" },
+  violet:  { on: "bg-violet-500/15 border-violet-500/50 text-violet-300",   off: "bg-surface-900 border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200" },
+};
+
+const ToggleChip: React.FC<{
+  label: string;
+  active: boolean;
+  color: "brand" | "star" | "rose" | "emerald" | "violet";
+  disabled?: boolean;
+  onClick: () => void;
+}> = ({ label, active, color, disabled = false, onClick }) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={onClick}
+    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all duration-150 cursor-pointer ${
+      disabled
+        ? "bg-surface-950/40 border-white/5 text-gray-600 cursor-not-allowed opacity-50"
+        : active
+        ? colorMap[color].on
+        : colorMap[color].off
+    }`}
+  >
+    {label}
+    {active && <IconCheck size={10} className="shrink-0 ml-0.5" />}
+  </button>
+);
+
+const AttachTagSelect: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  availableTags: { id: string; name: string; color: string }[];
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+}> = ({ value, onChange, availableTags, isOpen, setIsOpen }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, setIsOpen]);
+
+  const selectedTag = availableTags.find(t => t.id === value);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {/* Trigger Button - Without border! */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center max-w-[170px] gap-2 h-8 px-3 rounded-lg transition-all duration-200 cursor-pointer bg-surface-800/40 hover:bg-surface-800 text-gray-400 hover:text-gray-200 border-0"
+      >
+        {selectedTag ? (
+          <span className="flex items-center gap-1.5 text-[11px] truncate font-semibold" style={{ color: selectedTag.color }}>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: selectedTag.color }} />
+            {selectedTag.name}
+          </span>
+        ) : (
+          <span className="text-[11px] text-gray-450 font-medium">No Tag</span>
+        )}
+        <svg
+          width={9}
+          height={9}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          className={`opacity-50 transition-transform duration-200 shrink-0 ${isOpen ? "rotate-180" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+            className="absolute top-full right-0 mt-1.5 z-[1001] w-64 bg-surface-800 border border-white/10 rounded-xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-3"
+          >
+            {/* Search input */}
+            <div className="relative flex items-center group w-full">
+              <div className="absolute left-2.5 text-gray-500">
+                <IconSearch size={11} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search tags..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-surface-900 border-0 rounded-lg pl-7 pr-7 py-1 text-[11px] text-white/85 placeholder-gray-600 focus:ring-0 focus:outline-none"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 p-1 text-gray-600 hover:text-gray-400"
+                >
+                  <IconX size={9} />
+                </button>
+              )}
+            </div>
+
+            {/* List of Badges */}
+            <div className="flex flex-wrap gap-1.5 max-h-[150px] overflow-y-auto pr-1 dialog-scrollbar">
+              {/* "No Tag" option */}
+              <span
+                onClick={() => {
+                  onChange("");
+                  setIsOpen(false);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-tight transition-all duration-200 cursor-pointer select-none border active:scale-95 ${
+                  value === ""
+                    ? "bg-white/10 border-white/20 text-white font-bold opacity-100"
+                    : "bg-surface-800/40 border-transparent text-gray-500 opacity-80 hover:opacity-100"
+                }`}
+              >
+                No Tag
+                {value === "" && <span className="ml-0.5">✓</span>}
+              </span>
+
+              {/* Tag options */}
+              {availableTags
+                .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
+                .map((tag) => (
+                  <TagBadge
+                    key={tag.id}
+                    tag={tag}
+                    size="sm"
+                    active={value === tag.id}
+                    onClick={() => {
+                      onChange(tag.id);
+                      setIsOpen(false);
+                    }}
+                  />
+                ))}
+
+              {/* Create New Tag Button */}
+              {search.trim() &&
+                !availableTags.some(
+                  (t) => t.name.toLowerCase() === search.toLowerCase()
+                ) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const colors = [
+                        "#ff6b6b",
+                        "#4ecdc4",
+                        "#45b7d1",
+                        "#f9ca24",
+                        "#6c5ce7",
+                        "#a29bfe",
+                        "#fd79a8",
+                        "#fdcb6e",
+                        "#6c7a89",
+                        "#00b894",
+                      ];
+                      const newTag = {
+                        id: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        name: search.trim(),
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        updatedAt: new Date().toISOString(),
+                      };
+                      const currentTags = useClipStore.getState().tags;
+                      const updatedTags = [...currentTags, newTag];
+                      await useClipStore.getState().saveTags(updatedTags);
+                      await useClipStore.getState().loadTags();
+                      onChange(newTag.id);
+                      setSearch("");
+                      setIsOpen(false);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] transition-all bg-brand-500/15 text-brand-400 border border-brand-500/40 hover:bg-brand-500/25 hover:border-brand-500/60 font-semibold cursor-pointer active:scale-95"
+                  >
+                    <span>+ Create "{search.trim()}"</span>
+                  </button>
+                )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const formatSettingKey = (key: string): string => {
+  switch (key) {
+    case "autoLaunch": return "Auto Launch";
+    case "maxEntries": return "Max Entries Limit";
+    case "pollingInterval": return "Polling Interval";
+    case "paginationEnabled": return "Enable Pagination";
+    case "pageSize": return "Page Size";
+    case "viewMode": return "Default View Mode";
+    case "displayMode": return "Display Mode";
+    case "pauseCaptureOption": return "Pause Capture Option";
+    default: return key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+  }
+};
+
 export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) => {
   const previewListRef = React.useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<ImportStatus>("config");
@@ -286,6 +498,29 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
   const localTags = useClipStore((state) => state.tags);
   const localSettings = useClipStore((state) => state.settings);
 
+  // Fetch all local clips to accurately resolve conflicts and duplicates (instead of paginated localClips)
+  const [allLocalClips, setAllLocalClips] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      window.clipAPI
+        .getClips()
+        .then((res) => {
+          const clipsArray = Array.isArray(res)
+            ? res
+            : res && Array.isArray(res.clips)
+            ? res.clips
+            : [];
+          setAllLocalClips(clipsArray);
+        })
+        .catch((err) => {
+          console.error("Failed to load all local clips for import preview", err);
+        });
+    } else {
+      setAllLocalClips([]);
+    }
+  }, [isOpen]);
+
   // Clips Config State
   const [clipConflict, setClipConflict] = useState<"keep-existing" | "keep-new">("keep-existing");
   const [textFilter, setTextFilter] = useState("");
@@ -303,10 +538,14 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
   // Tags Config State
   const [tagConflict, setTagConflict] = useState<"keep-existing" | "keep-new">("keep-existing");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  // Snapshot of localTags at the time the file was loaded — prevents post-import store updates from resetting selections
+  const localTagsSnapshotRef = useRef<{ id: string; name: string }[]>([]);
 
   // Settings Config State
-  const [importSettingsEnabled, setImportSettingsEnabled] = useState(true);
   const [selectedSettingsKeys, setSelectedSettingsKeys] = useState<Set<string>>(new Set());
+  const [settingsConflict, setSettingsConflict] = useState<"keep-existing" | "keep-new">("keep-existing");
+  const [settingsConflictOpen, setSettingsConflictOpen] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState("");
 
   // Search filter states for tag selection lists
   const [specificTagsSearch, setSpecificTagsSearch] = useState("");
@@ -327,10 +566,61 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
   const [l2TaggedOpen, setL2TaggedOpen] = useState(false);
   const [l2SpecificTagsModeOpen, setL2SpecificTagsModeOpen] = useState(false);
 
-  // Memoized dynamic date bounds from backup file clips based on current category and text query
+  // Phase 3 extra actions states
+  const [importMakeFavorite, setImportMakeFavorite] = useState(false);
+  const [importAttachTag, setImportAttachTag] = useState("");
+  const [importAttachTagOpen, setImportAttachTagOpen] = useState(false);
+
+  const availableTagsForAttachment = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; color: string }>();
+    // Add local tags
+    localTags.forEach((t) => {
+      map.set(t.name.toLowerCase().trim(), { id: t.id, name: t.name, color: t.color });
+    });
+    // Add backup tags
+    if (parsedData?.tags) {
+      parsedData.tags.forEach((t) => {
+        const nameLower = (t.name || "").toLowerCase().trim();
+        if (nameLower && !map.has(nameLower)) {
+          map.set(nameLower, { id: t.id, name: t.name, color: t.color || "#6366f1" });
+        }
+      });
+    }
+    return Array.from(map.values());
+  }, [localTags, parsedData?.tags]);
+
+  // Conflict-resolved base list of clips (before scope/text/date filtering)
+  // Declared here so dynamicDateBounds and text-search preview can reference it.
+  const conflictResolvedBaseClips = useMemo(() => {
+    if (!parsedData) return [];
+    if (clipConflict === "keep-new") return parsedData.clips || [];
+    const localIds = new Set(allLocalClips.map((c: any) => c.id));
+    const localTexts = new Set(allLocalClips.map((c: any) => (c.text || "").trim()));
+    return (parsedData.clips || []).filter((clip: any) => {
+      const id = (clip.id || "").trim();
+      const text = (clip.text || "").trim();
+      return !localIds.has(id) && !localTexts.has(text);
+    });
+  }, [parsedData, clipConflict, allLocalClips]);
+
+  // Memoized set of selected tag IDs and names for robust fallback matching (handles UUID/name string discrepancies)
+  const selectedTagsSet = useMemo(() => {
+    const set = new Set<string>();
+    if (!parsedData?.tags || l2SpecificTags.size === 0) return set;
+    parsedData.tags.forEach((tag: any) => {
+      if (l2SpecificTags.has(tag.id)) {
+        set.add(tag.id.toLowerCase().trim());
+        if (tag.name) {
+          set.add(tag.name.toLowerCase().trim());
+        }
+      }
+    });
+    return set;
+  }, [l2SpecificTags, parsedData?.tags]);
+
+  // Memoized dynamic date bounds from conflict-resolved clips based on current category and text query
   const dynamicDateBounds = useMemo(() => {
-    if (!parsedData || !parsedData.clips) return { min: "", max: "" };
-    const matchedClips = parsedData.clips.filter((clip) => {
+    const matchedClips = conflictResolvedBaseClips.filter((clip) => {
       // 1. Text filter
       if (textFilter.trim()) {
         const text = clip.text || "";
@@ -356,11 +646,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
 
       // 5. Specific Tags
       if (l2SpecificTagsMode === "include" && l2SpecificTags.size > 0) {
-        if (!clip.tags || !clip.tags.some((t: string) => l2SpecificTags.has(t))) {
+        if (!clip.tags || !clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
           return false;
         }
       } else if (l2SpecificTagsMode === "exclude" && l2SpecificTags.size > 0) {
-        if (clip.tags && clip.tags.some((t: string) => l2SpecificTags.has(t))) {
+        if (clip.tags && clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
           return false;
         }
       }
@@ -379,7 +669,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       max: new Date(maxTime).toISOString().split("T")[0],
     };
   }, [
-    parsedData,
+    conflictResolvedBaseClips,
     textFilter,
     level1Scope,
     l2Favorite,
@@ -387,29 +677,125 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     l2Tagged,
     l2SpecificTagsMode,
     l2SpecificTags,
+    selectedTagsSet,
   ]);
 
-  const prevBoundsRef = React.useRef({ min: "", max: "" });
-  // Pre-fill date ranges with computed min/max bounds when bounds change
-  useEffect(() => {
-    if (isOpen) {
-      const oldMin = prevBoundsRef.current.min;
-      const oldMax = prevBoundsRef.current.max;
-      setDateFrom((prev) => (prev === oldMin || !prev ? dynamicDateBounds.min : prev));
-      setDateTo((prev) => (prev === oldMax || !prev ? dynamicDateBounds.max : prev));
-      prevBoundsRef.current = dynamicDateBounds;
-    }
-  }, [dynamicDateBounds, isOpen]);
+  // Memoized date bounds for each category scope (respecting textFilter)
+  const categoryDateBounds = useMemo(() => {
+    const scopes = ["all", "favorites", "tagged", "active", "deleted"] as const;
+    const bounds: Record<string, { min: string; max: string }> = {};
 
-  // Clear date ranges when sub-filters or scope changes
+    scopes.forEach((sc) => {
+      const matched = conflictResolvedBaseClips.filter((clip) => {
+        // Text filter
+        if (textFilter.trim()) {
+          const text = clip.text || "";
+          if (!text.toLowerCase().includes(textFilter.toLowerCase())) {
+            return false;
+          }
+        }
+        // Base category scope matching
+        if (sc === "favorites" && !clip.isFavorite) return false;
+        if (sc === "tagged" && (!clip.tags || clip.tags.length === 0)) return false;
+        if (sc === "active" && clip.isDeleted) return false;
+        if (sc === "deleted" && !clip.isDeleted) return false;
+
+        return true;
+      });
+
+      const timestamps = matched
+        .map((c: any) => c.timestamp)
+        .filter(Boolean)
+        .map((t: string) => new Date(t).getTime());
+
+      if (timestamps.length === 0) {
+        bounds[sc] = { min: "", max: "" };
+      } else {
+        const minTime = Math.min(...timestamps);
+        const maxTime = Math.max(...timestamps);
+        bounds[sc] = {
+          min: new Date(minTime).toISOString().split("T")[0],
+          max: new Date(maxTime).toISOString().split("T")[0],
+        };
+      }
+    });
+
+    return bounds;
+  }, [conflictResolvedBaseClips, textFilter]);
+
+  // Initialize date ranges to overall bounds when backup data is loaded
+  useEffect(() => {
+    if (isOpen && categoryDateBounds.all) {
+      setDateFrom((prev) => prev || categoryDateBounds.all.min);
+      setDateTo((prev) => prev || categoryDateBounds.all.max);
+    }
+  }, [isOpen, categoryDateBounds.all]);
+
+  // Memoized date bounds for date range synchronization (ignores level1Scope and textFilter, but respects sub-filters and specific tags)
+  const dateBoundsForSync = useMemo(() => {
+    const matchedClips = conflictResolvedBaseClips.filter((clip) => {
+      // 1. Favorites sub-filter
+      if (l2Favorite === "yes" && !clip.isFavorite) return false;
+      if (l2Favorite === "no" && clip.isFavorite) return false;
+
+      // 2. Recycle Bin sub-filter
+      if (l2Recycle === "yes" && !clip.isDeleted) return false;
+      if (l2Recycle === "no" && clip.isDeleted) return false;
+
+      // 3. Tags Presence sub-filter
+      const hasTags = clip.tags && clip.tags.length > 0;
+      if (l2Tagged === "yes" && !hasTags) return false;
+      if (l2Tagged === "no" && hasTags) return false;
+
+      // 4. Specific Tags
+      if (l2SpecificTagsMode === "include" && l2SpecificTags.size > 0) {
+        if (!clip.tags || !clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
+          return false;
+        }
+      } else if (l2SpecificTagsMode === "exclude" && l2SpecificTags.size > 0) {
+        if (clip.tags && clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const timestamps = matchedClips
+      .map((c: any) => c.timestamp)
+      .filter(Boolean)
+      .map((t: string) => new Date(t).getTime());
+    if (timestamps.length === 0) return { min: "", max: "" };
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    return {
+      min: new Date(minTime).toISOString().split("T")[0],
+      max: new Date(maxTime).toISOString().split("T")[0],
+    };
+  }, [
+    conflictResolvedBaseClips,
+    l2Favorite,
+    l2Recycle,
+    l2Tagged,
+    l2SpecificTagsMode,
+    l2SpecificTags,
+    selectedTagsSet,
+  ]);
+
+  // Update date ranges to match dateBoundsForSync when bounds change based on sub-filters/tags
   useEffect(() => {
     if (isOpen) {
-      setDateFrom("");
-      setDateTo("");
+      setDateFrom(dateBoundsForSync.min);
+      setDateTo(dateBoundsForSync.max);
+    }
+  }, [dateBoundsForSync, isOpen]);
+
+  // Reset preview lists when scope changes, without altering date range
+  useEffect(() => {
+    if (isOpen) {
       setShowPreviewList(false);
       setPreviewLimit(3);
     }
-  }, [level1Scope, l2Favorite, l2Recycle, l2Tagged, l2SpecificTagsMode, l2SpecificTags, isOpen]);
+  }, [level1Scope, isOpen]);
 
   // Reset Phase 2 states on wizard open
   useEffect(() => {
@@ -419,28 +805,43 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       setTextSearchPreviewCount(0);
       setClipConflictOpen(false);
       setTagConflictOpen(false);
+      setSettingsConflictOpen(false);
+      setSettingsSearch("");
+      setSettingsConflict("keep-existing");
       setL2FavoriteOpen(false);
       setL2RecycleOpen(false);
       setL2TaggedOpen(false);
       setL2SpecificTagsModeOpen(false);
       setPreviewLimit(3);
+      setL2Favorite("all");
+      setL2Recycle("all");
+      setL2Tagged("all");
+      setL2SpecificTagsMode("disabled");
+      setL2SpecificTags(new Set());
+      setLevel1Scope("all");
     }
   }, [isOpen]);
 
-  // Query 1-3 instant matches specifically for the text filter
+  // Query 1-3 instant matches specifically for the text filter (from conflict-resolved base, filtered by level1Scope)
   useEffect(() => {
-    if (!isOpen || !parsedData || !textFilter.trim()) {
+    if (!isOpen || !textFilter.trim()) {
       setTextSearchPreviewClips([]);
       setTextSearchPreviewCount(0);
       return;
     }
-    const matched = parsedData.clips.filter((clip) => {
+    const matched = conflictResolvedBaseClips.filter((clip) => {
+      // Filter by Level 1 category scope
+      if (level1Scope === "favorites" && !clip.isFavorite) return false;
+      if (level1Scope === "tagged" && (!clip.tags || clip.tags.length === 0)) return false;
+      if (level1Scope === "active" && clip.isDeleted) return false;
+      if (level1Scope === "deleted" && !clip.isDeleted) return false;
+
       const text = clip.text || "";
       return text.toLowerCase().includes(textFilter.toLowerCase());
     });
     setTextSearchPreviewClips(matched.slice(0, 3));
     setTextSearchPreviewCount(matched.length);
-  }, [isOpen, parsedData, textFilter]);
+  }, [isOpen, conflictResolvedBaseClips, textFilter, level1Scope]);
 
   // Listen to progress
   useEffect(() => {
@@ -456,63 +857,121 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     return undefined;
   }, [status]);
 
-  // Lock and bind Level 2 states depending on Level 1 scope
-  useEffect(() => {
-    if (level1Scope === "favorites") {
-      setL2Favorite("yes");
-    } else if (level1Scope === "tagged") {
-      setL2Tagged("yes");
-    } else if (level1Scope === "active") {
-      setL2Recycle("no");
-    } else if (level1Scope === "deleted") {
-      setL2Recycle("yes");
-    } else {
-      setL2Favorite("all");
-      setL2Recycle("all");
-      setL2Tagged("all");
-      setL2SpecificTagsMode("disabled");
-    }
-  }, [level1Scope]);
-
-  // Counts of different categories from the raw imported file
+  // Counts of different categories from the conflict-resolved clips, updating with text filter only
   const parsedCounts = useMemo(() => {
-    if (!parsedData) return { all: 0, favorites: 0, tagged: 0, active: 0, deleted: 0 };
-    const clips = parsedData.clips || [];
-    return {
-      all: clips.length,
-      favorites: clips.filter((c) => c.isFavorite).length,
-      tagged: clips.filter((c) => c.tags && c.tags.length > 0).length,
-      active: clips.filter((c) => !c.isDeleted).length,
-      deleted: clips.filter((c) => c.isDeleted).length,
+    const clips = conflictResolvedBaseClips;
+    const filterByText = (clip: any) => {
+      // 1. Text filter
+      if (textFilter.trim()) {
+        const text = clip.text || "";
+        if (!text.toLowerCase().includes(textFilter.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
     };
-  }, [parsedData]);
 
-  // Per-tag clip counts from the backup file
+    const filtered = clips.filter(filterByText);
+
+    return {
+      all: filtered.length,
+      favorites: filtered.filter((c) => c.isFavorite).length,
+      tagged: filtered.filter((c) => c.tags && c.tags.length > 0).length,
+      active: filtered.filter((c) => !c.isDeleted).length,
+      deleted: filtered.filter((c) => c.isDeleted).length,
+    };
+  }, [conflictResolvedBaseClips, textFilter]);
+
+  // Clips matching current configuration (scope, text) but WITHOUT specific tags or date filters, to compute tag counts
+  const clipsForTagCounting = useMemo(() => {
+    return conflictResolvedBaseClips.filter((clip) => {
+      // 1. Text filter
+      if (textFilter.trim()) {
+        const text = clip.text || "";
+        if (!text.toLowerCase().includes(textFilter.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // 2. Favorites
+      const fav = level1Scope === "favorites" ? "yes" : l2Favorite;
+      if (fav === "yes" && !clip.isFavorite) return false;
+      if (fav === "no" && clip.isFavorite) return false;
+
+      // 3. Recycle Bin
+      let rec = l2Recycle;
+      if (level1Scope === "active") rec = "no";
+      else if (level1Scope === "deleted") rec = "yes";
+      if (rec === "yes" && !clip.isDeleted) return false;
+      if (rec === "no" && clip.isDeleted) return false;
+
+      // 4. Tags Presence
+      const tag = level1Scope === "tagged" ? "yes" : l2Tagged;
+      const hasTags = clip.tags && clip.tags.length > 0;
+      if (tag === "yes" && !hasTags) return false;
+      if (tag === "no" && hasTags) return false;
+
+      return true;
+    });
+  }, [
+    conflictResolvedBaseClips,
+    textFilter,
+    level1Scope,
+    l2Favorite,
+    l2Recycle,
+    l2Tagged,
+  ]);
+
+  // Per-tag clip counts from the backup file based on current filtered context (ignoring specific tags selection)
+  // Standardizes keys to lowercase trimmed strings for name/id comparison fallback
   const parsedTagCounts = useMemo(() => {
-    if (!parsedData) return {} as Record<string, number>;
     const counts: Record<string, number> = {};
-    (parsedData.clips || []).forEach((clip: any) => {
+    clipsForTagCounting.forEach((clip: any) => {
       if (clip.tags && Array.isArray(clip.tags)) {
-        clip.tags.forEach((tagId: string) => {
-          counts[tagId] = (counts[tagId] ?? 0) + 1;
+        clip.tags.forEach((t: string) => {
+          if (t && typeof t === "string") {
+            const key = t.toLowerCase().trim();
+            counts[key] = (counts[key] ?? 0) + 1;
+            counts[t] = (counts[t] ?? 0) + 1;
+          }
         });
       }
     });
     return counts;
-  }, [parsedData]);
+  }, [clipsForTagCounting]);
 
-  // Tags from the backup sorted by clip count desc, only those with ≥1 clip
+  // Tags from the backup sorted by clip count desc, only showing those with count >= 1
+  // Handles lookups using both id and name (case-insensitive) to support different backup schemas
   const sortedImportTags = useMemo(() => {
     if (!parsedData?.tags) return [];
     return [...parsedData.tags]
-      .filter((t: any) => (parsedTagCounts[t.id] ?? 0) >= 1)
-      .sort((a: any, b: any) => (parsedTagCounts[b.id] ?? 0) - (parsedTagCounts[a.id] ?? 0));
+      .filter((t: any) => {
+        const idKey = (t.id || "").toLowerCase().trim();
+        const nameKey = (t.name || "").toLowerCase().trim();
+        const countId = parsedTagCounts[t.id] ?? parsedTagCounts[idKey] ?? 0;
+        const countName = parsedTagCounts[t.name] ?? parsedTagCounts[nameKey] ?? 0;
+        return countId >= 1 || countName >= 1;
+      })
+      .sort((a: any, b: any) => {
+        const idKeyA = (a.id || "").toLowerCase().trim();
+        const nameKeyA = (a.name || "").toLowerCase().trim();
+        const countIdA = parsedTagCounts[a.id] ?? parsedTagCounts[idKeyA] ?? 0;
+        const countNameA = parsedTagCounts[a.name] ?? parsedTagCounts[nameKeyA] ?? 0;
+        const countA = Math.max(countIdA, countNameA);
+
+        const idKeyB = (b.id || "").toLowerCase().trim();
+        const nameKeyB = (b.name || "").toLowerCase().trim();
+        const countIdB = parsedTagCounts[b.id] ?? parsedTagCounts[idKeyB] ?? 0;
+        const countNameB = parsedTagCounts[b.name] ?? parsedTagCounts[nameKeyB] ?? 0;
+        const countB = Math.max(countIdB, countNameB);
+
+        return countB - countA;
+      });
   }, [parsedData, parsedTagCounts]);
 
-  // Calculate filtered list of clips
+  // Calculate filtered list of clips (scope + text + date + sub-filters)
   const filteredClips = useMemo(() => {
-    if (!parsedData) return [];
-    return parsedData.clips.filter((clip) => {
+    return conflictResolvedBaseClips.filter((clip) => {
       // 1. Text filter
       if (textFilter.trim()) {
         const text = clip.text || "";
@@ -555,11 +1014,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
 
       // 6. Specific Tags
       if (l2SpecificTagsMode === "include" && l2SpecificTags.size > 0) {
-        if (!clip.tags || !clip.tags.some((t: string) => l2SpecificTags.has(t))) {
+        if (!clip.tags || !clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
           return false;
         }
       } else if (l2SpecificTagsMode === "exclude" && l2SpecificTags.size > 0) {
-        if (clip.tags && clip.tags.some((t: string) => l2SpecificTags.has(t))) {
+        if (clip.tags && clip.tags.some((t: string) => l2SpecificTags.has(t) || selectedTagsSet.has(t.toLowerCase().trim()))) {
           return false;
         }
       }
@@ -567,7 +1026,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       return true;
     });
   }, [
-    parsedData,
+    conflictResolvedBaseClips,
     textFilter,
     dateFrom,
     dateTo,
@@ -577,7 +1036,24 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     l2Tagged,
     l2SpecificTagsMode,
     l2SpecificTags,
+    selectedTagsSet,
   ]);
+
+  // Conflict-aware clip list
+  const conflictAwareClips = filteredClips;
+
+  // Dynamic date bounds derived from conflict-aware clip list
+  const conflictAwareDateBounds = useMemo(() => {
+    const timestamps = conflictAwareClips
+      .map((c: any) => c.timestamp)
+      .filter(Boolean)
+      .map((t: string) => new Date(t).getTime());
+    if (timestamps.length === 0) return { min: "", max: "" };
+    return {
+      min: new Date(Math.min(...timestamps)).toISOString().split("T")[0],
+      max: new Date(Math.max(...timestamps)).toISOString().split("T")[0],
+    };
+  }, [conflictAwareClips]);
 
   // Generate description note
   const combinationNote = useMemo(() => {
@@ -621,13 +1097,35 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     l2SpecificTags,
   ]);
 
+  const toggleL2Favorite = (value: "yes" | "no") => {
+    setL2Favorite((prev) => (prev === value ? "all" : value));
+  };
+
+  const toggleL2Recycle = (value: "yes" | "no") => {
+    setL2Recycle((prev) => (prev === value ? "all" : value));
+  };
+
+  const toggleL2Tagged = (value: "yes" | "no") => {
+    setL2Tagged((prev) => {
+      const next = prev === value ? "all" : value;
+      if (next !== "yes" && level1Scope !== "tagged") {
+        setL2SpecificTagsMode("disabled");
+        setL2SpecificTags(new Set());
+      } else if (next === "yes") {
+        setL2SpecificTagsMode("include");
+      }
+      return next;
+    });
+  };
+
   // Prepopulate tags checkbox state on conflict resolution or data load
   useEffect(() => {
+    if (status === "progress" || status === "summary" || status === "error") return;
     if (!parsedData || !parsedData.tags) return;
-    const initialSelected = new Set<string>();
     const localTagsLower = new Set(localTags.map((t) => t.name.toLowerCase().trim()));
     const localTagIds = new Set(localTags.map((t) => t.id));
 
+    const initialSelected = new Set<string>();
     parsedData.tags.forEach((t) => {
       const isConflict = localTagIds.has(t.id) || localTagsLower.has(t.name.toLowerCase().trim());
       if (tagConflict === "keep-new" || !isConflict) {
@@ -637,8 +1135,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     setSelectedTags(initialSelected);
   }, [parsedData, tagConflict, localTags]);
 
-  // Prepopulate settings checkboxes on data load
+  // Prepopulate settings checkboxes on data load and conflict changes
   useEffect(() => {
+    if (status === "progress" || status === "summary" || status === "error") return;
     if (!parsedData || !parsedData.settings) return;
     const keys = Object.keys(parsedData.settings).filter((k) =>
       [
@@ -652,8 +1151,25 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
         "pauseCaptureOption",
       ].includes(k)
     );
-    setSelectedSettingsKeys(new Set(keys));
-  }, [parsedData]);
+    
+    const nextSelected = new Set<string>();
+    keys.forEach((key) => {
+      const backupVal = parsedData.settings[key];
+      const localVal = (localSettings as any)[key];
+      const isConflict = backupVal !== localVal;
+      
+      if (settingsConflict === "keep-new") {
+        nextSelected.add(key);
+      } else if (settingsConflict === "keep-existing") {
+        // "Skip duplicates": if backup value and local value are same (duplicate), we skip (uncheck) it.
+        // If they are different (conflict), we check it to apply the new setting.
+        if (isConflict) {
+          nextSelected.add(key);
+        }
+      }
+    });
+    setSelectedSettingsKeys(nextSelected);
+  }, [parsedData, settingsConflict, localSettings]);
 
   const handleClose = async () => {
     if (summary && summary.success) {
@@ -668,6 +1184,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     setParsedData(null);
     setSpecificTagsSearch("");
     setBackupTagsSearch("");
+    setSettingsConflict("keep-existing");
+    setSettingsConflictOpen(false);
+    setSettingsSearch("");
     onClose();
   };
 
@@ -684,14 +1203,21 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
         throw new Error(data.error || "Parsing failed.");
       }
 
+      // Snapshot localTags BEFORE setting parsedData so the prepopulation useEffect uses pre-import local tags
+      localTagsSnapshotRef.current = localTags.map((t) => ({ id: t.id, name: t.name }));
+
       setParsedData({
         clips: data.clips || [],
         tags: data.tags || [],
         settings: data.settings || null,
       });
 
+      // Reset conflict resolutions to default "keep-existing" (skip duplicates)
+      setClipConflict("keep-existing");
+      setTagConflict("keep-existing");
+
       // Proceed to the next step
-      setStatus("clips-config");
+      setStatus("preview");
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message || "Could not read backup file.");
@@ -711,7 +1237,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
 
       // Filter settings object based on checked keys
       let settingsToImport: any = null;
-      if (importSettingsEnabled && parsedData?.settings) {
+      if (parsedData?.settings && selectedSettingsKeys.size > 0) {
         settingsToImport = {};
         selectedSettingsKeys.forEach((k) => {
           settingsToImport[k] = parsedData.settings[k];
@@ -719,10 +1245,68 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       }
 
       // Filter tags array based on checked tags
-      const tagsToImport = (parsedData?.tags || []).filter((t) => selectedTags.has(t.id));
+      let tagsToImport = (parsedData?.tags || []).filter((t) => selectedTags.has(t.id));
+
+      // Process clips to apply the actions (make favorite, attach tag)
+      let clipsToImport = [...conflictAwareClips];
+      if (importMakeFavorite) {
+        clipsToImport = clipsToImport.map(clip => ({
+          ...clip,
+          isFavorite: true
+        }));
+      }
+
+      if (importAttachTag) {
+        const selectedAttachTagObj = availableTagsForAttachment.find(
+          (t) => t.id === importAttachTag || t.name === importAttachTag
+        );
+        if (selectedAttachTagObj) {
+          // If the tag is from the backup and not in local tags or checked tags, add it to tagsToImport
+          const isInLocal = localTags.some(
+            (t) =>
+              t.id === selectedAttachTagObj.id ||
+              t.name.toLowerCase().trim() === selectedAttachTagObj.name.toLowerCase().trim()
+          );
+          const isInImport = tagsToImport.some(
+            (t) =>
+              t.id === selectedAttachTagObj.id ||
+              t.name.toLowerCase().trim() === selectedAttachTagObj.name.toLowerCase().trim()
+          );
+          if (!isInLocal && !isInImport) {
+            const backupTag = parsedData?.tags.find(
+              (t) =>
+                t.id === selectedAttachTagObj.id ||
+                t.name.toLowerCase().trim() === selectedAttachTagObj.name.toLowerCase().trim()
+            );
+            if (backupTag) {
+              tagsToImport.push(backupTag);
+            } else {
+              tagsToImport.push({
+                id: selectedAttachTagObj.id,
+                name: selectedAttachTagObj.name,
+                color: selectedAttachTagObj.color,
+              });
+            }
+          }
+
+          // Attach to all imported clips
+          clipsToImport = clipsToImport.map((clip) => {
+            const tags = Array.isArray(clip.tags) ? [...clip.tags] : [];
+            // We want to add the ID of the tag. If tag mapping is performed on ID or name,
+            // we can use the ID or name. Let's use the ID.
+            if (!tags.includes(selectedAttachTagObj.id)) {
+              tags.push(selectedAttachTagObj.id);
+            }
+            return {
+              ...clip,
+              tags,
+            };
+          });
+        }
+      }
 
       const result = await window.clipAPI.executeCustomImport({
-        clips: filteredClips,
+        clips: clipsToImport,
         tags: tagsToImport,
         settings: settingsToImport,
         clipConflictResolution: clipConflict,
@@ -766,6 +1350,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       const next = new Set(prev);
       if (next.has(tagId)) next.delete(tagId);
       else next.add(tagId);
+      
+      if (next.size > 0 && l2SpecificTagsMode === "disabled") {
+        setL2SpecificTagsMode("include");
+      } else if (next.size === 0) {
+        setL2SpecificTagsMode("disabled");
+      }
       return next;
     });
   };
@@ -810,16 +1400,42 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
     dynamicDateBounds,
   ]);
 
+  const getSubtitle = () => {
+    switch (status) {
+      case "clips-config":
+        return "Configure Clipboard Clips Import";
+      case "tags-config":
+        return "Configure Tags Import";
+      case "settings-config":
+        return "Configure Settings Import";
+      case "preview":
+        return "Preview Import Contents";
+      case "progress":
+        return "Importing Backup Data";
+      case "summary":
+        return "Import Summary";
+      default:
+        return "";
+    }
+  };
+
   return (
     <>
       <Dialog
         isOpen={isOpen}
         onClose={status === "progress" ? () => {} : handleClose}
         title={
-          <span className="flex items-center gap-2">
-            <IconZap className="w-4 h-4 text-brand-400 shrink-0" />
-            Advanced Data Import System
-          </span>
+          <div className="flex flex-col text-left">
+            <span className="flex items-center gap-2 text-sm font-bold text-white uppercase tracking-widest">
+              <IconZap className="w-4 h-4 text-brand-400 shrink-0" />
+              Advanced Data Import System
+            </span>
+            {getSubtitle() && (
+              <span className="text-[10px] text-gray-400 font-medium mt-0.5 pl-6">
+                {getSubtitle()}
+              </span>
+            )}
+          </div>
         }
         headerActionRight={
           <div className="flex items-center gap-2">
@@ -842,13 +1458,13 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 Clear All
               </button>
             )}
-            {status === "clips-config" && filteredClips.length !== null && (
+            {status === "clips-config" && (
               <button
                 type="button"
                 onClick={() => setShowPreviewList(true)}
                 className="text-[11px] font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 hover:bg-brand-500/20 transition-colors px-2.5 py-0.5 rounded-md font-mono cursor-pointer"
               >
-                {filteredClips.length} clips
+                {conflictAwareClips.length} clips
               </button>
             )}
           </div>
@@ -879,19 +1495,19 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 </p>
               </div>
 
-              <div className="bg-surface-900/40 border border-gray-700/50 rounded-xl p-4 space-y-3.5 text-xs text-gray-400">
+              <div className="bg-surface-900/40 rounded-xl p-4 space-y-3.5 text-xs text-gray-400">
                 <div className="flex gap-3">
                   <IconShield size={16} className="text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-gray-200 block">Conflict Resolutions</span>
-                    You can decide whether to keep your existing local database items or overwrite them with the backup data.
+                    Choose to keep local database items or overwrite them.
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <IconLayers size={16} className="text-indigo-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-gray-200 block">Flexible Custom Filters</span>
-                    Search by text, restrict by date ranges, or pick specific types (e.g. only favorites, tags, recycle bin).
+                    Filter imports by text, date ranges, favorites, tags, or recycle bin.
                   </div>
                 </div>
               </div>
@@ -919,6 +1535,175 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
             </motion.div>
           )}
 
+          {/* STEP 1.5: IMPORT PREVIEW DASHBOARD */}
+          {status === "preview" && parsedData && (
+            <motion.div
+              key="preview"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="text-center space-y-2 py-2">
+                <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-400 mx-auto mb-2">
+                  <IconShield className="w-7 h-7 text-brand-400" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Import Preview</h4>
+                <p className="text-xs text-gray-500">
+                  Here is a summary of what will be imported or skipped from the backup. Click any card to customize its import filters.
+                </p>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-3">
+                {/* Clips Preview Card */}
+                <button
+                  type="button"
+                  onClick={() => setStatus("clips-config")}
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 hover:bg-surface-800/80 border border-gray-700/50 hover:border-brand-500/40 rounded-xl transition-all duration-200 cursor-pointer shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-brand-500/5 select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-1"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-brand-500 to-indigo-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                      <IconLayers size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors uppercase tracking-wider truncate">Clips</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${conflictAwareClips.length > 0 ? "text-white" : "text-rose-400"}`}>
+                          {conflictAwareClips.length > 0 ? `+${conflictAwareClips.length}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {parsedData.clips.length - conflictAwareClips.length} skipped
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className="mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold text-brand-400 group-hover:text-brand-300 transition-colors w-full">
+                    <span>Configure Filters</span>
+                    <svg className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Tags Preview Card */}
+                <button
+                  type="button"
+                  onClick={() => setStatus("tags-config")}
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 hover:bg-surface-800/80 border border-gray-700/50 hover:border-fuchsia-500/40 rounded-xl transition-all duration-200 cursor-pointer shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-fuchsia-500/5 select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-2"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-fuchsia-500 to-pink-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                      <IconTag size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors uppercase tracking-wider truncate">Tags</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${selectedTags.size > 0 ? "text-white" : "text-rose-400"}`}>
+                          {selectedTags.size > 0 ? `+${selectedTags.size}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {parsedData.tags.length - selectedTags.size} skipped
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className="mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold text-fuchsia-400 group-hover:text-fuchsia-300 transition-colors w-full">
+                    <span>Configure Tags</span>
+                    <svg className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Settings Preview Card */}
+                <button
+                  type="button"
+                  onClick={() => setStatus("settings-config")}
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 hover:bg-surface-800/80 border border-gray-700/50 hover:border-amber-500/40 rounded-xl transition-all duration-200 cursor-pointer shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-amber-500/5 select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-3"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                      <IconSettings size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors uppercase tracking-wider truncate">Settings</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${selectedSettingsKeys.size > 0 ? "text-white" : "text-rose-400"}`}>
+                          {selectedSettingsKeys.size > 0 ? `+${selectedSettingsKeys.size}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {`${Object.keys(parsedData.settings || {}).filter(k => ["autoLaunch", "maxEntries", "pollingInterval", "paginationEnabled", "pageSize", "viewMode", "displayMode", "pauseCaptureOption"].includes(k)).length - selectedSettingsKeys.size} skipped`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className="mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold text-amber-400 group-hover:text-amber-300 transition-colors w-full">
+                    <span>Configure Settings</span>
+                    <svg className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              {/* Active configuration summary note */}
+              <div className="flex flex-col gap-1 p-3 rounded-xl bg-indigo-950/20 text-[10.5px]">
+                <div className="flex items-start gap-1.5 text-gray-400">
+                  <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold uppercase text-[9px] tracking-wider mt-0.5">Active Scope</span>
+                  <span className="text-gray-350 font-medium leading-relaxed">{combinationNote}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParsedData(null);
+                    setStatus("config");
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700 bg-surface-850 text-gray-300 hover:bg-surface-750 text-xs font-semibold tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <IconRefresh size={14} className="text-gray-400" />
+                  Choose Different File
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePerformImport}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+                >
+                  <IconCheck size={14} />
+                  Run Import Now
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {/* STEP 2: CLIPS FILTER CONFIGURATION */}
           {status === "clips-config" && parsedData && (
             <motion.div
@@ -928,217 +1713,275 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               exit={{ opacity: 0, x: -10 }}
               className="space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-gray-700/60 pb-3">
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <IconLayers className="w-4 h-4 text-brand-400" />
-                    Configure Clipboard Clips Import
-                  </h4>
-                  <p className="text-[10px] text-gray-500">Define search query and subset scopes</p>
-                </div>
-              </div>
+              <div className="flex flex-nowrap items-center justify-between">
+                {/* Grouped Result Actions Category (left side) */}
+                <div className="flex items-center gap-2.5 bg-surface-900/30 border-white/5 p-1.5 rounded-xl">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold pl-1.5 shrink-0 select-none">
+                    Result Actions:
+                  </span>
+                  
+                  {/* Make Favorite */}
+                  <button
+                    type="button"
+                    onClick={() => setImportMakeFavorite(!importMakeFavorite)}
+                    className={`inline-flex items-center text-nowrap gap-1.5 h-8 px-3 rounded-lg transition-all duration-200 cursor-pointer text-[11px] font-medium border-0 ${
+                      importMakeFavorite
+                        ? "bg-amber-500/10 text-amber-400 font-semibold"
+                        : "bg-surface-800/40 hover:bg-surface-800 text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    {importMakeFavorite ? "★ Favorited" : "☆ Favorite"}
+                  </button>
 
-              {/* CONFLICT RESOLUTION & TEXT / DATE FILTERS */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Conflict Resolution (Clips)
-                  </label>
+                  {/* Attach Tag */}
+                  <AttachTagSelect
+                    value={importAttachTag}
+                    onChange={setImportAttachTag}
+                    availableTags={availableTagsForAttachment}
+                    isOpen={importAttachTagOpen}
+                    setIsOpen={setImportAttachTagOpen}
+                  />
+                </div>
+
+                {/* Conflict Resolution (right side) */}
+                <div className="flex flex-nowrap flex-row items-center gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium shrink-0 select-none">
+                    Conflict :
+                  </span>
                   <CustomSelect
                     value={clipConflict}
                     onChange={setClipConflict}
                     options={[
-                      { value: "keep-existing", label: "Skip duplicate items" },
-                      { value: "keep-new", label: "Overwrite duplicate items" }
+                      { value: "keep-existing", label: "Skip duplicates" },
+                      { value: "keep-new", label: "Keep duplicates" }
                     ]}
                     isOpen={clipConflictOpen}
                     setIsOpen={setClipConflictOpen}
+                    borderless
                   />
-                </div>
-
-                <div className="space-y-1.5 relative">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Text-wise Filter
-                  </label>
-                  <div className="relative flex items-center group w-full">
-                    <div className="absolute left-3 text-gray-655 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
-                      <IconSearch size={14} />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search query in backup clips..."
-                      value={textFilter}
-                      onChange={(e) => setTextFilter(e.target.value)}
-                      onFocus={() => setIsSearchFocused(true)}
-                      onBlur={() => setIsSearchFocused(false)}
-                      className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
-                    />
-                    {textFilter && (
-                      <button
-                        type="button"
-                        onClick={() => setTextFilter("")}
-                        className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
-                        title="Clear search"
-                      >
-                        <IconX size={12} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Text Search matches popover dropdown */}
-                  <AnimatePresence>
-                    {isSearchFocused && textFilter.trim() && textSearchPreviewCount > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 4 }}
-                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-900 border border-white/10 rounded-lg p-2.5 shadow-2xl space-y-1.5 max-h-[160px] overflow-y-auto hide-scrollbar"
-                      >
-                        <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider flex justify-between">
-                          <span>Text matches</span>
-                          <span className="font-mono text-brand-400">{textSearchPreviewCount} clips</span>
-                        </div>
-                        <div className="space-y-1">
-                          {textSearchPreviewClips.map((c, i) => (
-                            <div key={c.id || i} className="px-2 py-1 bg-surface-900/60 rounded text-[10px] text-gray-300 font-mono truncate border border-white/5">
-                              {c.text || "(empty)"}
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
               </div>
 
-              {/* DATE RANGE FILTERS */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Date From
-                  </label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => {
-                      setDateFrom(e.target.value);
-                    }}
-                    min={dynamicDateBounds.min || undefined}
-                    max={dateTo || dynamicDateBounds.max || undefined}
-                    className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Date To
-                  </label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => {
-                      setDateTo(e.target.value);
-                    }}
-                    min={dateFrom || dynamicDateBounds.min || undefined}
-                    max={dynamicDateBounds.max || undefined}
-                    className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                  />
+              {/* TEXT FILTER + DATE RANGE — same layout as BulkActions */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3.5">
+                  {/* Text-wise Filter */}
+                  <div className="space-y-1.5 relative">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                      Search Text
+                    </span>
+                    <div className="relative flex items-center group w-full">
+                      <div className="absolute left-3 text-gray-650 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                        <IconSearch size={14} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search query in backup clips..."
+                        value={textFilter}
+                        onChange={(e) => setTextFilter(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
+                      />
+                      {textFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setTextFilter("")}
+                          className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                          title="Clear search"
+                        >
+                          <IconX size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Text Search matches popover dropdown */}
+                    <AnimatePresence>
+                      {isSearchFocused && textFilter.trim() && textSearchPreviewCount > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
+                          className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-900 border border-white/10 rounded-lg p-2.5 shadow-2xl space-y-1.5 max-h-[160px] overflow-y-auto hide-scrollbar"
+                        >
+                          <div className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider flex justify-between">
+                            <span>Text matches</span>
+                            <span className="font-mono text-brand-400">{textSearchPreviewCount} clips</span>
+                          </div>
+                          <div className="space-y-1">
+                            {textSearchPreviewClips.map((c, i) => (
+                              <div key={c.id || i} className="px-2 py-1 bg-surface-900/60 rounded text-[10px] text-gray-300 font-mono truncate border border-white/5">
+                                {c.text || "(empty)"}
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Date Range — nested 2-col sub-grid like BulkActions */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1.5 ml-10">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                        Date From
+                      </span>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        min={dynamicDateBounds.min || undefined}
+                        max={dateTo || dynamicDateBounds.max || undefined}
+                        className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5 ml-10">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                        Date To
+                      </span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        min={dateFrom || dynamicDateBounds.min || undefined}
+                        max={dynamicDateBounds.max || undefined}
+                        className="w-full max-w-[110px] bg-surface-900 border-0 outline-none rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* BASE CATEGORY SCOPE */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
                   Select Base Category Scope
-                </label>
-                <div className="grid grid-cols-5 gap-2">
+                </span>
+                <div className="grid grid-cols-5 gap-1.5">
                   {[
-                    { key: "all", label: "All Clips", count: parsedCounts.all },
-                    { key: "favorites", label: "Favorites", count: parsedCounts.favorites },
-                    { key: "tagged", label: "Tagged", count: parsedCounts.tagged },
-                    { key: "active", label: "Not Recycle", count: parsedCounts.active },
-                    { key: "deleted", label: "Recycle Bin", count: parsedCounts.deleted },
-                  ].map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setLevel1Scope(item.key as any)}
-                      className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
-                        level1Scope === item.key
-                          ? "bg-brand-500/20 border-brand-500 text-white font-bold"
-                          : "bg-surface-900/50 border-gray-800 text-gray-400 hover:bg-surface-900 hover:border-gray-700"
-                      }`}
-                    >
-                      <span className="text-[10px] truncate w-full">{item.label}</span>
-                      <span className="text-[11px] font-bold font-mono mt-1">{item.count}</span>
-                    </button>
-                  ))}
+                    { key: "all",       label: "All Clips",  count: parsedCounts.all,      color: "brand"   as const, dot: "bg-brand-400" },
+                    { key: "favorites", label: "Favourites", count: parsedCounts.favorites, color: "star"    as const, dot: "bg-amber-400" },
+                    { key: "tagged",    label: "Tagged",     count: parsedCounts.tagged,    color: "violet"  as const, dot: "bg-violet-400" },
+                    { key: "active",    label: "Not Recycle",count: parsedCounts.active,    color: "emerald" as const, dot: "bg-emerald-400" },
+                    { key: "deleted",   label: "Recycle Bin",count: parsedCounts.deleted,   color: "rose"    as const, dot: "bg-rose-400" },
+                  ].map((item) => {
+                    const active = level1Scope === item.key;
+                    const styles = {
+                      brand:   { btn: "bg-brand-500/12 border-brand-500/50 shadow-brand-500/10",   label: "text-brand-300",   count: "text-brand-400",   ring: "ring-brand-500/30" },
+                      star:    { btn: "bg-amber-500/12 border-amber-500/50 shadow-amber-500/10",   label: "text-amber-300",   count: "text-amber-400",   ring: "ring-amber-500/30" },
+                      violet:  { btn: "bg-violet-500/12 border-violet-500/50 shadow-violet-500/10",label: "text-violet-300",  count: "text-violet-400",  ring: "ring-violet-500/30" },
+                      emerald: { btn: "bg-emerald-500/12 border-emerald-500/50 shadow-emerald-500/10",label: "text-emerald-300",count: "text-emerald-400",ring: "ring-emerald-500/30" },
+                      rose:    { btn: "bg-rose-500/12 border-rose-500/50 shadow-rose-500/10",      label: "text-rose-300",    count: "text-rose-400",    ring: "ring-rose-500/30" },
+                    }[item.color];
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setLevel1Scope(item.key as any);
+                          if (item.key !== "tagged" && l2Tagged !== "yes") {
+                            setL2SpecificTagsMode("disabled");
+                            setL2SpecificTags(new Set());
+                          } else if (item.key === "tagged") {
+                            setL2SpecificTagsMode("include");
+                          }
+                        }}
+                        className={`relative py-2.5 px-2 rounded-xl border flex flex-row items-center justify-center gap-1 transition-all duration-200 cursor-pointer overflow-hidden whitespace-nowrap ${
+                          active
+                            ? `${styles.btn} shadow-lg ring-1 ${styles.ring}`
+                            : "bg-surface-900/40 border-gray-800/80 text-gray-500 hover:bg-surface-900/70 hover:border-gray-700 hover:text-gray-300"
+                        }`}
+                      >
+                        <span className={`text-[9.5px] font-bold uppercase tracking-wide leading-none whitespace-nowrap ${active ? styles.label : "text-gray-500"}`}>
+                          {item.label}
+                        </span>
+                        <span className={`text-[11px] font-extrabold font-mono leading-none tabular-nums whitespace-nowrap ${active ? styles.count : "text-gray-400"}`}>
+                          ({item.count})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* REFINE OPTIONS FOR SELECTED SCOPE */}
               {level1Scope !== "all" && (
                 <div className="bg-surface-900/40 border border-gray-800 rounded-xl p-4 space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-800 pb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      Refinement Sub-Filters
-                    </span>
+
+                  <div className="flex flex-wrap justify-between gap-y-3">
+                    {/* Favorites Sub-filter — hidden when scope is already "favorites" */}
+                    {level1Scope !== "favorites" && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5 block">
+                          Favorites Filter
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <ToggleChip
+                            label="Only favourites"
+                            active={l2Favorite === "yes"}
+                            color="star"
+                            onClick={() => toggleL2Favorite("yes")}
+                          />
+                          <ToggleChip
+                            label="Exclude Favourites"
+                            active={l2Favorite === "no"}
+                            color="brand"
+                            onClick={() => toggleL2Favorite("no")}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recycle Bin Sub-filter — hidden when scope already locks recycle state */}
+                    {level1Scope !== "active" && level1Scope !== "deleted" && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5 block">
+                          Recycle Bin Filter
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <ToggleChip
+                            label="Only Recycle Bin"
+                            active={l2Recycle === "yes"}
+                            color="rose"
+                            onClick={() => toggleL2Recycle("yes")}
+                          />
+                          <ToggleChip
+                            label="Exclude Recycle Bin"
+                            active={l2Recycle === "no"}
+                            color="emerald"
+                            onClick={() => toggleL2Recycle("no")}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags Presence Sub-filter — hidden when scope is "tagged" (already implies having tags) */}
+                    {level1Scope !== "tagged" && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5 block">
+                          Tags Presence
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <ToggleChip
+                            label="Having Tags"
+                            active={l2Tagged === "yes"}
+                            color="violet"
+                            onClick={() => toggleL2Tagged("yes")}
+                          />
+                          <ToggleChip
+                            label="No Tags"
+                            active={l2Tagged === "no"}
+                            color="brand"
+                            onClick={() => toggleL2Tagged("no")}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex flex-wrap gap-x-6 gap-y-3">
-                    {/* Favorites Sub-filter */}
-                    <div className="space-y-1.5 w-[160px]">
-                      <label className="text-[9px] font-bold text-gray-500 uppercase">Favorites Filter</label>
-                      <CustomSelect
-                        disabled={level1Scope === "favorites"}
-                        value={l2Favorite}
-                        onChange={setL2Favorite}
-                        options={[
-                          { value: "all", label: "Keep All" },
-                          { value: "yes", label: "Only Favorites" },
-                          { value: "no", label: "Exclude Favorites" }
-                        ]}
-                        isOpen={l2FavoriteOpen}
-                        setIsOpen={setL2FavoriteOpen}
-                      />
-                    </div>
-
-                    {/* Recycle Bin Sub-filter */}
-                    <div className="space-y-1.5 w-[160px]">
-                      <label className="text-[9px] font-bold text-gray-500 uppercase">Recycle Bin Filter</label>
-                      <CustomSelect
-                        disabled={level1Scope === "active" || level1Scope === "deleted"}
-                        value={l2Recycle}
-                        onChange={setL2Recycle}
-                        options={[
-                          { value: "all", label: "Keep All" },
-                          { value: "yes", label: "Only Recycle Bin" },
-                          { value: "no", label: "Exclude Recycle Bin" }
-                        ]}
-                        isOpen={l2RecycleOpen}
-                        setIsOpen={setL2RecycleOpen}
-                      />
-                    </div>
-
-                    {/* Tags Presence Sub-filter */}
-                    <div className="space-y-1.5 w-[160px]">
-                      <label className="text-[9px] font-bold text-gray-500 uppercase">Tags Presence</label>
-                      <CustomSelect
-                        disabled={level1Scope === "tagged"}
-                        value={l2Tagged}
-                        onChange={setL2Tagged}
-                        options={[
-                          { value: "all", label: "Keep All" },
-                          { value: "yes", label: "Only Having Tags" },
-                          { value: "no", label: "Exclude Having Tags" }
-                        ]}
-                        isOpen={l2TaggedOpen}
-                        setIsOpen={setL2TaggedOpen}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Specific Tags Inclusion / Exclusion */}
-                  {sortedImportTags.length > 0 && (
+                  {/* Specific Tags Inclusion / Exclusion — only shown when user manually enables Tags Presence sub-filter (l2Tagged=yes).
+                      When base scope is "tagged", this panel is intentionally hidden because the scope itself implies tagged. */}
+                  {l2Tagged === "yes" && level1Scope !== "tagged" && sortedImportTags.length > 0 && (
                     <div className="space-y-3 border-t border-gray-800 pt-3">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
@@ -1172,40 +2015,48 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                           )}
                         </div>
                       </div>
-
-                      <div className="flex gap-2 items-center">
-                        <span className="text-[9px] font-bold text-gray-500 uppercase">Mode:</span>
-                        <div className="w-[200px]">
-                          <CustomSelect
-                            value={l2SpecificTagsMode}
-                            onChange={setL2SpecificTagsMode}
-                            options={[
-                              { value: "disabled", label: "Disable tag filter" },
-                              { value: "include", label: "Include selection" },
-                              { value: "exclude", label: "Exclude selection" }
-                            ]}
-                            isOpen={l2SpecificTagsModeOpen}
-                            setIsOpen={setL2SpecificTagsModeOpen}
+                      {l2SpecificTags.size > 0 && (
+                        <div className="flex gap-1.5 items-center">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">Mode:</span>
+                          <ToggleChip
+                            label="From Selection"
+                            active={l2SpecificTagsMode === "include"}
+                            color="emerald"
+                            onClick={() => setL2SpecificTagsMode("include")}
+                          />
+                          <ToggleChip
+                            label="Exclude Selection"
+                            active={l2SpecificTagsMode === "exclude"}
+                            color="rose"
+                            onClick={() => setL2SpecificTagsMode("exclude")}
                           />
                         </div>
-                      </div>
+                      )}
 
-                      {l2SpecificTagsMode !== "disabled" && (
-                        <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1 dialog-scrollbar">
-                          {sortedImportTags
-                            .filter((t: any) => t.name.toLowerCase().includes(specificTagsSearch.toLowerCase()))
-                            .map((tag: any) => (
+                      <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1 dialog-scrollbar">
+                        {sortedImportTags
+                          .filter((t: any) => t.name.toLowerCase().includes(specificTagsSearch.toLowerCase()))
+                          .map((tag: any) => {
+                            const idKey = (tag.id || "").toLowerCase().trim();
+                            const nameKey = (tag.name || "").toLowerCase().trim();
+                            const tagCount = Math.max(
+                              parsedTagCounts[tag.id] ?? 0,
+                              parsedTagCounts[idKey] ?? 0,
+                              parsedTagCounts[tag.name] ?? 0,
+                              parsedTagCounts[nameKey] ?? 0
+                            );
+                            return (
                               <TagBadge
                                 key={tag.id}
                                 tag={tag}
                                 size="sm"
                                 active={l2SpecificTags.has(tag.id)}
-                                count={parsedTagCounts[tag.id]}
+                                count={tagCount}
                                 onClick={() => handleToggleL2SpecificTag(tag.id)}
                               />
-                            ))}
-                        </div>
-                      )}
+                            );
+                          })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1213,23 +2064,21 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
 
 
               {/* ── Active combination summary ────────────────────────────── */}
-              <div className="px-3 py-2.5 rounded-lg bg-surface-900/60 border border-white/5 space-y-1">
-                <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider block">
-                  Import target
-                </span>
-                <span className="text-[11px] text-gray-300 leading-relaxed block">
-                  {combinationNote}
-                </span>
+              <div className="flex flex-col gap-1 p-2 rounded-lg bg-indigo-950/30 text-[10.5px]">
+                <div className="flex items-center gap-1.5 text-gray-400">
+                  <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-bold uppercase text-[9px] tracking-wider">Target</span>
+                  <span className="text-gray-300 font-medium truncate" title={combinationNote}>{combinationNote}</span>
+                </div>
               </div>
 
               {/* ACTION FOOTER */}
               <div className="pt-3 flex gap-3">
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={() => setStatus("preview")}
                   className="px-4 py-2 rounded-xl border border-gray-700 bg-surface-850 hover:bg-surface-750 text-gray-300 text-xs font-semibold cursor-pointer"
                 >
-                  Cancel
+                  ← Back to Preview
                 </button>
                 <div className="flex-1" />
                 <button
@@ -1260,44 +2109,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               exit={{ opacity: 0, x: -10 }}
               className="space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-gray-700/60 pb-3">
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <IconTag className="w-4 h-4 text-brand-400" />
-                    Configure Tags Import
-                  </h4>
-                  <p className="text-[10px] text-gray-500">Pick which tags to ingest and how to resolve name conflicts</p>
-                </div>
-              </div>
-
-              {/* Conflict resolution */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Tag Conflict Resolution
-                </label>
-                <CustomSelect
-                  value={tagConflict}
-                  onChange={setTagConflict}
-                  options={[
-                    { value: "keep-existing", label: "Skip duplicate tags" },
-                    { value: "keep-new", label: "Overwrite duplicate tags" }
-                  ]}
-                  isOpen={tagConflictOpen}
-                  setIsOpen={setTagConflictOpen}
-                />
-              </div>
-
-              {/* Tags Selector list */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase">
-                  <span>Backup Tags List</span>
-                  <span>
-                    Selected: {selectedTags.size} of {parsedData.tags.length}
-                  </span>
-                </div>
-
-                {/* Dashboard styled tag search */}
-                <div className="relative flex items-center group w-full mb-2">
+              <div className="flex flex-nowrap items-center justify-between">
+                {/* Tag search input (left side, replacing selection summary) */}
+                <div className="relative flex items-center group max-w-[240px] w-full">
                   <div className="absolute left-3 text-gray-655 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
                     <IconSearch size={14} />
                   </div>
@@ -1306,7 +2120,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                     placeholder="Search backup tags..."
                     value={backupTagsSearch}
                     onChange={(e) => setBackupTagsSearch(e.target.value)}
-                    className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1.5 text-xs text-white/85 placeholder-gray-600 transition-colors duration-150"
+                    className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1 text-xs text-white/85 placeholder-gray-650 transition-colors duration-150"
                   />
                   {backupTagsSearch && (
                     <button
@@ -1320,50 +2134,133 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                   )}
                 </div>
 
-                <div className="max-h-60 overflow-y-auto border border-gray-800 bg-surface-900/50 rounded-xl divide-y divide-gray-800">
-                  {parsedData.tags
-                    .filter((t) => t.name.toLowerCase().includes(backupTagsSearch.toLowerCase()))
-                    .map((tag) => {
-                      const isSelected = selectedTags.has(tag.id);
-                      const localMatch = localTags.find(
-                        (lt) =>
-                          lt.id === tag.id || lt.name.toLowerCase().trim() === tag.name.toLowerCase().trim()
-                      );
-                      return (
-                        <div
-                          key={tag.id}
-                          onClick={() => handleToggleTagSelection(tag.id)}
-                          className="flex items-center justify-between p-3 hover:bg-surface-800/30 transition-colors cursor-pointer text-xs"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              readOnly
-                              className="rounded border-gray-700 bg-surface-900 text-brand-500 focus:ring-0 cursor-pointer focus:ring-offset-0"
-                            />
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-white/10 shrink-0"
-                              style={{ backgroundColor: tag.color }}
-                            />
-                            <span className="font-semibold text-white">{tag.name}</span>
-                          </div>
+                {/* Tag Conflict Resolution (right side) */}
+                <div className="flex flex-nowrap items-center justify-center gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium shrink-0 select-none">
+                    Conflict :
+                  </span>
+                  <CustomSelect
+                    value={tagConflict}
+                    onChange={setTagConflict}
+                    options={[
+                      { value: "keep-existing", label: "Skip duplicates" },
+                      { value: "keep-new", label: "Keep duplicates" }
+                    ]}
+                    isOpen={tagConflictOpen}
+                    setIsOpen={setTagConflictOpen}
+                    borderless
+                  />
+                </div>
+              </div>
 
-                          <div className="flex items-center gap-3">
-                            {localMatch ? (
-                              <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-bold uppercase">
-                                Conflict
-                              </span>
-                            ) : (
-                              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase">
-                                New Tag
-                              </span>
-                            )}
-                            <span className="text-[10px] font-mono text-gray-600 font-semibold">{tag.id.slice(0, 8)}...</span>
+              {/* Backup list container */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                    <span>Backup Tags List</span>
+                    <span className="text-brand-400 font-bold font-mono">
+                      Selected: {selectedTags.size} of {parsedData.tags.length}
+                    </span>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto pr-1 dialog-scrollbar grid grid-cols-2 gap-2.5">
+                    {[...parsedData.tags]
+                      .filter((t) => t.name.toLowerCase().includes(backupTagsSearch.toLowerCase()))
+                      .sort((a, b) => {
+                        const aMatch = localTags.some(
+                          (lt) =>
+                            lt.id === a.id || lt.name.toLowerCase().trim() === a.name.toLowerCase().trim()
+                        );
+                        const bMatch = localTags.some(
+                          (lt) =>
+                            lt.id === b.id || lt.name.toLowerCase().trim() === b.name.toLowerCase().trim()
+                        );
+                        if (!aMatch && bMatch) return -1;
+                        if (aMatch && !bMatch) return 1;
+                        return 0;
+                      })
+                      .map((tag) => {
+                        const isSelected = selectedTags.has(tag.id);
+                        const localMatch = localTags.find(
+                          (lt) =>
+                            lt.id === tag.id || lt.name.toLowerCase().trim() === tag.name.toLowerCase().trim()
+                        );
+                        return (
+                          <div
+                            key={tag.id}
+                            onClick={() => handleToggleTagSelection(tag.id)}
+                            className={`group flex items-center justify-between p-2.5 rounded-xl border transition-all duration-250 cursor-pointer select-none ${
+                              isSelected
+                                ? "bg-brand-500/5 border-brand-500/35 hover:bg-brand-500/10 hover:border-brand-500/50 shadow-md shadow-brand-500/5 opacity-100"
+                                : "bg-surface-950/20 border-gray-900/60 hover:bg-surface-900/40 hover:border-gray-800 opacity-55 hover:opacity-85"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {/* Custom Checkbox */}
+                              <div className={`w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${
+                                isSelected 
+                                  ? "bg-gradient-to-br from-brand-500 to-brand-600 border-brand-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.4)] scale-105" 
+                                  : "border-gray-700/80 bg-surface-950/50 text-transparent group-hover:border-brand-500/50 group-hover:bg-surface-900/30 group-hover:scale-102"
+                              }`}>
+                                <svg 
+                                  className={`w-2.5 h-2.5 stroke-white transition-all duration-200 ${
+                                    isSelected ? "scale-100 opacity-100 rotate-0" : "scale-50 opacity-0 -rotate-12"
+                                  }`} 
+                                  viewBox="0 0 24 24" 
+                                  fill="none" 
+                                  strokeWidth="4" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold truncate transition-all duration-150"
+                                style={
+                                  isSelected ? {
+                                    backgroundColor: (tag.color || "#6366f1") + "15",
+                                    borderColor: (tag.color || "#6366f1") + "30",
+                                    color: tag.color || "#6366f1"
+                                  } : {
+                                    backgroundColor: "rgba(255,255,255,0.02)",
+                                    borderColor: "rgba(255,255,255,0.05)",
+                                    color: "#9ca3af"
+                                  }
+                                }
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors"
+                                  style={{
+                                    backgroundColor: isSelected ? (tag.color || "#6366f1") : "#4b5563"
+                                  }}
+                                />
+                                <span className="truncate">{tag.name}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0 transition-opacity duration-150">
+                              {localMatch ? (
+                                <span className={`text-[8px] border px-1.5 py-0.5 rounded font-bold uppercase tracking-wider transition-colors ${
+                                  isSelected 
+                                    ? "bg-surface-950/30 text-gray-500 border-white/5 opacity-80" 
+                                    : "bg-surface-950/30 text-gray-500 border-white/5 opacity-50"
+                                }`}>
+                                  Duplicate
+                                </span>
+                              ) : (
+                                <span className={`text-[8px] border px-1.5 py-0.5 rounded font-bold uppercase tracking-wider transition-colors ${
+                                  isSelected 
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                                    : "bg-surface-950/30 text-gray-500 border-white/5 opacity-50"
+                                }`}>
+                                  New
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                  </div>
                 </div>
               </div>
 
@@ -1371,10 +2268,10 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               <div className="pt-3 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setStatus("clips-config")}
+                  onClick={() => setStatus("preview")}
                   className="px-4 py-2 rounded-xl border border-gray-700 bg-surface-850 hover:bg-surface-750 text-gray-300 text-xs font-semibold cursor-pointer"
                 >
-                  ← Back to Clips
+                  ← Back to Preview
                 </button>
                 <div className="flex-1" />
                 <button
@@ -1403,37 +2300,73 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               exit={{ opacity: 0, x: -10 }}
               className="space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-gray-700/60 pb-3">
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <IconSettings className="w-4 h-4 text-brand-400" />
-                    Configure Settings Import
-                  </h4>
-                  <p className="text-[10px] text-gray-500">Pick which system settings from backup you want to apply</p>
+              <div className="flex flex-nowrap items-center justify-between">
+                {/* Settings search input (left side, matching tag search input) */}
+                <div className="relative flex items-center group max-w-[240px] w-full">
+                  <div className="absolute left-3 text-gray-655 group-focus-within:text-brand-400 transition-colors pointer-events-none duration-150">
+                    <IconSearch size={14} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search backup settings..."
+                    value={settingsSearch}
+                    onChange={(e) => setSettingsSearch(e.target.value)}
+                    className="w-full bg-transparent border-0 border-b border-gray-600 hover:border-gray-500 focus:border-brand-500 focus:ring-0 focus:outline-none pl-9 pr-9 py-1 text-xs text-white/85 placeholder-gray-650 transition-colors duration-150"
+                  />
+                  {settingsSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSettingsSearch("")}
+                      className="absolute right-2 p-1 text-gray-600 hover:text-gray-400 transition-colors duration-150"
+                      title="Clear search"
+                    >
+                      <IconX size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Settings Conflict Resolution (right side, matching tag conflict resolution) */}
+                <div className="flex flex-nowrap flex-row items-center justify-center gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium shrink-0 select-none">
+                    Conflict :
+                  </span>
+                  <CustomSelect
+                    value={settingsConflict}
+                    onChange={setSettingsConflict}
+                    options={[
+                      { value: "keep-existing", label: "Skip duplicates" },
+                      { value: "keep-new", label: "Keep duplicates" }
+                    ]}
+                    isOpen={settingsConflictOpen}
+                    setIsOpen={setSettingsConflictOpen}
+                    borderless
+                  />
                 </div>
               </div>
 
-              {/* Master Settings Enable */}
-              <div className="flex items-center gap-2 bg-surface-900 border border-gray-800 p-3 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="importSettings"
-                  checked={importSettingsEnabled}
-                  onChange={(e) => setImportSettingsEnabled(e.target.checked)}
-                  className="rounded border-gray-700 bg-surface-900 text-brand-500 focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="importSettings" className="text-xs text-white font-bold cursor-pointer">
-                  Import application settings from backup file
-                </label>
-              </div>
-
-              {importSettingsEnabled && (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                    Settings Keys Comparison
-                  </span>
+                  <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider font-medium pl-0.5">
+                    <span>Settings Keys Comparison</span>
+                    <span className="text-brand-400 font-bold font-mono">
+                      Selected: {selectedSettingsKeys.size} of {
+                        Object.keys(parsedData.settings).filter((k) =>
+                          [
+                            "autoLaunch",
+                            "maxEntries",
+                            "pollingInterval",
+                            "paginationEnabled",
+                            "pageSize",
+                            "viewMode",
+                            "displayMode",
+                            "pauseCaptureOption",
+                          ].includes(k)
+                        ).length
+                      }
+                    </span>
+                  </div>
 
-                  <div className="max-h-60 overflow-y-auto border border-gray-800 bg-surface-900/50 rounded-xl divide-y divide-gray-800 text-xs">
+                  <div className="max-h-60 overflow-y-auto pr-1 dialog-scrollbar grid grid-cols-1 gap-2.5">
                     {Object.keys(parsedData.settings)
                       .filter((k) =>
                         [
@@ -1447,38 +2380,104 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                           "pauseCaptureOption",
                         ].includes(k)
                       )
+                      .filter((key) => key.toLowerCase().includes(settingsSearch.toLowerCase()))
+                      .sort((a, b) => {
+                        const aConflict = parsedData.settings[a] !== (localSettings as any)[a];
+                        const bConflict = parsedData.settings[b] !== (localSettings as any)[b];
+                        if (aConflict && !bConflict) return -1;
+                        if (!aConflict && bConflict) return 1;
+                        return 0;
+                      })
                       .map((key) => {
                         const isSelected = selectedSettingsKeys.has(key);
                         const backupVal = parsedData.settings[key];
                         const localVal = (localSettings as any)[key];
+                        const isConflict = backupVal !== localVal;
 
                         return (
                           <div
                             key={key}
                             onClick={() => handleToggleSettingSelection(key)}
-                            className="p-3 hover:bg-surface-800/30 transition-colors cursor-pointer flex items-center justify-between gap-4"
+                            className={`group flex items-center justify-between p-2.5 rounded-xl border transition-all duration-250 cursor-pointer select-none ${
+                              isSelected
+                                ? "bg-brand-500/5 border-brand-500/35 hover:bg-brand-500/10 hover:border-brand-500/50 shadow-md shadow-brand-500/5 opacity-100"
+                                : "bg-surface-950/20 border-gray-900/60 hover:bg-surface-900/40 hover:border-gray-800 opacity-55 hover:opacity-85"
+                            }`}
                           >
-                            <div className="flex items-center gap-2.5">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                readOnly
-                                className="rounded border-gray-700 bg-surface-900 text-brand-500 focus:ring-0 cursor-pointer"
-                              />
-                              <span className="font-semibold text-white font-mono">{key}</span>
+                            <div className="flex items-center gap-3">
+                              {/* Custom Checkbox */}
+                              <div className={`w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${
+                                isSelected 
+                                  ? "bg-gradient-to-br from-brand-500 to-brand-600 border-brand-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.4)] scale-105" 
+                                  : "border-gray-700/80 bg-surface-950/50 text-transparent group-hover:border-brand-500/50 group-hover:bg-surface-900/30 group-hover:scale-102"
+                              }`}>
+                                <svg 
+                                  className={`w-2.5 h-2.5 stroke-white transition-all duration-200 ${
+                                    isSelected ? "scale-100 opacity-100 rotate-0" : "scale-50 opacity-0 -rotate-12"
+                                  }`} 
+                                  viewBox="0 0 24 24" 
+                                  fill="none" 
+                                  strokeWidth="4" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </div>
+                              <span className={`font-semibold text-[11px] px-2.5 py-1 rounded-lg border transition-all duration-150 ${
+                                isSelected 
+                                  ? "bg-surface-950/40 border-white/10 text-white/90" 
+                                  : "bg-surface-950/20 border-white/5 text-gray-500"
+                                }`}>
+                                {formatSettingKey(key)}
+                              </span>
                             </div>
 
-                            <div className="flex items-center gap-4 text-[10px] font-mono">
-                              <div className="text-right">
-                                <span className="text-gray-600 block text-[9px] uppercase font-bold">Local</span>
-                                <span className="text-gray-400">{String(localVal)}</span>
+                            <div className="flex items-center gap-3.5 text-[10px] font-mono">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider">Local:</span>
+                                <span className={`px-2 py-0.5 rounded border ${
+                                  isSelected 
+                                    ? "bg-surface-950/60 border-white/10 text-gray-300" 
+                                    : "bg-surface-950/20 border-transparent text-gray-600"
+                                }`}>
+                                  {String(localVal)}
+                                </span>
                               </div>
-                              <svg className="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <svg className={`w-3.5 h-3.5 transition-colors shrink-0 ${isSelected ? "text-brand-500" : "text-gray-750"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                               </svg>
-                              <div>
-                                <span className="text-brand-500 block text-[9px] uppercase font-bold">Backup</span>
-                                <span className="text-brand-400 font-bold">{String(backupVal)}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-semibold uppercase tracking-wider ${
+                                  isSelected ? "text-brand-400" : "text-gray-600"
+                                }`}>Backup:</span>
+                                <span className={`px-2 py-0.5 rounded border transition-all ${
+                                  isSelected 
+                                    ? "bg-brand-500/15 border-brand-500/30 text-brand-350 font-bold" 
+                                    : "bg-surface-950/20 border-transparent text-gray-600"
+                                }`}>
+                                  {String(backupVal)}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 transition-opacity duration-150 pl-2">
+                                {isConflict ? (
+                                  <span className={`text-[8px] border px-1.5 py-0.5 rounded font-bold uppercase tracking-wider transition-colors text-nowrap ${
+                                    isSelected 
+                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                                      : "bg-surface-950/30 text-gray-500 border-white/5 opacity-50"
+                                  }`}>
+                                    New
+                                  </span>
+                                ) : (
+                                  <span className={`text-[8px] border px-1.5 py-0.5 rounded font-bold uppercase tracking-wider transition-colors text-nowrap ${
+                                    isSelected 
+                                      ? "bg-surface-950/35 border-white/10 text-gray-400" 
+                                      : "bg-surface-950/30 text-gray-500 border-white/5 opacity-50"
+                                  }`}>
+                                    Duplicate
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1486,28 +2485,22 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                       })}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* FOOTER ACTIONS */}
               <div className="pt-3 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (parsedData.tags && parsedData.tags.length > 0) {
-                      setStatus("tags-config");
-                    } else {
-                      setStatus("clips-config");
-                    }
-                  }}
+                  onClick={() => setStatus("preview")}
                   className="px-4 py-2 rounded-xl border border-gray-700 bg-surface-850 hover:bg-surface-750 text-gray-300 text-xs font-semibold cursor-pointer"
                 >
-                  ← Back
+                  ← Back to Preview
                 </button>
                 <div className="flex-1" />
                 <button
                   type="button"
                   onClick={handlePerformImport}
-                  className="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-650 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-500/20 cursor-pointer transition-all active:scale-95 flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-605 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-500/20 cursor-pointer transition-all active:scale-95 flex items-center gap-2"
                 >
                   <IconCheck size={14} />
                   Run Custom Import
@@ -1574,38 +2567,131 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
               </div>
 
               {/* Summary Stats Grid */}
-              <div className="bg-surface-900/40 border border-gray-700/50 rounded-2xl p-5 space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Clips stat */}
-                  <div className="p-3 bg-surface-800/40 border border-gray-700/30 rounded-xl flex flex-col items-center text-center">
-                    <IconLayers size={18} className="text-brand-400 mb-1.5" />
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Clips</span>
-                    <span className="text-sm font-bold text-white mt-1">+{summary.importedClips}</span>
-                    <span className="text-[9px] text-gray-500 mt-0.5">({summary.skippedClips} skipped)</span>
+              <div className="grid grid-cols-3 gap-3">
+                {/* Clips Preview Card */}
+                <div
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 border border-gray-700/50 rounded-xl select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-1"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-brand-500 to-indigo-500 opacity-80" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400 shrink-0">
+                      <IconLayers size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider truncate">Clips</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${summary.importedClips > 0 ? "text-white" : "text-rose-400"}`}>
+                          {summary.importedClips > 0 ? `+${summary.importedClips}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {(parsedData?.clips.length || 0) - summary.importedClips} skipped
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Tags stat */}
-                  <div className="p-3 bg-surface-800/40 border border-gray-700/30 rounded-xl flex flex-col items-center text-center">
-                    <IconTag size={18} className="text-indigo-400 mb-1.5" />
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Tags</span>
-                    <span className="text-sm font-bold text-white mt-1">+{summary.importedTags}</span>
-                    <span className="text-[9px] text-gray-500 mt-0.5">({summary.skippedTags} skipped)</span>
-                  </div>
-
-                  {/* Settings stat */}
-                  <div className="p-3 bg-surface-800/40 border border-gray-700/30 rounded-xl flex flex-col items-center text-center">
-                    <IconSettings size={18} className="text-amber-400 mb-1.5" />
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Settings</span>
-                    <span className="text-xs font-bold text-white mt-2">
-                      {summary.importedSettings ? "Updated" : "Skipped"}
-                    </span>
+                  {/* Action Link */}
+                  <div className={`mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold w-full ${
+                    summary.importedClips > 0 ? "text-brand-400" : "text-rose-400"
+                  }`}>
+                    <span>{summary.importedClips > 0 ? "Imported Successfully" : "No Changes"}</span>
+                    {summary.importedClips > 0 ? (
+                      <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <IconX size={12} className="text-rose-400" />
+                    )}
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-brand-500/5 border border-brand-500/10 rounded-xl text-center">
-                  <p className="text-[11px] text-gray-400">
-                    Your clipboard timeline and settings caches have been reloaded dynamically.
-                  </p>
+                {/* Tags Preview Card */}
+                <div
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 border border-gray-700/50 rounded-xl select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-2"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-fuchsia-500 to-pink-500 opacity-80" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 shrink-0">
+                      <IconTag size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider truncate">Tags</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${selectedTags.size > 0 ? "text-white" : "text-rose-400"}`}>
+                          {selectedTags.size > 0 ? `+${selectedTags.size}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {(parsedData?.tags.length || 0) - selectedTags.size} skipped
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className={`mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold w-full ${
+                    selectedTags.size > 0 ? "text-fuchsia-400" : "text-rose-400"
+                  }`}>
+                    <span>{selectedTags.size > 0 ? "Tags Imported" : "No Changes"}</span>
+                    {selectedTags.size > 0 ? (
+                      <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <IconX size={12} className="text-rose-400" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Settings Preview Card */}
+                <div
+                  className="group relative flex flex-col justify-between text-left p-3.5 bg-surface-800/40 border border-gray-700/50 rounded-xl select-none overflow-hidden w-full animate-fade-in shiny-card-effect shiny-delay-3"
+                >
+                  {/* Accent Line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-500 opacity-80" />
+
+                  <div className="flex gap-3 items-center w-full">
+                    {/* Left: Icon Badge */}
+                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+                      <IconSettings size={18} />
+                    </div>
+
+                    {/* Right: Metrics & Title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider truncate">Settings</span>
+                        <span className={`text-base font-extrabold font-mono shrink-0 ${selectedSettingsKeys.size > 0 ? "text-white" : "text-rose-400"}`}>
+                          {selectedSettingsKeys.size > 0 ? `+${selectedSettingsKeys.size}` : "0"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                        {Object.keys(parsedData?.settings || {}).filter(k => ["autoLaunch", "maxEntries", "pollingInterval", "paginationEnabled", "pageSize", "viewMode", "displayMode", "pauseCaptureOption"].includes(k)).length - selectedSettingsKeys.size} skipped
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className={`mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-bold w-full ${
+                    selectedSettingsKeys.size > 0 ? "text-amber-400" : "text-rose-400"
+                  }`}>
+                    <span>{selectedSettingsKeys.size > 0 ? "Settings Applied" : "No Changes"}</span>
+                    {selectedSettingsKeys.size > 0 ? (
+                      <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <IconX size={12} className="text-rose-400" />
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1681,7 +2767,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       title={
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold text-white uppercase tracking-widest">
-            Preview ({filteredClips.length > 3 ? `3 of ${filteredClips.length}` : filteredClips.length})
+            Preview ({conflictAwareClips.length > 3 ? `3 of ${conflictAwareClips.length}` : conflictAwareClips.length})
           </span>
         </div>
       }
@@ -1693,7 +2779,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
           ref={previewListRef}
           className="w-full h-full overflow-y-auto space-y-2 hide-scrollbar-thumb pr-1 pt-1"
         >
-          {filteredClips.slice(0, 3).map((c, i) => {
+          {conflictAwareClips.slice(0, 3).map((c, i) => {
             const wordCount = c.text ? c.text.trim().split(/\s+/).filter(Boolean).length : 0;
             const charCount = c.text ? c.text.length : 0;
             const formatPreviewDate = (ts: any) => {
