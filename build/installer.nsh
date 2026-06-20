@@ -198,6 +198,10 @@ FunctionEnd
   Pop $0
   DetailPrint "  ├─ Manual scheduled task removal finished with status: $0"
 
+  ; Fallback: Explicitly delete XML scheduled task files in system32
+  Delete "$WINDIR\System32\Tasks\ClipMasterProAutoLaunch"
+  Delete "$WINDIR\System32\Tasks\ClipMasterProManualLaunch"
+
   DetailPrint "Removing launcher and watchdog executables..."
   Delete "$INSTDIR\launcher.exe"
   Delete "$INSTDIR\watchdog-service.exe"
@@ -212,31 +216,63 @@ FunctionEnd
   DetailPrint "  └─ Registry entries removed. ✓"
 
   DetailPrint "Cleaning up system shortcuts..."
-  DetailPrint "  → Deleting Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
+  ; 1. Clean all-users shortcuts (ProgramData/Public Desktop)
+  SetShellVarContext all
+  DetailPrint "  → Deleting All-Users Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
   Delete "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
-  DetailPrint "  → Deleting Uninstall shortcut: $SMPROGRAMS\ClipMaster Pro\Uninstall.lnk"
+  DetailPrint "  → Deleting All-Users Uninstall shortcut: $SMPROGRAMS\ClipMaster Pro\Uninstall.lnk"
   Delete "$SMPROGRAMS\ClipMaster Pro\Uninstall.lnk"
-  DetailPrint "  → Removing Start Menu folder: $SMPROGRAMS\ClipMaster Pro"
+  DetailPrint "  → Removing All-Users Start Menu folder: $SMPROGRAMS\ClipMaster Pro"
   RMDir "$SMPROGRAMS\ClipMaster Pro"
-  DetailPrint "  → Deleting Desktop shortcut: $DESKTOP\ClipMaster Pro.lnk"
+  DetailPrint "  → Deleting Public Desktop shortcut: $DESKTOP\ClipMaster Pro.lnk"
+  Delete "$DESKTOP\ClipMaster Pro.lnk"
+
+  ; 2. Clean current-user shortcuts (AppData/Current User Desktop)
+  SetShellVarContext current
+  DetailPrint "  → Deleting Current-User Start Menu shortcut: $SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
+  Delete "$SMPROGRAMS\ClipMaster Pro\ClipMaster Pro.lnk"
+  DetailPrint "  → Deleting Current-User Uninstall shortcut: $SMPROGRAMS\ClipMaster Pro\Uninstall.lnk"
+  Delete "$SMPROGRAMS\ClipMaster Pro\Uninstall.lnk"
+  DetailPrint "  → Removing Current-User Start Menu folder: $SMPROGRAMS\ClipMaster Pro"
+  RMDir "$SMPROGRAMS\ClipMaster Pro"
+  DetailPrint "  → Deleting Current-User Desktop shortcut: $DESKTOP\ClipMaster Pro.lnk"
   Delete "$DESKTOP\ClipMaster Pro.lnk"
   DetailPrint "  └─ Desktop and Start Menu shortcuts removed... ✓"
 
   !ifdef BUILD_UNINSTALLER
   ${If} $DeleteUserDataState == 1 ; 1 corresponds to BST_CHECKED
     DetailPrint "Deleting user data..."
-    DetailPrint "  → Removing user data directory: $APPDATA\ClipMaster Pro"
+    
+    nsExec::ExecToLog 'powershell -NoProfile -Command "Get-ChildItem C:\Users -Directory | ForEach-Object { \
+      $$dirs = @(\"AppData\Roaming\ClipMaster Pro\", \"AppData\Roaming\clipmaster-pro\", \"AppData\Local\ClipMaster Pro\", \"AppData\Local\clipmaster-pro\", \"AppData\Local\clipmaster-pro-updater\"); \
+      foreach ($$d in $$dirs) { \
+        $$path = Join-Path $$_.FullName $$d; \
+        if (Test-Path $$path) { Remove-Item -Recurse -Force $$path } \
+      } \
+    }"'
+    Pop $0
+    DetailPrint "  ├─ All-User AppData cleanup finished with status: $0"
+
+    ; Also fallback: Remove current-user data directories directly via NSIS paths
     RMDir /r "$APPDATA\ClipMaster Pro"
-    ; Remove the watchdog service log from %ProgramData%
-    ; $COMMONAPPDATA/$PROGRAMDATA are not available in NSIS 3.0.4.1 —
-    ; read the path from the environment variable directly instead.
+    RMDir /r "$APPDATA\clipmaster-pro"
+    RMDir /r "$LOCALAPPDATA\ClipMaster Pro"
+    RMDir /r "$LOCALAPPDATA\clipmaster-pro"
+    RMDir /r "$LOCALAPPDATA\clipmaster-pro-updater"
+
+    ; Remove the watchdog service log / data from %ProgramData% (both naming variants)
     ReadEnvStr $R8 PROGRAMDATA
     RMDir /r "$R8\ClipMaster Pro"
+    RMDir /r "$R8\clipmaster-pro"
     DetailPrint "  └─ Database, settings, and backups deleted... ✓"
   ${Else}
     DetailPrint "Skipped deleting user data (retained settings and history)."
   ${EndIf}
   !endif
+
+  ; Wipe the installation directory completely at the end to prevent program files remnants
+  DetailPrint "Clearing remaining installation directory..."
+  RMDir /r "$INSTDIR"
 
   DetailPrint "─────────────────────────────────────────────────"
   DetailPrint "✅ ClipMaster Pro has been uninstalled successfully!"

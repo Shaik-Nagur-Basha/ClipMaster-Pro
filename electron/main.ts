@@ -1408,7 +1408,7 @@ function showUacWarningNotification() {
   // ── Application Updates ──────────────────────────────────────────────────
   ipcMain.handle("get-releases", async () => {
     try {
-      const releasesUrl = import.meta.env.MAIN_VITE_GITHUB_RELEASES_URL || process.env.GITHUB_RELEASES_URL;
+      const releasesUrl = process.env.GITHUB_RELEASES_URL || import.meta.env.MAIN_VITE_GITHUB_RELEASES_URL;
       if (!releasesUrl) {
         console.warn("[Update] MAIN_VITE_GITHUB_RELEASES_URL or GITHUB_RELEASES_URL is not defined. Skipping update check.");
         return [];

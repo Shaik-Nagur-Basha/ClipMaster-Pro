@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-2.4.2-blue)
+![Version](https://img.shields.io/badge/Version-2.4.5-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
@@ -44,7 +44,7 @@ A video demonstration of ClipMaster Pro in action:
 
 ---
 
-## What's New in v2.4.2 (Since v2.4.0)
+## What's New in v2.4.5 (Since v2.4.0)
 
 Here are the main reliability, filtering, and performance improvements introduced since v2.4.0:
 
@@ -53,6 +53,9 @@ Here are the main reliability, filtering, and performance improvements introduce
 - **Smarter Date Filters** — Date filters now use the actual minimum and maximum dates reported by page statistics.
 - **Faster Initialization** — Settings, UI state, and tags load concurrently, while sidebar counts remain synchronized before capacity checks.
 - **Lean Dependency Layout** — Reorganized runtime and development dependencies and reduced unnecessary IPC calls during capacity warning checks.
+- **Thorough Uninstaller Cleanup** — Upgraded the installer to completely wipe application leftovers upon uninstallation, including shortcuts for all-users/current-user, registry entries, scheduled tasks, and all users' AppData/ProgramData configurations.
+- **Runtime Environment Override** — Enabled dynamic runtime updates through the `process.env.GITHUB_RELEASES_URL` override instead of relying solely on build-time baked settings.
+- **Configuration template** — Created a `.env.example` file to document optional settings such as custom encryption secrets (`CLIPMASTER_SECRET`) and GitHub update API URLs.
 
 ---
 
@@ -68,14 +71,14 @@ Here are the main reliability, filtering, and performance improvements introduce
 - **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).
 - **System Integration**: Startup hidden flag (`--hidden`) and a system tray manager with quick settings toggles.
 - **Keyboard Optimization**: Native shortcut detection (like `Ctrl` clicking Delete to permanently remove entries).
-- **Milestone**: Version 2.4.2 strengthens background reliability, filtering accuracy, startup performance, and capacity checks.
+- **Milestone**: Version 2.4.5 strengthens background reliability, filtering accuracy, startup performance, and capacity checks.
 
 ## Download & Install
-- **[Setup Installer](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (85 MB) — Recommended for Windows users.
+- **[Setup Installer](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (79 MB) — Recommended for Windows users.
 - **[Portable Version](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (40 MB) — No installation required.
 
 ## Documentation
-- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.4.2 changelog.
+- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.4.5 changelog.
 - **[Quick Start](doc/QUICK_START.md)** — Setup in under 60 seconds.
 - **[Architecture](doc/ARCHITECTURE.md)** — Technical breakdown of the app.
 - **[Troubleshooting](doc/TROUBLESHOOTING.md)** — Common fixes and support.

@@ -778,7 +778,7 @@ const Settings: React.FC = () => {
             setClearCacheStatus("idle");
           }
         }}
-        title="Advanced Cache Clearance & System Repair"
+        title="Clear Cache & Repair"
         maxWidth="max-w-md"
       >
         <div className="space-y-6 py-2">
