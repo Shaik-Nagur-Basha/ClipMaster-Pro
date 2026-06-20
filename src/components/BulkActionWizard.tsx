@@ -577,7 +577,7 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
     }
   }, [isOpen, actionType]);
 
-  // Fetch dynamic bounds for date picker — based on base context only, NOT specific tags or dates
+  // Fetch dynamic bounds for date picker — based on specific tags selection
   useEffect(() => {
     if (!isOpen) {
       setMinDateBound("");
@@ -587,9 +587,7 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
     let active = true;
     const fetchBounds = async () => {
       try {
-        // Strip specificTags so bounds don't narrow when tags are selected
-        const sfForBounds = { ...sf, specificTags: [], specificTagsMode: null };
-        const query = buildGetClipsQuery(actionType, sfForBounds, textFilter, "", "");
+        const query = buildGetClipsQuery(actionType, sf, textFilter, "", "");
         const res = await window.clipAPI.getClips(query);
         const clips = res?.clips ?? (Array.isArray(res) ? res : []);
         if (active) {
@@ -621,9 +619,7 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
     return () => {
       active = false;
     };
-  // Exclude specificTags from deps — tag selection must NOT change date bounds
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, actionType, sf.favourites, sf.recycle, sf.havingTags, textFilter, minDateBound, maxDateBound]);
+  }, [isOpen, actionType, sf.favourites, sf.recycle, sf.havingTags, sf.specificTags, sf.specificTagsMode, textFilter, minDateBound, maxDateBound]);
 
   // Fetch text search preview clips (1-3 clips) toggled right below text search input
   useEffect(() => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Dialog from "./Dialog";
 import {
@@ -76,11 +77,37 @@ const CustomDropdown: React.FC<{
   setIsOpen: (isOpen: boolean) => void;
 }> = ({ value, onChange, options, isOpen, setIsOpen }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
   const currentOption = options.find((o) => o.value === value) || options[0];
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+
+  const updateCoords = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords);
+    }
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const clickedContainer = containerRef.current?.contains(event.target as Node);
+      const clickedMenu = menuRef.current?.contains(event.target as Node);
+      if (!clickedContainer && !clickedMenu) {
         setIsOpen(false);
       }
     };
@@ -114,45 +141,54 @@ const CustomDropdown: React.FC<{
         />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute top-full right-0 mt-1.5 z-[1001] text-nowrap w-fit bg-surface-800 border border-white/10 rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] dialog-scrollbar"
-          >
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                className={`w-full flex items-center justify-between text-nowrap my-0.5 px-4 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  value === opt.value
-                    ? "bg-brand-500/10 text-brand-400 font-semibold"
-                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0 pr-4">
-                  {opt.icon && (
-                    <div className={`shrink-0 ${value === opt.value ? "text-brand-400" : "text-gray-400"}`}>
-                      {opt.icon}
-                    </div>
-                  )}
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[12px]">{opt.label}</span>
-                    {opt.desc && (
-                      <span className="text-[10px] text-gray-500 mt-0.5 leading-normal">{opt.desc}</span>
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && coords && (
+            <motion.div
+              ref={menuRef}
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.98 }}
+              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+              style={{
+                position: "fixed",
+                top: `${coords.top + 6}px`,
+                right: `${coords.right}px`,
+              }}
+              className="z-[1001] text-nowrap w-fit bg-surface-800 border border-white/10 rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] dialog-scrollbar"
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                  className={`w-full flex items-center justify-between text-nowrap my-0.5 px-4 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    value === opt.value
+                      ? "bg-brand-500/10 text-brand-400 font-semibold"
+                      : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 pr-4">
+                    {opt.icon && (
+                      <div className={`shrink-0 ${value === opt.value ? "text-brand-400" : "text-gray-400"}`}>
+                        {opt.icon}
+                      </div>
                     )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[12px]">{opt.label}</span>
+                      {opt.desc && (
+                        <span className="text-[10px] text-gray-500 mt-0.5 leading-normal">{opt.desc}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {value === opt.value && <IconCheck size={14} className="text-brand-400 shrink-0" />}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  {value === opt.value && <IconCheck size={14} className="text-brand-400 shrink-0" />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
@@ -760,7 +796,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     return query;
   };
 
-  // Fetch dynamic bounds — based on base context only, NOT specific tags or dates
+  // Fetch dynamic bounds — based on specific tags selection (except when scope is 'tagged')
   useEffect(() => {
     if (!isOpen || source !== "clips") {
       setMinDateBound("");
@@ -770,8 +806,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
     let active = true;
     const fetchBounds = async () => {
       try {
-        // Build query without specificTags so bounds don't narrow when tags are selected (unless scope is 'tagged')
-        const sfForBounds = scope === "tagged" ? scopeFilter : { ...scopeFilter, specificTags: [], specificTagsMode: null };
+        // Build query including specificTags so bounds do narrow when tags are selected (except when scope is 'tagged')
+        const sfForBounds = scope === "tagged" ? { ...scopeFilter, specificTags: [], specificTagsMode: null } : scopeFilter;
         const query: any = { limit: 100000 };
         if (scope === "clips") query.isDeleted = false;
         else if (scope === "favorites") { query.isFavorite = true; query.isDeleted = false; }
