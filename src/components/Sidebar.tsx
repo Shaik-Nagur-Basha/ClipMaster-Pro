@@ -78,7 +78,7 @@ const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-surface-900 border-r border-gray-700 h-full overflow-hidden">
+    <aside className="w-56 shrink-0 flex flex-col bg-surface-900 h-full overflow-hidden">
       {/* Logo */}
       <div className="px-4 py-4 border-gray-700">
         <div className="flex items-center gap-2">

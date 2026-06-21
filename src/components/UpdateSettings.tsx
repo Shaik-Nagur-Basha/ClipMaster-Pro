@@ -151,14 +151,14 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
       <div className={`p-5 rounded-xl bg-surface-800 transition-colors duration-300 space-y-4 ${hideHeader ? "" : "border border-gray-700 hover:border-gray-600"}`}>
         {/* Versions Info Grid */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-surface-900/50 border border-gray-700/30 p-3 rounded-lg flex flex-col">
+          <div className="bg-surface-900/50 border-gray-700/30 w-fit px-3 rounded-lg flex flex-row items-center justify-center gap-4">
             <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Installed Version</span>
-            <span className="text-[14px] font-bold text-gray-300 mt-1">v{currentVersion || "2.0.0"}</span>
+            <span className="text-[14px] font-bold text-gray-300">v{currentVersion || "2.0.0"}</span>
           </div>
-          <div className="bg-surface-900/50 border border-gray-700/30 p-3 rounded-lg flex flex-col relative overflow-hidden group">
-            <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="bg-surface-900/50 border-gray-700/30 w-fit p-3 rounded-lg flex flex-row ml-auto items-center justify-center gap-4 relative overflow-hidden group">
+            <div className="absolute right-1 top-1 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Latest Release</span>
-            <span className="text-[14px] font-bold text-emerald-400 mt-1">
+            <span className="text-[14px] font-bold text-emerald-400">
               {latestRelease ? latestRelease.tag_name : "Checking..."}
             </span>
           </div>
@@ -252,7 +252,7 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
 
         {/* Selected Release Detail card */}
         {targetRelease && (
-          <div className="p-4 rounded-lg bg-surface-900/40 border border-gray-700/50 space-y-2">
+          <div className="p-4 rounded-lg bg-surface-900/40 border-gray-700/50 space-y-2">
             <div className={`flex items-center justify-between gap-2 ${showReleaseNotes ? 'border-b border-gray-800 pb-2' : ''}`}>
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-bold text-gray-300 line-clamp-1">{targetRelease.name}</span>
@@ -302,7 +302,7 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
 
         {/* Update progress or notifications */}
         {updateStatus === "downloading" && (
-          <div className="space-y-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-lg">
+          <div className="space-y-3 p-4 bg-amber-500/5 border-amber-500/10 rounded-lg">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="text-amber-400 animate-pulse flex items-center gap-1.5">
                 <IconRefresh size={12} className="animate-spin" />
@@ -329,7 +329,7 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
         )}
 
         {updateStatus === "ready" && (
-          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2.5">
+          <div className="p-3 bg-amber-500/10 border-amber-500/20 rounded-lg flex items-start gap-2.5">
             <div className="mt-0.5 p-1 rounded bg-amber-500/10 text-amber-400">
               <IconCheck size={14} />
             </div>
@@ -345,19 +345,19 @@ export const UpdateSettings: React.FC<UpdateSettingsProps> = ({ hideHeader = fal
         )}
 
         {updateStatus === "error" && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-start gap-2.5">
-            <IconAlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+          <div className="p-3 bg-rose-500/10 border-rose-500/20 rounded-lg flex items-start gap-2.5">
+            
             <div className="space-y-1 flex-1">
-              <h5 className="text-[12px] font-bold text-rose-400">Update Failed</h5>
-              <p className="text-[11px] text-gray-400 leading-normal break-all">
-                {errorMessage || "An unknown error occurred during update."}
-              </p>
+              <div className="flex items-center justify-between"><h5 className="flex gap-1.5 text-[12px] font-bold text-rose-400"><IconAlertCircle size={16} className="text-rose-400 shrink-0" />Update Failed</h5>
               <button
                 onClick={resetProgress}
-                className="text-[10px] text-rose-400 hover:underline font-semibold mt-1.5 block"
+                className="text-[10px] text-rose-400 hover:underline font-semibold block"
               >
                 Dismiss & Reset
-              </button>
+              </button></div>
+              <p className="text-[10px] text-gray-400 leading-normal break-all">
+                {errorMessage || "An unknown error occurred during update."}
+              </p>
             </div>
           </div>
         )}

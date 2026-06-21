@@ -188,7 +188,7 @@ const Settings: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-surface-900 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between gap-3 px-6 py-3.5 border-gray-700 bg-surface-800/50 backdrop-blur-md shrink-0">
+      <header className="flex items-center justify-between gap-3 px-6 py-2.5 bg-surface-900 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-1.5 rounded-lg bg-gray-700/50 border-gray-600/50 text-gray-400">
             <IconSettings size={18} />
@@ -203,16 +203,16 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center text-nowrap gap-2">
           <button
             type="button"
             onClick={handleClearCache}
             disabled={clearingCache}
             className="text-nowrap inline-flex items-center gap-1.5 rounded-full border border-gray-700 bg-surface-800 px-3 py-1.5 text-xs text-gray-300 transition hover:border-white/20 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
-            title="Advanced cache clear: removes lock files, stale state, and repairs startup tasks"
+            title="removes lock files, stale state, and repairs startup tasks"
           >
             <IconTrash size={14} className="text-rose-400" />
-            <span>Advanced Clear Cache</span>
+            <span>Clear Cache</span>
           </button>
 
           {updateStatus === "downloading" ? (
@@ -296,9 +296,13 @@ const Settings: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-6 settings-scrollbar">
-        <div className="max-w-2xl mx-auto space-y-8">
+      <main
+        className="flex-1 overflow-y-auto p-6 settings-scrollbar border-l border-t border-gray-800/20 rounded-tl-2xl bg-gradient-to-b from-[#050507] via-[#070709] to-[#0a0a0f] relative"
+        style={{
+          boxShadow: "inset 1px 1px 0px rgba(255, 255, 255, 0.15), inset -1px -1px 0px rgba(0, 0, 0, 0.5), inset 0 0 32px rgba(255, 255, 255, 0.04), 0 20px 40px -12px rgba(0, 0, 0, 0.65)"
+        }}
+      >
+        <div className="max-w-2xl mx-auto space-y-8 relative z-10">
           {/* General Section */}
           <Section
             title="General Presence"
@@ -378,7 +382,7 @@ const Settings: React.FC = () => {
 
               <SettingRow
                 label="Global shortcut key"
-                desc="Click record and press your desired key combination (default: Ctrl + Shift + V)."
+                desc="Press keys to record a custom shortcut (default: Ctrl+Shift+V)."
                 icon={<IconZap size={13} />}
               >
                 <ShortcutRecorder
@@ -402,7 +406,7 @@ const Settings: React.FC = () => {
               {/* ── ROW 1: Bulk Actions (1/2) + Export + Import ── */}
               <div className="flex gap-4 items-stretch">
                 {/* LEFT: Bulk Actions — half width */}
-                <div className="w-1/2 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                <div className="w-1/2 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/80 transition-all duration-300 group">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
@@ -544,7 +548,7 @@ const Settings: React.FC = () => {
                 {/* RIGHT: Export + Import stacked */}
                 <div className="flex-1 flex flex-col gap-4">
                   {/* Export System */}
-                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/80 transition-all duration-300 group">
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-brand-500/10 text-brand-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
@@ -567,8 +571,9 @@ const Settings: React.FC = () => {
                         </h4>
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        Export clipboard entries, tags, and settings to Excel,
-                        JSON, PDF, or Raw files.
+                        Export copied items, tags, and settings.
+                        <br />
+                        Supported formats: <span className="font-semibold text-emerald-400 tracking-wider">Excel</span>, <span className="font-semibold text-amber-400 tracking-wider">JSON</span>, or <span className="font-semibold text-rose-400 tracking-wider">PDF</span>.
                       </p>
                     </div>
                     <button
@@ -586,7 +591,7 @@ const Settings: React.FC = () => {
                   </div>
 
                   {/* Import System */}
-                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/40 hover:bg-surface-800/80 transition-all duration-300 group">
+                  <div className="flex-1 flex flex-col justify-between p-5 rounded-2xl bg-surface-800/80 transition-all duration-300 group">
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform duration-300 shrink-0">
@@ -609,8 +614,9 @@ const Settings: React.FC = () => {
                         </h4>
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        Restore clips, tags, and settings from a JSON or ZIP
-                        backup package.
+                        Restore copied items, tags, and settings.
+                        <br />
+                        Supported formats: <span className="font-semibold text-amber-400">JSON</span> or <span className="font-semibold text-rose-400">ZIP</span>.
                       </p>
                     </div>
                     <button
@@ -702,15 +708,6 @@ const Settings: React.FC = () => {
         </div>
       </main>
 
-      {/* Sticky Bottom Notice */}
-      <footer className="px-6 py-4 border-gray-700 bg-surface-800/80 backdrop-blur-xl shrink-0">
-        <div className="max-w-2xl mx-auto">
-          <p className="text-[11px] text-gray-500 italic">
-            Settings are saved automatically to your local device.
-          </p>
-        </div>
-      </footer>
-
       {/* Application Updates Dialog */}
       <Dialog
         isOpen={showUpdatesDialog}
@@ -719,6 +716,7 @@ const Settings: React.FC = () => {
         maxWidth="max-w-xl"
         contentClassName="settings-scrollbar"
         paddingClassName="p-0"
+        overflowVisible={true}
         headerAction={
           <div className="flex items-center gap-2">
             {updateStatus === "downloading" ? (
@@ -781,7 +779,7 @@ const Settings: React.FC = () => {
         title="Clear Cache & Repair"
         maxWidth="max-w-md"
       >
-        <div className="space-y-6 py-2">
+        <div className="space-y-4 py-2">
           {clearCacheStatus === "running" && (
             <div className="flex flex-col items-center justify-center space-y-4">
               {/* Spinning optimization visual */}
@@ -808,14 +806,11 @@ const Settings: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-emerald-400">
-                  Advanced Cache Cleared Successfully
+                  Cache Cleared Successfully
                 </h4>
                 <p className="text-xs text-gray-400 mt-1">
-                  Singleton lock files, stale update assets, and corrupt backup
-                  files have been removed. Startup tasks have been verified and
-                  repaired. Local databases are compacted. Your clips, tags, and
-                  settings are fully preserved. If the app previously failed to
-                  launch, it will now open normally.
+                  Lock files, stale assets, and corrupt backups removed. Startup
+                  tasks repaired and databases compacted. App should launch normally.
                 </p>
               </div>
             </div>
@@ -836,7 +831,7 @@ const Settings: React.FC = () => {
           )}
 
           {/* Step-by-step progress checklist */}
-          <div className="bg-surface-900/40 border border-gray-700/50 rounded-xl p-4 space-y-3">
+          <div className="bg-surface-900/40 border-gray-700/50 rounded-xl p-4 space-y-3">
             {[
               { label: "Scanning temporary download folders", step: 1 },
               { label: "Purging version installation files", step: 2 },
@@ -927,12 +922,12 @@ const Settings: React.FC = () => {
         isOpen={showInfoDialog}
         onClose={() => setShowInfoDialog(false)}
         title="Application Updates Information"
-        maxWidth="max-w-md"
+        maxWidth="max-w-lg"
       >
         <div className="space-y-4">
-          <div className="p-4 bg-brand-500/5 border border-brand-500/10 rounded-xl space-y-3">
+          <div className="p-4 bg-brand-500/5 border-brand-500/10 rounded-xl space-y-3">
             <div className="space-y-1">
-              <h4 className="text-sm font-semibold text-white">
+              <h4 className="text-sm font-semibold tracking-wider text-white">
                 How updates work:
               </h4>
               <p className="text-xs text-gray-400 leading-relaxed">
@@ -942,31 +937,31 @@ const Settings: React.FC = () => {
             </div>
             <ul className="text-xs text-gray-400 space-y-2 ml-4 list-disc">
               <li>
-                <span className="font-semibold text-gray-200">
+                <span className="font-semibold tracking-wide text-gray-200">
                   Installed Version
                 </span>{" "}
                 is the currently running build of the application.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">
+                <span className="font-semibold tracking-wide text-gray-200">
                   Latest Release
                 </span>{" "}
                 represents the latest stable release tagged on GitHub.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">
+                <span className="font-semibold tracking-wide text-gray-200">
                   Release Notes
                 </span>{" "}
                 are displayed below the selector to help you inspect new
                 features, bug fixes, or performance enhancements.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">Data Safety</span>
+                <span className="font-semibold tracking-wide text-gray-200">Data Safety</span>
                 : Your clipboard history and personalized configurations are
                 fully preserved during updates.
               </li>
               <li>
-                <span className="font-semibold text-gray-200">
+                <span className="font-semibold tracking-wide text-gray-200">
                   Cancellation
                 </span>
                 : You can cancel the download at any time using the cancel
@@ -995,7 +990,7 @@ const Settings: React.FC = () => {
       >
         <div className="space-y-3">
           {/* Global Shortcut Card */}
-          <div className="rounded-2xl border border-gray-700 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+          <div className="rounded-2xl border border-gray-700/40 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-white">
@@ -1016,18 +1011,13 @@ const Settings: React.FC = () => {
                     ))}
                 </div>
               </div>
-              <p className="mt-2 text-[13px] leading-5 text-gray-400">
-                Press this global hotkey to instantly display a lightweight
-                clipboard history window on top of any active application. This
-                popup shows your 10 most recent clips, filters, custom options,
-                and search features. Clicking any clip automatically copies it
-                and pastes it directly into the active input field of other
-                applications.
+              <p className="mt-2 text-xs text-gray-400">
+                Press to show the clipboard history popup on top of any active application.
               </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-700 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+          <div className="rounded-2xl border border-gray-700/40 bg-surface-900 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-white">
@@ -1039,12 +1029,8 @@ const Settings: React.FC = () => {
                   <IconTrash size={14} className="text-rose-400" />
                 </div>
               </div>
-              <p className="mt-2 text-[13px] leading-5 text-gray-400">
-                Hold <span className="font-semibold text-white">Ctrl</span>{" "}
-                while clicking the
-                <IconTrash size={14} className="inline mx-1 text-rose-400" />
-                delete icon on a clip to permanently delete it instead of moving
-                it to the recycle bin.
+              <p className="mt-2 text-xs text-gray-400">
+                Hold <span className="font-semibold text-white">Ctrl</span> while clicking delete to bypass the Recycle Bin.
               </p>
             </div>
           </div>
@@ -1058,36 +1044,85 @@ const Settings: React.FC = () => {
           setShowResetDialog(false);
           setResetConfirmText("");
         }}
-        title="Confirm Data Reset"
+        title="Reset Application Database"
         maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <div className="p-4 bg-rose-500/10 border-rose-500/20 rounded-lg space-y-2">
-            <h4 className="text-sm font-semibold text-rose-400 flex items-center gap-2">
-              <IconAlertCircle size={16} />
-              This action cannot be undone
-            </h4>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              You are about to permanently delete:
-            </p>
-            <ul className="text-xs text-gray-500 space-y-1 ml-4 list-disc">
-              <li>All clipboard entries (including favourites)</li>
-              <li>All custom tags and filters</li>
-              <li>All application settings</li>
-            </ul>
+          <div className="relative overflow-hidden p-4 rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-950/20 via-rose-900/5 to-surface-900/40 backdrop-blur-md shadow-[0_8px_32px_rgba(244,63,94,0.1)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] space-y-3 group/card transition-all duration-300 hover:shadow-[0_10px_30px_rgba(244,63,94,0.1)]">
+            {/* WWDC-style Glowing ambient orbs */}
+            <div className="absolute -top-10 -left-10 w-24 h-24 bg-rose-500/15 rounded-full blur-2xl pointer-events-none group-hover/card:bg-rose-500/18 transition-all duration-300" />
+            <div className="absolute -bottom-14 -right-14 w-28 h-28 bg-rose-600/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-center gap-3 relative z-10">
+              <IconAlertCircle size={28} className="text-rose-400 shrink-0 filter drop-shadow-[0_0_8px_rgba(244,63,94,0.4)] animate-pulse" />
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-bold text-rose-400 tracking-wide uppercase">
+                  Critical: Destructive Action
+                </h4>
+                <p className="text-[11px] text-rose-300/80 leading-relaxed font-medium">
+                  Permanently wipes all data. This action is irreversible.
+                </p>
+              </div>
+            </div>
+            
+            <div className="border-t border-rose-500/15 pt-2.5 space-y-2 relative z-10">
+              <p className="text-[9.5px] font-bold text-gray-400 uppercase tracking-wider">
+                Permanently Deleted
+              </p>
+              
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex gap-2.5 items-center p-2 rounded-lg bg-surface-900/60 border border-gray-800/40 backdrop-blur-sm">
+                  <div className="p-2 rounded-md bg-brand-500/10 text-brand-400 shrink-0">
+                    <IconLayers size={18} />
+                  </div>
+                  <div>
+                    <h5 className="text-[10px] font-bold text-gray-250 uppercase tracking-wider">Clips</h5>
+                    <p className="text-[10px] text-gray-500">All saved items, favorites, and recycle bin history.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-center p-2 rounded-lg bg-surface-900/60 border border-gray-800/40 backdrop-blur-sm">
+                  <div className="p-2 rounded-md bg-fuchsia-500/10 text-fuchsia-400 shrink-0">
+                    <IconTag size={18} />
+                  </div>
+                  <div>
+                    <h5 className="text-[10px] font-bold text-gray-250 uppercase tracking-wider">Tags</h5>
+                    <p className="text-[10px] text-gray-500">All organization tags, custom colors, and labels.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-center p-2 rounded-lg bg-surface-900/60 border border-gray-800/40 backdrop-blur-sm">
+                  <div className="p-2 rounded-md bg-amber-500/10 text-amber-400 shrink-0">
+                    <IconSettings size={18} />
+                  </div>
+                  <div>
+                    <h5 className="text-[10px] font-bold text-gray-250 uppercase tracking-wider">Settings</h5>
+                    <p className="text-[10px] text-gray-500">All hotkeys, configurations, and user preferences.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">
-              Type <span className="text-rose-400 font-bold">RESET ALL</span> to
-              confirm:
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+              Security Verification
             </label>
+            <p className="text-xs text-gray-500">
+              Please type <span className="text-rose-400 font-extrabold font-mono">RESET ALL</span> below to confirm this request.
+            </p>
             <input
               type="text"
               value={resetConfirmText}
               onChange={(e) => setResetConfirmText(e.target.value)}
-              placeholder="Type RESET ALL"
-              className="w-full bg-surface-900 border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:border-rose-500/50 focus:ring-0 focus-visible:ring-0 focus:outline-none outline-none transition-all"
+              onPaste={(e) => e.preventDefault()}
+              onDrop={(e) => e.preventDefault()}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder="Type RESET ALL to confirm"
+              className="w-full bg-surface-900 border border-gray-700/60 focus:border-rose-500/40 rounded-xl px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:ring-0 focus-visible:ring-0 focus:outline-none outline-none transition-all duration-200"
               autoFocus
             />
           </div>
@@ -1098,14 +1133,14 @@ const Settings: React.FC = () => {
                 setShowResetDialog(false);
                 setResetConfirmText("");
               }}
-              className="flex-1 px-4 py-2.5 rounded-lg border-gray-700 text-gray-300 font-medium hover:bg-surface-700 transition-all"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-700/60 text-gray-300 font-semibold bg-surface-600/30 hover:bg-surface-600/50 transition-all duration-150"
             >
               Cancel
             </button>
             <button
               onClick={handleResetAll}
               disabled={resetConfirmText !== "RESET ALL" || resetting}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-rose-500/10 border-rose-500/30 text-rose-400 font-medium hover:bg-rose-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-semibold hover:bg-rose-500/20 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {resetting ? (
                 <>

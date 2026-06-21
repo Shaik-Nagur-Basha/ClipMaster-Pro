@@ -11,6 +11,7 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconRestore,
+  IconPlus,
 } from "./Icons";
 import type { Tag, ScopeFilter } from "../types";
 import { useClipStore } from "../store/useClipStore";
@@ -442,7 +443,9 @@ const PreviewLimitDropdown: React.FC<{
 
 export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onClose, actionType }) => {
   const tags = useClipStore((s) => s.tags);
+  const saveTags = useClipStore((s) => s.saveTags);
   const loadClips = useClipStore((s) => s.loadClips);
+  const loadTags = useClipStore((s) => s.loadTags);
 
   const [sf, setSf] = useState<ScopeFilter>(DEFAULT_SCOPE_FILTER);
   // For attach-tags: which tags to attach (separate from specificTags sub-filter)
@@ -563,6 +566,7 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
   // Reset state when wizard opens/actionType changes
   useEffect(() => {
     if (isOpen) {
+      loadTags();
       setSf(DEFAULT_SCOPE_FILTER);
       setAttachTagIds([]);
       setTextFilter("");
@@ -740,6 +744,30 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
     setAttachTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     );
+  };
+
+  const handleCreateTag = async () => {
+    const trimmed = attachTagsSearch.trim();
+    if (!trimmed) return;
+    const exists = tags.some((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) return;
+
+    const colors = [
+      "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4",
+      "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16"
+    ];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const newTag = {
+      id: Date.now().toString(),
+      name: trimmed,
+      color: randomColor,
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveTags([...tags, newTag]);
+    setAttachTagIds((prev) => [...prev, newTag.id]);
+    setAttachTagsSearch("");
   };
 
   // Validation: for attach-tags, at least one tag must be selected
@@ -951,6 +979,18 @@ export const BulkActionWizard: React.FC<BulkActionWizardProps> = ({ isOpen, onCl
                             onClick={() => toggleAttachTag(tag.id)}
                           />
                         ))}
+                    </div>
+                  )}
+                  {attachTagsSearch.trim() && !tags.some(t => t.name.toLowerCase() === attachTagsSearch.trim().toLowerCase()) && (
+                    <div className="flex justify-start pl-1">
+                      <button
+                        type="button"
+                        onClick={handleCreateTag}
+                        className="flex items-center gap-1.5 text-[10px] text-brand-400 hover:text-brand-300 transition-colors bg-brand-500/10 hover:bg-brand-500/20 px-2.5 py-1 rounded border border-brand-500/20 font-medium"
+                      >
+                        <IconPlus size={10} />
+                        Create tag "{attachTagsSearch.trim()}"
+                      </button>
                     </div>
                   )}
                   {attachTagIds.length === 0 ? (

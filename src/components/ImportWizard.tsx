@@ -988,12 +988,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
       // 2. Date Range
       if (clip.timestamp) {
         if (dateFrom) {
-          const fromTime = new Date(dateFrom).getTime();
+          const fromTime = new Date(dateFrom + "T00:00:00.000Z").getTime();
           const clipTime = new Date(clip.timestamp).getTime();
           if (clipTime < fromTime) return false;
         }
         if (dateTo) {
-          const toTime = new Date(dateTo + "T23:59:59").getTime();
+          const toTime = new Date(dateTo + "T23:59:59.999Z").getTime();
           const clipTime = new Date(clip.timestamp).getTime();
           if (clipTime > toTime) return false;
         }
@@ -1498,7 +1498,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 </div>
                 <h4 className="text-base font-bold text-white">Select Backup File</h4>
                 <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
-                  Provide a ClipMaster Pro backup package in **JSON** or **ZIP** format to initialize the import configuration wizard.
+                  Provide a backup file in <span className="font-semibold text-amber-400">JSON</span> or <span className="font-semibold text-rose-400">ZIP</span> format to start.
                 </p>
               </div>
 
@@ -1557,7 +1557,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({ isOpen, onClose }) =
                 </div>
                 <h4 className="text-sm font-bold text-white">Import Preview</h4>
                 <p className="text-xs text-gray-500">
-                  Here is a summary of what will be imported or skipped from the backup. Click any card to customize its import filters.
+                  Review the backup summary. Click any card to edit import filters.
                 </p>
               </div>
 

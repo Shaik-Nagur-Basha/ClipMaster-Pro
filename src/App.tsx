@@ -7,6 +7,7 @@ import { FullPageSpinner } from "./components/LoadingSpinner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Dialog from "./components/Dialog";
 import { LiquidGlassSphere } from "./components/LiquidGlassSphere";
+import { IconAlertCircle } from "./components/Icons";
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const FavoritesPage = React.lazy(() => import("./pages/FavoritesPage"));
@@ -39,7 +40,7 @@ function TitleBar() {
   return (
     <div
       style={{
-        height: 40,
+        height: 36,
         display: "flex",
         alignItems: "stretch",
         background: "#0d0d1a",
@@ -405,46 +406,47 @@ export default function App() {
         maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <p className="text-[13px] leading-relaxed text-gray-300">
-            {warningType === "red" ? (
-              <>
-                Clipboard storage has reached its maximum capacity limit of{" "}
-                <span className="font-bold text-white">
-                  {maxEntries.toLocaleString()}
-                </span>{" "}
-                clips.
-                <br />
-                <br />
-                <span className="font-bold text-rose-400">
-                  New clipboard items will NOT be captured
-                </span>{" "}
-                until you increase the limit or clean up your clipboard history. Other features like viewing and copying existing clips will continue to work.
-              </>
-            ) : (
-              <>
-                Clipboard storage is almost full. You have used{" "}
-                <span className="font-bold text-white">
-                  {activeCount.toLocaleString()}
-                </span>{" "}
-                out of{" "}
-                <span className="font-bold text-white">
-                  {maxEntries.toLocaleString()}
-                </span>{" "}
-                clips (over 90%).
-                <br />
-                <br />
-                When the limit is reached, ClipMaster Pro will{" "}
-                <span className="font-bold text-amber-400">
-                  stop saving new clipboard captures
-                </span>.
-              </>
-            )}
-          </p>
+          {warningType === "red" ? (
+            <div className="space-y-3">
+              <div className="flex gap-3 items-center p-3 bg-rose-500/10 border-rose-500/20 rounded-xl">
+                <IconAlertCircle size={22} className="text-rose-400 shrink-0" />
+                <div>
+                  <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider">Clipboard Capacity Reached</h4>
+                  <p className="text-[11px] text-rose-300/80 leading-relaxed mt-0.5">
+                    Clipboard database has reached its max capacity of <span className="font-bold text-white">{maxEntries.toLocaleString()}</span> entries.
+                  </p>
+                </div>
+              </div>
+              
+              <ul className="text-xs text-gray-400 leading-relaxed space-y-1.5 list-disc pl-5">
+                <li>New clipboard copies <span className="font-semibold text-rose-400">will not be saved</span>.</li>
+                <li>Please increase your database limits in Settings or clean up your clipboard history.</li>
+                <li>Other viewing and clipboard interaction functions remain active.</li>
+              </ul>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex gap-3 items-center p-3 bg-amber-500/10 border-amber-500/20 rounded-xl">
+                <IconAlertCircle size={22} className="text-amber-400 shrink-0" />
+                <div>
+                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Storage Almost Full</h4>
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed mt-0.5">
+                    Using <span className="font-bold text-white">{activeCount.toLocaleString()}</span> out of <span className="font-bold text-white">{maxEntries.toLocaleString()}</span> entries ({Math.round((activeCount / maxEntries) * 100)}%).
+                  </p>
+                </div>
+              </div>
+
+              <ul className="text-xs text-gray-400 leading-relaxed space-y-1.5 list-disc pl-5">
+                <li>Once the limit is reached, ClipMaster Pro will <span className="font-semibold text-amber-400">suspend saving new clipboard copies</span>.</li>
+                <li>Consider purging old clips or increasing the limit in Settings.</li>
+              </ul>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-3 border-t border-gray-700/50">
             <button
               onClick={() => setShowWarningDialog(false)}
-              className="px-4 py-2 rounded-xl bg-surface-800 border border-gray-700 text-gray-300 text-xs font-semibold hover:bg-surface-700 hover:text-white transition-all"
+              className="px-4 py-2 rounded-xl border border-gray-700 text-gray-300 text-xs font-semibold bg-surface-700/70 hover:bg-surface-700/90 hover:text-white transition-all"
             >
               Dismiss
             </button>
@@ -609,6 +611,7 @@ export default function App() {
         useClipStore.setState({ popupSearchVisible: false, isSearchFocused: false, popupSearchValue: "" });
         useClipStore.getState().setFilters({ search: "" });
         window.clipAPI.setSearchFocusable?.(false);
+        window.dispatchEvent(new CustomEvent("popup-refreshed"));
       }
       await loadClips();
       await checkCapacityWarning(useClipStore.getState().sidebarCounts);
@@ -824,40 +827,6 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPopupMode = typeof window !== "undefined" && window.location.search.includes("popup=true");
-
-  // Suppress native browser tooltips in popup mode since they display behind the always-on-top window
-  useEffect(() => {
-    if (!isPopupMode) return;
-
-    const handleMouseOver = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && typeof target.hasAttribute === "function" && target.hasAttribute("title")) {
-        const title = target.getAttribute("title");
-        if (title) {
-          target.setAttribute("data-title", title);
-          target.removeAttribute("title");
-        }
-      }
-    };
-
-    const handleMouseOut = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && typeof target.hasAttribute === "function" && target.hasAttribute("data-title")) {
-        const title = target.getAttribute("data-title");
-        if (title) {
-          target.setAttribute("title", title);
-          target.removeAttribute("data-title");
-        }
-      }
-    };
-
-    window.addEventListener("mouseover", handleMouseOver, true);
-    window.addEventListener("mouseout", handleMouseOut, true);
-    return () => {
-      window.removeEventListener("mouseover", handleMouseOver, true);
-      window.removeEventListener("mouseout", handleMouseOut, true);
-    };
-  }, [isPopupMode]);
 
   if (isPopupMode) {
     const isPinned = settings.popupPinned === true;
@@ -1082,6 +1051,7 @@ export default function App() {
             <circle cx="2" cy="10" r="1.2" />
           </svg>
         </div>
+
       </div>
     );
   }

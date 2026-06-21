@@ -12,6 +12,7 @@ import {
   IconSearch,
   IconX,
   IconTrash,
+  IconAlertCircle,
 } from "../components/Icons";
 import { ClipSkeleton, FullPageSpinner } from "../components/LoadingSpinner";
 import type { ClipboardItem } from "../types";
@@ -33,6 +34,27 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
     isTagSearchFocused,
     setIsTagSearchFocused,
   } = store;
+
+  const isFavorites = store.activePage === "favorites";
+  const isRecycle = store.activePage === "recycle";
+
+  const getGradientClass = () => {
+    if (isFavorites) return "from-[#100a18] via-[#09070c] to-[#0a0a0f]";
+    if (isRecycle) return "from-[#120909] via-[#09090f] to-[#0a0a0f]";
+    return "from-[#0c0c16] via-[#09090f] to-[#0a0a0f]";
+  };
+
+  const getBorderColorClass = () => {
+    if (isFavorites) return "border-violet-500/10";
+    if (isRecycle) return "border-red-500/10";
+    return "border-indigo-500/10";
+  };
+
+  const getGlowColor = () => {
+    if (isFavorites) return "rgba(139, 92, 246, 0.08)";
+    if (isRecycle) return "rgba(239, 68, 68, 0.08)";
+    return "rgba(99, 102, 241, 0.08)";
+  };
 
 
   if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
@@ -65,8 +87,36 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
   const isEmpty = totalCount === 0;
 
   const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [isWarningExpanded, setIsWarningExpanded] = useState(false);
+  const hoverTimeoutRef = useRef<any>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handlePopupRefreshed = () => {
+      if (settings.pauseCaptureOption && settings.pauseCaptureOption !== "never") {
+        setIsWarningExpanded(true);
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsWarningExpanded(false);
+        }, 3500);
+      }
+    };
+
+    window.addEventListener("popup-refreshed", handlePopupRefreshed);
+
+    // Initial check on mount or settings change
+    handlePopupRefreshed();
+
+    return () => {
+      window.removeEventListener("popup-refreshed", handlePopupRefreshed);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, [settings.pauseCaptureOption]);
 
   const filteredTags = store.tags
     .filter((tag) =>
@@ -449,9 +499,10 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
               <SearchBar />
             </div>
           )}
+
         </div>
       ) : (
-        <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
+        <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-2.5 border-white/5 shrink-0 bg-surface-900 backdrop-blur-sm">
           <div className="flex-1">
             <SearchBar />
           </div>
@@ -459,91 +510,66 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
         </div>
       )}
 
-      {/* Pause capturing warning banner */}
-      {settings.pauseCaptureOption &&
-        settings.pauseCaptureOption !== "never" && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-400/90 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold text-white/95">
-                  Clipboard Capture Paused
-                </p>
-                <p className="text-[11px] text-gray-400">
-                  {settings.pauseCaptureOption === "restart"
-                    ? "Clipboard monitoring is temporarily suspended until you restart the application."
-                    : `Clipboard monitoring is suspended. Resumes at ${new Date(settings.pauseUntil || 0).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() =>
-                store.saveSettings({
-                  pauseCaptureOption: "never",
-                  pauseUntil: null,
-                })
-              }
-              className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-xs font-medium border border-amber-500/20 hover:border-amber-500/30 text-amber-400 transition-all shrink-0"
-            >
-              Resume Now
-            </button>
-          </div>
-        )}
 
       {/* Stats Bar */}
       {!isPopup && (
-        <div className="flex items-center justify-between px-6 py-2 shrink-0 bg-surface-800/20">
+        <div className="relative flex items-center justify-between px-6 py-1.5 shrink-0 bg-surface-900">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
             {totalCount} {totalCount === 1 ? "Entry" : "Entries"} Cached
           </p>
-          {paginated && !isEmpty && (
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
-              {!isPopup && (
-                <PageSizeDropdown
-                  value={pageSize}
-                  onChange={(val) => {
-                    store.saveSettings({ pageSize: val });
-                    setCurrentPage(1);
-                  }}
-                />
-              )}
-              {totalCount > pageSize && (
-                <>
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
-                  >
-                    Prev
-                  </button>
-                  <span>
-                    Page {currentPage}/{totalPages}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPage(Math.min(totalPages, currentPage + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+          
+          <div className="flex items-center gap-4">
+            {paginated && !isEmpty && (
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
+                {!isPopup && (
+                  <PageSizeDropdown
+                    value={pageSize}
+                    onChange={(val) => {
+                      store.saveSettings({ pageSize: val });
+                      setCurrentPage(1);
+                    }}
+                  />
+                )}
+                {totalCount > pageSize && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <span>
+                      Page {currentPage}/{totalPages}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* Content Area */}
       <div
         ref={contentRef}
-        className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar relative ${
-          paginated ? "hide-scrollbar-thumb" : ""
-        }`}
+        className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar relative bg-gradient-to-b ${getGradientClass()} ${
+          !isPopup ? `border-l border-t ${getBorderColorClass()} rounded-tl-2xl` : `rounded-none`
+        } ${
+          !isPopup && paginated && !isEmpty && totalCount > pageSize ? `border-b ${getBorderColorClass()} rounded-bl-2xl` : ""
+        } ${paginated ? "hide-scrollbar-thumb" : ""}`}
+        style={{
+          boxShadow: `inset 1px 1px 0px rgba(255, 255, 255, 0.15), inset -1px -1px 0px rgba(0, 0, 0, 0.5), inset 0 0 32px ${getGlowColor()}, 0 20px 40px -12px rgba(0, 0, 0, 0.65)`
+        }}
       >
         {isLoading ? (
           paginated ? (
@@ -571,7 +597,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
       {paginated && !isEmpty && totalCount > pageSize && (
         <div
           style={{ WebkitAppRegion: "drag" } as any}
-          className={`flex items-center justify-between shrink-0 bg-surface-800/20 border-t border-white/5 ${isPopup ? "px-3 py-1.5 cursor-move" : "px-6 py-3"}`}
+          className={`flex items-center justify-between shrink-0 bg-surface-900 ${isPopup ? "px-3 py-1.5 cursor-move border-t border-gray-700/50" : "px-6 py-1.5"}`}
         >
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
             <span className="text-cyan-400/75">{pageEndCount}</span> of{" "}
@@ -634,6 +660,65 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
       {/* Floating Scroll Buttons */}
       {!isEmpty && (
         <FloatingScrollButtons containerRef={contentRef} disabled={paginated} />
+      )}
+
+      {/* Pause capturing warning banner (Floating Notch) */}
+      {settings.pauseCaptureOption && settings.pauseCaptureOption !== "never" && (
+        <div
+          onMouseEnter={() => {
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+            setIsWarningExpanded(true);
+          }}
+          onMouseLeave={() => {
+            hoverTimeoutRef.current = setTimeout(() => {
+              setIsWarningExpanded(false);
+            }, 800);
+          }}
+          style={{ top: isPopup ? "90px" : paginated ? "140px" : "130px" }}
+          className="absolute right-0 z-50 flex items-center transition-all duration-200"
+        >
+          {/* Notch with warning symbol indicator */}
+          <div className="w-3.5 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-l-xl flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.6)] border-l border-y border-amber-300/40 cursor-pointer hover:w-4.5 hover:shadow-[0_0_25px_rgba(245,158,11,0.9)] transition-all duration-300 ease-out animate-pulse group shrink-0 text-white">
+            <IconAlertCircle size={10} strokeWidth={3} className="mr-0.5" />
+          </div>
+
+          {/* Complex Warning Banner (Hover view) */}
+          {isWarningExpanded && (
+            <div className="absolute right-full mr-2 z-50 p-3.5 rounded-xl bg-surface-900/95 border border-amber-500/20 text-amber-400/90 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-right-2 duration-200 shadow-2xl backdrop-blur-md w-80">
+              <div className="flex items-center gap-3">
+                <span className="flex h-2 w-2 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-xs font-semibold text-white/95 truncate">
+                    Clipboard Capture Paused
+                  </p>
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    {settings.pauseCaptureOption === "restart"
+                      ? "Suspended until you restart."
+                      : `Resumes at ${new Date(settings.pauseUntil || 0).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  store.saveSettings({
+                    pauseCaptureOption: "never",
+                    pauseUntil: null,
+                  });
+                  setIsWarningExpanded(false);
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-[10px] font-medium border border-amber-500/20 hover:border-amber-500/30 text-amber-400 transition-all shrink-0 cursor-pointer"
+              >
+                Resume Now
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

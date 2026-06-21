@@ -75,7 +75,7 @@ const Dialog: React.FC<DialogProps> = ({
               </div>
               
               {/* Content */}
-              <div className={`${paddingClassName} min-h-0 overflow-y-auto ${contentClassName}`}>
+              <div className={`${paddingClassName} min-h-0 ${overflowVisible ? 'overflow-visible' : 'overflow-y-auto'} ${contentClassName}`}>
                 {children}
               </div>
             </motion.div>

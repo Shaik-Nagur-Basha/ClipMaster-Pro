@@ -677,6 +677,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
 
   // Tags from store
   const tags = useClipStore((s) => s.tags);
+  const loadTags = useClipStore((s) => s.loadTags);
 
   // tagPickerClips: fetched WITHOUT specificTags filter so the tag list stays stable
   const [tagPickerClips, setTagPickerClips] = useState<any[]>([]);
@@ -740,6 +741,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({ isOpen, onClose }) =
   // Reset additional states when wizard opens
   useEffect(() => {
     if (isOpen) {
+      loadTags();
       setShowPreviewList(false);
       setTextSearchPreviewClips([]);
       setTextSearchPreviewCount(0);

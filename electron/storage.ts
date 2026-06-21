@@ -388,13 +388,13 @@ class StorageManager {
     if (options.dateFrom) {
       query.timestamp = {
         ...query.timestamp,
-        $gte: new Date(options.dateFrom).toISOString(),
+        $gte: new Date(options.dateFrom + "T00:00:00.000Z").toISOString(),
       };
     }
     if (options.dateTo) {
       query.timestamp = {
         ...query.timestamp,
-        $lte: new Date(options.dateTo + "T23:59:59").toISOString(),
+        $lte: new Date(options.dateTo + "T23:59:59.999Z").toISOString(),
       };
     }
 

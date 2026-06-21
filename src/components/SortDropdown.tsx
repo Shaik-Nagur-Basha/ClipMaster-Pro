@@ -46,7 +46,7 @@ const SortDropdown: React.FC = () => {
                 className={`flex items-center gap-2 h-9 px-3 rounded-lg transition-all duration-200 ${
                     isOpen 
                     ? 'bg-surface-700 border-brand-500/30 text-brand-400 shadow-lg shadow-brand-500/5' 
-                    : 'bg-surface-800/50 border-gray-700/50 text-gray-400 hover:border-gray-600 hover:bg-surface-700/50 hover:text-gray-300'
+                    : 'border-gray-700/50 text-gray-400 hover:border-gray-600 bg-surface-700/50 hover:bg-surface-700/70 hover:text-gray-300'
                 }`}
             >
                 <IconSort size={15} className={isOpen ? 'text-brand-400' : 'text-gray-500'} />

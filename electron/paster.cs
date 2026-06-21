@@ -397,9 +397,8 @@ public class Program {
                     Console.WriteLine("TOPMOST_SUCCESS");
 
                     while (true) {
-                        Thread.Sleep(50);
+                        Thread.Sleep(500);
                         if (!IsWindow(popupHwnd)) break;
-                        SetWindowPos(popupHwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                     }
                 } catch (Exception ex) {
                     Console.WriteLine("ERROR_TOPMOST: " + ex.Message);

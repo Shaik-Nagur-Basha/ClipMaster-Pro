@@ -254,10 +254,11 @@ const TagManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setDeletingTag(tag)}
-                  className="p-1 px-1.5 hover:bg-black/10 rounded-lg transition-all"
-                  style={{ color: tag.color }}
+                  className="p-1 px-1.5 hover:bg-red-500/10 rounded-lg transition-all"
+                  style={{ color: '#ef4444' }}
+                  title="Delete tag"
                 >
-                  <IconX size={12} />
+                  <IconTrash size={12} />
                 </button>
               </div>
             </motion.div>
@@ -351,7 +352,7 @@ const TagManager: React.FC = () => {
           <div className="flex gap-3 pt-4">
             <button
               onClick={() => setEditingTag(null)}
-              className="flex-1 px-4 py-2.5 rounded-xl border-gray-700 text-gray-400 hover:text-gray-300 bg-white/5 transition-all text-xs font-bold uppercase tracking-wider"
+              className="flex-1 px-4 py-2.5 rounded-xl border-gray-700 text-gray-400 hover:text-gray-300 bg-white/5 hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-wider"
             >
               Cancel
             </button>
@@ -387,18 +388,18 @@ const TagManager: React.FC = () => {
               This will permanently remove this tag. Clips using this tag will be unaffected but un-tagged.
             </p>
           </div>
-          <div className="flex flex-col w-full gap-2 pt-4">
-            <button
-              onClick={confirmDelete}
-              className="w-full py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all text-xs font-bold uppercase tracking-wider"
-            >
-              Delete Tag
-            </button>
+          <div className="flex flex-row w-full gap-2 pt-4">
             <button
               onClick={() => setDeletingTag(null)}
-              className="w-full py-2.5 rounded-xl bg-transparent text-gray-500 hover:text-gray-300 transition-all text-[10px] font-bold uppercase tracking-[0.2em]"
+              className="w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-300 transition-all text-[10px] font-bold uppercase tracking-[0.2em] bg-white/5 hover:bg-white/10"
             >
               Keep Tag
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="w-full py-2.5 rounded-xl bg-red-500/50 text-white hover:bg-red-500/75 transition-all text-xs font-bold uppercase tracking-wider"
+            >
+              Delete Tag
             </button>
           </div>
         </div>

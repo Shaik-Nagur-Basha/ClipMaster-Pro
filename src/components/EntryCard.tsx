@@ -28,7 +28,9 @@ interface Props {
 
 const EntryCard = React.forwardRef<HTMLDivElement, Props>(
   ({ item, displayMode, viewMode }, ref) => {
-    const isPopupMode = typeof window !== "undefined" && window.location.search.includes("popup=true");
+    const isPopupMode =
+      typeof window !== "undefined" &&
+      window.location.search.includes("popup=true");
     const {
       tags,
       updateClip,
@@ -98,8 +100,12 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         if (next) {
           // Tell the native hook to capture keystrokes before attempting DOM focus
           window.clipAPI?.setSearchFocusable?.(true);
-          setTimeout(() => { entryTagSearchRef.current?.focus(); }, 60);
-          setTimeout(() => { entryTagSearchRef.current?.focus(); }, 200);
+          setTimeout(() => {
+            entryTagSearchRef.current?.focus();
+          }, 60);
+          setTimeout(() => {
+            entryTagSearchRef.current?.focus();
+          }, 200);
         } else {
           // Only stop keyboard capture if no toolbar input is still active
           if (!isPopupToolbarInputActive()) {
@@ -116,8 +122,12 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
         // Tell the native hook to capture keystrokes so the user can type in the
         // edit textarea without the target application stealing the input.
         window.clipAPI?.setSearchFocusable?.(true);
-        setTimeout(() => { editTextareaRef.current?.focus(); }, 80);
-        setTimeout(() => { editTextareaRef.current?.focus(); }, 250);
+        setTimeout(() => {
+          editTextareaRef.current?.focus();
+        }, 80);
+        setTimeout(() => {
+          editTextareaRef.current?.focus();
+        }, 250);
       }
     };
 
@@ -172,7 +182,6 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
       const extra = Math.min(360, Math.max(0, Math.floor(length / 8)));
       return base + extra;
     };
-
 
     const handleCreateTag = async () => {
       if (!tagSearchFilter.trim()) return;
@@ -270,7 +279,9 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
           }
         }}
         className={`group flex flex-col border-b transition-colors ${
-          isPopupMode ? "cursor-pointer pb-1.5 pl-2 pr-2 pt-1.5 hover:bg-surface-800/40" : "pb-2 pl-4"
+          isPopupMode
+            ? "cursor-pointer pb-1.5 pl-2 pr-2 pt-1.5 hover:bg-surface-800/40"
+            : "pb-2 pl-4"
         } ${
           item.isFavorite
             ? "border-accent-500/20 bg-surface-900/30"
@@ -540,7 +551,9 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
               <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
                 <IconEye size={14} />
               </div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">Expanded View</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">
+                Expanded View
+              </h3>
             </div>
           }
           maxWidth="max-w-4xl"
@@ -570,7 +583,9 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
               <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400">
                 <IconEdit size={14} />
               </div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">Edit Clipboard Entry</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest leading-none">
+                Edit Clipboard Entry
+              </h3>
             </div>
           }
           maxWidth="max-w-2xl"
@@ -593,7 +608,10 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
             />
 
             <div className="flex items-center justify-between text-[11px] text-gray-500">
-              <span>{editText.length} characters</span>
+              <span>
+                {editText.length} characters •{" "}
+                {editText.trim().split(/\s+/).filter(Boolean).length} words
+              </span>
               <span className="text-gray-600">
                 Ctrl+Enter to save • Esc to cancel
               </span>
@@ -602,7 +620,7 @@ const EntryCard = React.forwardRef<HTMLDivElement, Props>(
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleCancelEdit}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-300 hover:bg-white/5 bg-transparent transition-all text-sm font-bold uppercase tracking-wider"
+                className="flex-1 px-4 py-2.5 rounded-lg border-gray-700 text-gray-400 hover:text-gray-300 bg-white/5 hover:bg-white/10 transition-all text-sm font-bold uppercase tracking-wider"
               >
                 Cancel
               </button>

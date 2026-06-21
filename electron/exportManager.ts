@@ -94,14 +94,14 @@ class ExportManager {
           filteredClips = filteredClips.filter((c) => c.text && c.text.toLowerCase().includes(s));
         }
         if (options.dateFrom) {
-          const fromTime = new Date(options.dateFrom).getTime();
+          const fromTime = new Date(options.dateFrom + "T00:00:00.000Z").getTime();
           filteredClips = filteredClips.filter((c) => {
             if (!c.timestamp) return false;
             return new Date(c.timestamp).getTime() >= fromTime;
           });
         }
         if (options.dateTo) {
-          const toTime = new Date(options.dateTo + "T23:59:59").getTime();
+          const toTime = new Date(options.dateTo + "T23:59:59.999Z").getTime();
           filteredClips = filteredClips.filter((c) => {
             if (!c.timestamp) return false;
             return new Date(c.timestamp).getTime() <= toTime;

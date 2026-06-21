@@ -35,7 +35,7 @@ const FavoritesPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Toolbar */}
-      <div className="relative z-10 flex items-center gap-4 px-6 py-4 border-white/5 shrink-0 bg-surface-800/40 backdrop-blur-sm">
+      <div className="relative z-10 flex items-center gap-4 px-6 py-2.5 border-white/5 shrink-0 bg-surface-900 backdrop-blur-sm">
         <div className="flex-1 max-w-2xl">
           <SearchBar />
         </div>
@@ -43,7 +43,7 @@ const FavoritesPage: React.FC = () => {
       </div>
 
       {/* Stats Bar */}
-      <div className="flex items-center justify-between px-6 py-2 shrink-0 bg-surface-800/20">
+      <div className="flex items-center justify-between px-6 py-1.5 shrink-0 bg-surface-900">
         <div className="flex items-center gap-2">
           <IconStar size={14} className="text-accent-500" />
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
@@ -87,9 +87,12 @@ const FavoritesPage: React.FC = () => {
       {/* Content Area */}
       <div
         ref={contentRef}
-        className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar relative ${
-          paginated ? "hide-scrollbar-thumb" : ""
-        }`}
+        className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar border-l border-t border-violet-500/10 rounded-tl-2xl relative bg-gradient-to-b from-[#100a18] via-[#09070c] to-[#0a0a0f] ${
+          paginated && !isEmpty && totalCount > pageSize ? "border-b border-violet-500/10 rounded-bl-2xl" : ""
+        } ${paginated ? "hide-scrollbar-thumb" : ""}`}
+        style={{
+          boxShadow: "inset 1px 1px 0px rgba(255, 255, 255, 0.15), inset -1px -1px 0px rgba(0, 0, 0, 0.5), inset 0 0 32px rgba(139, 92, 246, 0.08), 0 20px 40px -12px rgba(0, 0, 0, 0.65)"
+        }}
       >
         {isLoading ? (
           paginated ? (
@@ -108,25 +111,25 @@ const FavoritesPage: React.FC = () => {
 
       {/* Pagination Footer */}
       {paginated && !isEmpty && totalCount > pageSize && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0 bg-surface-800/20 border-t border-white/5">
+        <div className="flex items-center justify-between px-6 py-1.5 shrink-0 bg-surface-900">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
             <span className="text-cyan-400/75">{pageEndCount}</span> of {totalCount} favourites
           </p>
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-gray-400">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-400 cursor-default">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+              className="rounded-md px-1.5 py-0.5 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40 focus:outline-none focus:ring-0 focus-visible:outline-none"
             >
               Prev
             </button>
             <span>
-              Page {currentPage}/{totalPages}
+              {currentPage}/{totalPages}
             </span>
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="rounded-md px-2 py-1 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40"
+              className="rounded-md px-1.5 py-0.5 bg-surface-900 border border-gray-700 text-gray-300 hover:bg-surface-800 disabled:opacity-40 focus:outline-none focus:ring-0 focus-visible:outline-none"
             >
               Next
             </button>
