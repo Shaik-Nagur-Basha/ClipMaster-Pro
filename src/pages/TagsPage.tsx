@@ -11,7 +11,7 @@ const TagsPage: React.FC = () => {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-surface-900">
       {/* Header Area */}
       <div className="px-8 py-3 shrink-0 bg-surface-900">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
+        <div className="flex items-center justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-brand-500/10 text-brand-400 border-brand-500/20 shadow-lg shadow-brand-500/5">
@@ -34,7 +34,7 @@ const TagsPage: React.FC = () => {
       </div>
 
       <div
-        className="flex-1 min-h-0 overflow-y-auto hide-scrollbar border-l border-t border-emerald-500/10 rounded-tl-2xl bg-gradient-to-b from-[#0a1210] via-[#09090f] to-[#0a0a0f] relative"
+        className="flex-1 min-h-0 overflow-y-auto hide-scrollbar border-l border-t border-emerald-700 rounded-tl-2xl bg-gradient-to-b from-[#0a1210] via-[#09090f] to-[#0a0a0f] relative"
         style={{
           boxShadow: "inset 1px 1px 0px rgba(255, 255, 255, 0.15), inset -1px -1px 0px rgba(0, 0, 0, 0.5), inset 0 0 32px rgba(16, 185, 129, 0.08), 0 20px 40px -12px rgba(0, 0, 0, 0.65)"
         }}

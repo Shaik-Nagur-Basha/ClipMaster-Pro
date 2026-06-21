@@ -503,7 +503,7 @@ const Dashboard: React.FC<{ isPopup?: boolean }> = ({ isPopup }) => {
         </div>
       ) : (
         <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-2.5 border-white/5 shrink-0 bg-surface-900 backdrop-blur-sm">
-          <div className="flex-1">
+          <div className="flex-1 max-w-2xl">
             <SearchBar />
           </div>
           <ViewToggle />

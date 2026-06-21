@@ -2,7 +2,7 @@
 
 **A fast clipboard manager for Windows** — Captures everything you copy, searchable and organized.
 
-![Version](https://img.shields.io/badge/Version-2.4.5-blue)
+![Version](https://img.shields.io/badge/Version-2.5.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
@@ -11,11 +11,7 @@
 ## Screenshots & Demo
 
 <p align="center">
-  <img src="screenshots/0_main.png" alt="ClipMaster Pro Hero" width="800">
-</p>
-
-<p align="center">
-  <img src="screenshots/01_dashboard.png" alt="Main Dashboard" width="800">
+  <img src="screenshots/01_main.png" alt="Main Dashboard" width="800">
 </p>
 
 <p align="center">
@@ -31,31 +27,27 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/05_empty_recycle_bin.png" alt="Empty Recycle Bin" width="800">
+  <img src="screenshots/05_settings_general.png" alt="General Settings" width="800">
 </p>
 
 <p align="center">
-  <img src="screenshots/06_settings_general.png" alt="General Settings" width="800">
+  <img src="screenshots/06_settings.png" alt="Settings" width="800">
 </p>
 
 ### Watch the Demo Video
 A video demonstration of ClipMaster Pro in action:
-[Watch the Demo Video](screenshots/Clipmaster%20Pro%20Demo.mp4)
+[Watch the Demo Video](screenshots/ClipMaster%20Pro%20Demo.mp4)
 
 ---
 
-## What's New in v2.4.5 (Since v2.4.0)
+## What's New in v2.5.0 (Since v2.4.5)
 
-Here are the main reliability, filtering, and performance improvements introduced since v2.4.0:
+Here are the main UI/UX, styling, and asset improvements introduced since v2.4.5:
 
-- **Watchdog Service & Lifecycle Reliability** — Added a native watchdog service to monitor and restart background helpers, with improved Electron startup and shutdown behavior.
-- **Installer & Auto-Launch Improvements** — Refined Windows auto-launch behavior, installer integration, packaging, and native helper binaries.
-- **Smarter Date Filters** — Date filters now use the actual minimum and maximum dates reported by page statistics.
-- **Faster Initialization** — Settings, UI state, and tags load concurrently, while sidebar counts remain synchronized before capacity checks.
-- **Lean Dependency Layout** — Reorganized runtime and development dependencies and reduced unnecessary IPC calls during capacity warning checks.
-- **Thorough Uninstaller Cleanup** — Upgraded the installer to completely wipe application leftovers upon uninstallation, including shortcuts for all-users/current-user, registry entries, scheduled tasks, and all users' AppData/ProgramData configurations.
-- **Runtime Environment Override** — Enabled dynamic runtime updates through the `process.env.GITHUB_RELEASES_URL` override instead of relying solely on build-time baked settings.
-- **Configuration template** — Created a `.env.example` file to document optional settings such as custom encryption secrets (`CLIPMASTER_SECRET`) and GitHub update API URLs.
+- **Premium UI Aesthetics & Borders** — Upgraded layout boundaries for Settings and Tags pages to blend seamlessly with the sidebar, styling top/left container borders using `border-gray-600` and `border-emerald-700` respectively.
+- **Consistent Page Layouts** — Centered and aligned toolbar search bars to a clean `max-w-2xl` width across Favorites, Recycle Bin, and Tags views.
+- **Header Flexibility** — Removed fixed size bounds on the Tags page header to make the interface more responsive and modern.
+- **Updated Previews** — Replaced all repository screenshots and demo video files to accurately showcase the new design aesthetics.
 
 ---
 
@@ -71,14 +63,14 @@ Here are the main reliability, filtering, and performance improvements introduce
 - **Crash-Resilience**: Storage manager implements atomic operations and `fsync` so settings never revert during sudden app terminations (End Task, Ctrl+Shutdown).
 - **System Integration**: Startup hidden flag (`--hidden`) and a system tray manager with quick settings toggles.
 - **Keyboard Optimization**: Native shortcut detection (like `Ctrl` clicking Delete to permanently remove entries).
-- **Milestone**: Version 2.4.5 strengthens background reliability, filtering accuracy, startup performance, and capacity checks.
+- **Milestone**: Version 2.5.0 strengthens page aesthetics, layout consistency, background reliability, and overall responsiveness.
 
 ## Download & Install
 - **[Setup Installer](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (79 MB) — Recommended for Windows users.
 - **[Portable Version](https://github.com/Shaik-Nagur-Basha/ClipMaster-Pro/releases)** (40 MB) — No installation required.
 
 ## Documentation
-- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.4.5 changelog.
+- **[Release Notes](doc/RELEASE_NOTES.md)** — Detailed v2.5.0 changelog.
 - **[Quick Start](doc/QUICK_START.md)** — Setup in under 60 seconds.
 - **[Architecture](doc/ARCHITECTURE.md)** — Technical breakdown of the app.
 - **[Troubleshooting](doc/TROUBLESHOOTING.md)** — Common fixes and support.

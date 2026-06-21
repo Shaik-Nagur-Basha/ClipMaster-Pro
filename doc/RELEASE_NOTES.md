@@ -1,6 +1,26 @@
 # ClipMaster Pro Release Notes
 
-## v2.4.5 - Reliability and Filter Improvements (Latest)
+## v2.5.0 - Premium UI Aesthetics & Page Alignment (Latest)
+
+**"The Aesthetic Polish Update"**
+
+This release focuses on UI/UX alignment, border styling, page background aesthetics, and updated repository screenshots/demo.
+
+### Page Aesthetics & Borders
+- **Container Borders**: Enhanced the top and left borders for Settings (`border-gray-600`) and Tags (`border-emerald-700`) pages to flow perfectly with the sidebar.
+- **Background Details**: Polished background gradients, shadows, and spacing across page containers.
+
+### Layout & SearchBar Alignment
+- **Centered Toolbars**: Standardized search bars on Favorites, Recycle Bin, and Tags pages with consistent layouts and max-widths (`max-w-2xl`).
+- **Flexible Headers**: Removed unnecessary constraints on Tags page header elements for a cleaner, responsive feel.
+
+### Repository Assets
+- **Updated Screenshots**: Replaced outdated image assets with newer screenshots highlighting current UI.
+- **Updated Demo**: Embedded the latest ClipMaster Pro walkthrough video.
+
+---
+
+## v2.4.5 - Reliability and Filter Improvements (Previous)
 
 **"Reliable Startup Update"**
 

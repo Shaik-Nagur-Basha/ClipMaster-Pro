@@ -297,12 +297,12 @@ const Settings: React.FC = () => {
       </header>
 
       <main
-        className="flex-1 overflow-y-auto p-6 settings-scrollbar border-l border-t border-gray-800/20 rounded-tl-2xl bg-gradient-to-b from-[#050507] via-[#070709] to-[#0a0a0f] relative"
+        className="flex-1 min-h-0 overflow-y-auto settings-scrollbar border-l border-t border-gray-600 rounded-tl-2xl bg-gradient-to-b from-[#050507] via-[#070709] to-[#0a0a0f] relative"
         style={{
           boxShadow: "inset 1px 1px 0px rgba(255, 255, 255, 0.15), inset -1px -1px 0px rgba(0, 0, 0, 0.5), inset 0 0 32px rgba(255, 255, 255, 0.04), 0 20px 40px -12px rgba(0, 0, 0, 0.65)"
         }}
       >
-        <div className="max-w-2xl mx-auto space-y-8 relative z-10">
+        <div className="max-w-2xl mx-auto p-6 space-y-8 relative z-10">
           {/* General Section */}
           <Section
             title="General Presence"
